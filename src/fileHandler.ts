@@ -42,7 +42,8 @@ export class FileHandler implements IFileHandler {
 						name: handle.name,
 						handle,
 						type: fileType,
-						content: content,
+						content: content, // Will be parsed later
+						originalContent: content, // Keep raw string for storage
 					};
 				}
 			);

@@ -4,7 +4,8 @@ export interface FileData {
 	name: string;
 	handle: FileSystemFileHandle | null; // Allow null for restored files
 	type: "json" | "xml" | "config";
-	content: any;
+	content: any; // Parsed content
+	originalContent: string; // Raw string content for storage/saving
 }
 
 export interface ParsedData {

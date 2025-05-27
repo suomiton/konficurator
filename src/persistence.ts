@@ -23,19 +23,24 @@ export class FilePersistence implements IPersistence {
 
 			// Serialize data to string
 			const serializedContent = parser.serialize(updatedData);
-		// Write to file
-		if (fileData.handle) {
-			// Use existing handle if available
-			const fileHandler = await import("./fileHandler.js");
-			const handler = new fileHandler.FileHandler();
-			await handler.writeFile(fileData.handle, serializedContent);
-		} else {
-			// For restored files without handles, prompt user to save
-			await this.saveAsNewFile(fileData.name, serializedContent, fileData.type);
-		}
+			// Write to file
+			if (fileData.handle) {
+				// Use existing handle if available
+				const fileHandler = await import("./fileHandler.js");
+				const handler = new fileHandler.FileHandler();
+				await handler.writeFile(fileData.handle, serializedContent);
+			} else {
+				// For restored files without handles, prompt user to save
+				await this.saveAsNewFile(
+					fileData.name,
+					serializedContent,
+					fileData.type
+				);
+			}
 
 			// Update in-memory content
 			fileData.content = updatedData;
+			fileData.originalContent = serializedContent; // Update original content too
 
 			this.showSuccessMessage(fileData.name);
 		} catch (error) {
@@ -226,8 +231,8 @@ export class FilePersistence implements IPersistence {
 	 * Saves file with new handle when original handle is not available
 	 */
 	private async saveAsNewFile(
-		originalName: string, 
-		content: string, 
+		originalName: string,
+		content: string,
 		fileType: "json" | "xml" | "config"
 	): Promise<void> {
 		try {
@@ -237,23 +242,23 @@ export class FilePersistence implements IPersistence {
 				types: [
 					{
 						description: `${fileType.toUpperCase()} files`,
-						accept: fileType === "xml" 
-							? { "application/xml": [".xml"] }
-							: fileType === "config"
-							? { "text/plain": [".config"] }
-							: { "application/json": [".json"] }
-					}
-				]
+						accept:
+							fileType === "xml"
+								? { "application/xml": [".xml"] }
+								: fileType === "config"
+								? { "text/plain": [".config"] }
+								: { "application/json": [".json"] },
+					},
+				],
 			});
 
 			// Write content to the new file
 			const writable = await fileHandle.createWritable();
 			await writable.write(content);
 			await writable.close();
-
 		} catch (error) {
-			if (error instanceof Error && error.name === 'AbortError') {
-				throw new Error('Save operation was cancelled');
+			if (error instanceof Error && error.name === "AbortError") {
+				throw new Error("Save operation was cancelled");
 			}
 			throw error;
 		}

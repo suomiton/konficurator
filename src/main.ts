@@ -262,7 +262,7 @@ class KonficuratorApp {
 				this.hideLoading();
 
 				// Show success message for restored files
-				const fileNames = storedFiles.map(f => f.name).join(", ");
+				const fileNames = storedFiles.map((f) => f.name).join(", ");
 				this.showTemporaryMessage(
 					`📂 Restored ${storedFiles.length} file(s) from previous session: ${fileNames}`,
 					"info"
@@ -379,7 +379,7 @@ declare global {
 				accept: Record<string, string[]>;
 			}>;
 		}) => Promise<FileSystemFileHandle[]>;
-		
+
 		showSaveFilePicker: (options?: {
 			suggestedName?: string;
 			types?: Array<{

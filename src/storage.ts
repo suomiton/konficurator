@@ -26,8 +26,8 @@ export class StorageService {
 				name: file.name,
 				type: file.type,
 				lastModified: Date.now(),
-				content: file.content,
-				size: file.content.length,
+				content: file.originalContent, // Store raw string content
+				size: file.originalContent.length,
 			}));
 
 			localStorage.setItem(this.STORAGE_KEY, JSON.stringify(storedFiles));
@@ -55,14 +55,15 @@ export class StorageService {
 			}
 
 			const storedFiles: StoredFileData[] = JSON.parse(storedData);
-			
+
 			// Create FileData objects from stored content
 			// Note: These won't have file handles, so saving will require user action
 			const restoredFiles: FileData[] = storedFiles.map((stored) => ({
 				name: stored.name,
 				handle: null, // Will be null for restored files
 				type: stored.type,
-				content: stored.content,
+				content: stored.content, // Raw string content, will be parsed later
+				originalContent: stored.content, // Keep original content for future saves
 			}));
 
 			return restoredFiles;
