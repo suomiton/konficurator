@@ -1,0 +1,30 @@
+{
+	"name": "konficurator",
+	"version": "1.0.0",
+	"description": "Lightweight, browser-only configuration file manager for JSON and XML files",
+	"main": "index.html",
+	"type": "module",
+	"scripts": {
+		"build": "tsc",
+		"watch": "tsc --watch",
+		"serve": "python3 -m http.server 8080",
+		"dev": "npm run build && python3 -m http.server 8080",
+		"clean": "rm -rf dist"
+	},
+	"keywords": [
+		"configuration",
+		"json",
+		"xml",
+		"file-manager",
+		"browser",
+		"typescript"
+	],
+	"author": "Konficurator",
+	"license": "MIT",
+	"devDependencies": {
+		"typescript": "^5.0.0"
+	},
+	"engines": {
+		"node": ">=16.0.0"
+	}
+}

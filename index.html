@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Konficurator - Configuration File Manager</title>
+	<link rel="stylesheet" href="styles/main.css">
+</head>
+
+<body>
+	<header>
+		<h1>🔧 Konficurator</h1>
+		<p>Lightweight configuration file manager for JSON and XML files</p>
+	</header>
+
+	<main>
+		<section class="file-selector">
+			<button id="selectFiles" class="btn btn-primary">
+				📁 Select Configuration Files
+			</button>
+			<div id="fileInfo" class="file-info"></div>
+		</section>
+
+		<section id="editorContainer" class="editor-container">
+			<!-- Dynamic file editors will be rendered here -->
+		</section>
+	</main>
+
+	<footer>
+		<p>Uses modern browser File System Access API</p>
+	</footer>
+
+	<!-- Module imports -->
+	<script type="module" src="dist/main.js"></script>
+</body>
+
+</html>
