@@ -164,6 +164,20 @@ main {
 	flex-grow: 1;
 }
 
+/* File title container for filename and path */
+.file-title-container {
+	flex-grow: 1;
+}
+
+/* File path display styling */
+.file-path {
+	font-size: 0.8rem;
+	color: #6c757d;
+	margin-top: 0.25rem;
+	font-weight: 400;
+	opacity: 0.85;
+}
+
 .file-editor-header .file-type {
 	background: #007bff;
 	color: white;

@@ -72,9 +72,29 @@ export class FormRenderer implements IRenderer {
 		const header = document.createElement("div");
 		header.className = "file-editor-header";
 
+		// Create title container to hold both filename and path
+		const titleContainer = document.createElement("div");
+		titleContainer.className = "file-title-container";
+
 		const title = document.createElement("h3");
 		title.className = "file-title";
 		title.textContent = fileData.name;
+
+		// Add file path display below the filename
+		const pathDisplay = document.createElement("div");
+		pathDisplay.className = "file-path";
+		
+		// Determine path text based on file source
+		if (fileData.handle) {
+			// File was loaded from file system
+			pathDisplay.textContent = "📁 Loaded from local file system";
+		} else {
+			// File was restored from browser storage
+			pathDisplay.textContent = "💾 Restored from browser storage";
+		}
+
+		titleContainer.appendChild(title);
+		titleContainer.appendChild(pathDisplay);
 
 		const typeTag = document.createElement("span");
 		typeTag.className = "file-type";
@@ -87,7 +107,7 @@ export class FormRenderer implements IRenderer {
 		removeButton.setAttribute("data-file", fileData.name);
 		removeButton.title = `Remove ${fileData.name}`;
 
-		header.appendChild(title);
+		header.appendChild(titleContainer);
 		header.appendChild(typeTag);
 		header.appendChild(removeButton);
 
