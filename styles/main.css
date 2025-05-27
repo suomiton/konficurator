@@ -138,6 +138,10 @@ main {
 	padding: 1.5rem;
 	border: 1px solid #dee2e6;
 	transition: all 0.3s ease;
+	position: relative;
+	/* Ensure sticky positioning works within */
+	overflow: hidden;
+	/* Contain sticky elements */
 }
 
 .file-editor:hover {
@@ -440,4 +444,111 @@ footer {
 	display: block;
 	font-size: 2rem;
 	margin-bottom: 1rem;
+}
+
+/* Sticky save button styles */
+.save-sticky-sentinel {
+	height: 1px;
+	width: 1px;
+	visibility: hidden;
+	pointer-events: none;
+}
+
+.save-file-indicator {
+	display: none;
+	font-size: 0.8rem;
+	color: #6c757d;
+	margin-right: 0.75rem;
+	font-weight: 500;
+}
+
+.save-sticky .save-file-indicator {
+	display: inline-block;
+}
+
+/* Save container sticky behavior - stick within each file editor tile */
+.save-container-sticky {
+	position: sticky !important;
+	bottom: 10px !important;
+	z-index: 100 !important;
+	background: rgba(255, 255, 255, 0.95) !important;
+	border: 2px solid #667eea !important;
+	border-radius: 8px !important;
+	padding: 0.75rem 1rem !important;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+	backdrop-filter: blur(5px) !important;
+	animation: stickySlideIn 0.3s ease-out !important;
+}
+
+/* Animation for sticky button activation */
+@keyframes stickySlideIn {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Legacy sticky container styles - kept for backwards compatibility but not used */
+.sticky-save-container {
+	position: fixed;
+	bottom: 20px;
+	right: 20px;
+	z-index: 1000;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	max-width: 300px;
+}
+
+.sticky-clone {
+	background: rgba(255, 255, 255, 0.95);
+	border: 1px solid #dee2e6;
+	border-radius: 8px;
+	padding: 0.75rem 1rem;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	backdrop-filter: blur(10px);
+	margin: 0;
+	text-align: left;
+	animation: slideInFromRight 0.3s ease-out;
+}
+
+.sticky-clone button {
+	margin-left: auto;
+	display: block;
+}
+
+@keyframes slideInFromRight {
+	from {
+		transform: translateX(100%);
+		opacity: 0;
+	}
+
+	to {
+		transform: translateX(0);
+		opacity: 1;
+	}
+}
+
+/* Responsive adjustments for sticky buttons */
+@media (max-width: 768px) {
+	.sticky-save-container {
+		bottom: 10px;
+		right: 10px;
+		left: 10px;
+		max-width: none;
+	}
+
+	.sticky-clone {
+		padding: 0.5rem;
+	}
+
+	.save-file-indicator {
+		font-size: 0.75rem;
+		margin-right: 0.5rem;
+	}
 }

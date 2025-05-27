@@ -40,6 +40,12 @@ export class FormRenderer implements IRenderer {
 		const saveContainer = this.createSaveContainer(fileData);
 		container.appendChild(saveContainer);
 
+		// Set up sticky behavior after container is fully built
+		// We need to wait for the DOM to be updated, so use a small delay
+		setTimeout(() => {
+			this.setupStickyBehavior(saveContainer, fileData.name);
+		}, 0);
+
 		return container;
 	}
 
@@ -127,6 +133,7 @@ export class FormRenderer implements IRenderer {
 	private createSaveContainer(fileData: FileData): HTMLElement {
 		const container = document.createElement("div");
 		container.className = "save-container";
+		container.setAttribute("data-file", fileData.name);
 
 		const saveButton = document.createElement("button");
 		saveButton.className = "btn btn-success btn-small";
@@ -134,6 +141,12 @@ export class FormRenderer implements IRenderer {
 		saveButton.innerHTML = "💾 Save Changes";
 		saveButton.setAttribute("data-file", fileData.name);
 
+		// Add file name indicator for sticky mode (initially hidden)
+		const fileIndicator = document.createElement("span");
+		fileIndicator.className = "save-file-indicator";
+		fileIndicator.textContent = fileData.name;
+
+		container.appendChild(fileIndicator);
 		container.appendChild(saveButton);
 
 		return container;
@@ -341,5 +354,114 @@ export class FormRenderer implements IRenderer {
 			.replace(/^./, (str) => str.toUpperCase()) // Capitalize first letter
 			.replace(/_/g, " ") // Replace underscores with spaces
 			.trim();
+	}
+
+	/**
+	 * Sets up sticky behavior for save button using Intersection Observer
+	 */
+	private setupStickyBehavior(container: HTMLElement, fileName: string): void {
+		// Find the file editor container
+		const fileEditor = container.closest(".file-editor") as HTMLElement;
+		if (!fileEditor) {
+			console.warn(`Could not find file-editor for ${fileName}`, container);
+			return;
+		}
+
+		// Check if sentinel already exists for this file
+		const existingSentinel = fileEditor.querySelector(
+			`.save-sticky-sentinel[data-file="${fileName}"]`
+		);
+		if (existingSentinel) {
+			console.log(`Sentinel already exists for ${fileName}`);
+			return;
+		}
+
+		const sentinel = document.createElement("div");
+		sentinel.className = "save-sticky-sentinel";
+		sentinel.setAttribute("data-file", fileName);
+		sentinel.style.height = "1px";
+		sentinel.style.width = "100%";
+		sentinel.style.pointerEvents = "none";
+		fileEditor.appendChild(sentinel);
+
+		console.log(`Created sentinel for ${fileName}`, { fileEditor, sentinel });
+
+		// Set up intersection observer
+		const observer = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((entry) => {
+					console.log(`Intersection for ${fileName}:`, {
+						isIntersecting: entry.isIntersecting,
+						ratio: entry.intersectionRatio,
+						boundingRect: entry.boundingClientRect,
+					});
+
+					if (entry.isIntersecting) {
+						// Sentinel is visible, remove sticky behavior
+						container.classList.remove("save-sticky");
+						this.removeFromStickyCollection(fileName);
+					} else {
+						// Sentinel is not visible, make save button sticky within its tile
+						container.classList.add("save-sticky");
+						this.addToStickyCollection(container, fileName);
+					}
+				});
+			},
+			{
+				threshold: 0,
+				rootMargin: "0px 0px -50px 0px", // Trigger when 50px from bottom
+			}
+		);
+
+		observer.observe(sentinel);
+
+		// Store observer for cleanup
+		container.setAttribute("data-observer", "active");
+	}
+
+	/**
+	 * Makes save button sticky within its own file editor tile
+	 */
+	private addToStickyCollection(
+		container: HTMLElement,
+		fileName: string
+	): void {
+		console.log(`Making save button sticky for: ${fileName}`);
+
+		// Find the file editor container
+		const fileEditor = container.closest(".file-editor") as HTMLElement;
+		if (!fileEditor) {
+			console.warn(`Could not find file-editor for ${fileName}`, container);
+			return;
+		}
+
+		// Make the save container sticky within its file editor
+		container.classList.add("save-container-sticky");
+
+		// Ensure the file editor has relative positioning for sticky positioning to work
+		fileEditor.style.position = "relative";
+
+		console.log(`Made save button sticky for ${fileName}`, {
+			fileEditor,
+			container,
+		});
+	}
+
+	/**
+	 * Removes sticky behavior from save button
+	 */
+	private removeFromStickyCollection(fileName: string): void {
+		console.log(`Removing sticky behavior for: ${fileName}`);
+
+		// Find all save containers for this file and remove sticky class
+		const saveContainers = document.querySelectorAll(
+			`.save-container[data-file="${fileName}"]`
+		);
+
+		saveContainers.forEach((container) => {
+			container.classList.remove("save-container-sticky");
+		});
+
+		console.log(`Removed sticky behavior for ${fileName}`);
 	}
 }
