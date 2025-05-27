@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>File Path Display Test - Konficurator</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			max-width: 1000px;
+			margin: 0 auto;
+			padding: 20px;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			color: white;
+			min-height: 100vh;
+		}
+
+		.test-section {
+			background: rgba(255, 255, 255, 0.1);
+			padding: 20px;
+			margin: 20px 0;
+			border-radius: 10px;
+			backdrop-filter: blur(10px);
+		}
+
+		.step {
+			background: rgba(255, 255, 255, 0.05);
+			padding: 15px;
+			margin: 10px 0;
+			border-radius: 8px;
+			border-left: 4px solid #28a745;
+		}
+
+		.step.info {
+			border-left-color: #007bff;
+		}
+
+		.step.warning {
+			border-left-color: #ffc107;
+		}
+
+		button {
+			background: rgba(255, 255, 255, 0.2);
+			border: 1px solid rgba(255, 255, 255, 0.3);
+			color: white;
+			padding: 12px 24px;
+			border-radius: 6px;
+			cursor: pointer;
+			margin: 5px;
+			font-size: 14px;
+		}
+
+		button:hover {
+			background: rgba(255, 255, 255, 0.3);
+		}
+
+		.screenshot-placeholder {
+			background: rgba(0, 0, 0, 0.2);
+			border: 2px dashed rgba(255, 255, 255, 0.3);
+			padding: 40px;
+			text-align: center;
+			margin: 20px 0;
+			border-radius: 8px;
+		}
+
+		code {
+			background: rgba(0, 0, 0, 0.3);
+			padding: 2px 6px;
+			border-radius: 4px;
+			font-family: 'Monaco', monospace;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>🧪 File Path Display Feature Test</h1>
+	<p><strong>Testing the new file path display functionality below file names</strong></p>
+
+	<div class="test-section">
+		<h2>📋 Test Scenarios</h2>
+
+		<div class="step">
+			<h3>Scenario 1: Fresh File Load</h3>
+			<p><strong>Expected:</strong> Files loaded directly from file system should show:<br>
+				<code>📁 [actual file path]</code> or <code>📁 Loaded from local file system</code>
+			</p>
+			<ol>
+				<li>Click "Select Configuration Files" in the main app</li>
+				<li>Select one or more sample files</li>
+				<li>Verify path display shows actual path or generic message</li>
+				<li>Path should appear below filename with smaller font</li>
+			</ol>
+		</div>
+
+		<div class="step info">
+			<h3>Scenario 2: Restored Files</h3>
+			<p><strong>Expected:</strong> Files restored from browser storage should show:<br>
+				<code>💾 [stored path] (from storage)</code> or <code>💾 Restored from browser storage</code>
+			</p>
+			<ol>
+				<li>Load files and wait for them to be saved to storage</li>
+				<li>Refresh the page</li>
+				<li>Verify restored files show path with storage indicator</li>
+				<li>Should display stored path when available</li>
+			</ol>
+		</div>
+
+		<div class="step warning">
+			<h3>Scenario 3: Mixed Files</h3>
+			<p><strong>Expected:</strong> When adding new files to existing restored files, each should show appropriate
+				indicator with actual paths when available</p>
+			<ol>
+				<li>Start with restored files from storage</li>
+				<li>Add new files using "Select Configuration Files"</li>
+				<li>Verify mixed indicators with real paths are displayed correctly</li>
+				<li>Fresh files should show file system paths, restored files show storage paths</li>
+			</ol>
+		</div>
+	</div>
+
+	<div class="test-section">
+		<h2>🎨 Visual Requirements</h2>
+		<ul>
+			<li><strong>Font Size:</strong> Path text should be smaller than filename (0.8rem vs 1.2rem)</li>
+			<li><strong>Color:</strong> Path text should be muted gray (#6c757d)</li>
+			<li><strong>Positioning:</strong> Path should appear directly below filename</li>
+			<li><strong>Opacity:</strong> Slightly transparent (0.85) for subtle appearance</li>
+			<li><strong>Icons:</strong> Include emoji indicators (📁 for local, 💾 for storage)</li>
+		</ul>
+	</div>
+
+	<div class="test-section">
+		<h2>🔍 CSS Verification</h2>
+		<p>The following CSS classes should be present:</p>
+		<ul>
+			<li><code>.file-title-container</code> - Container for filename and path</li>
+			<li><code>.file-path</code> - Styling for the path display</li>
+		</ul>
+
+		<div class="screenshot-placeholder">
+			<p>📸 Visual Test Area</p>
+			<p>Open the main application and compare the file headers with these requirements</p>
+		</div>
+	</div>
+
+	<div class="test-section">
+		<h2>🚀 Quick Actions</h2>
+		<button onclick="window.open('/', '_blank')">Open Main App</button>
+		<button onclick="window.open('/debug-storage.html', '_blank')">Storage Debug</button>
+		<button onclick="clearStorage()">Clear Storage</button>
+		<button onclick="testStorage()">Test Storage State</button>
+		<button onclick="runValidation()">Run Detailed Validation</button>
+	</div>
+
+	<div class="test-section">
+		<h2>📊 Test Results</h2>
+		<div id="test-results"></div>
+	</div>
+
+	<script>
+		function log(message, type = 'info') {
+			const results = document.getElementById('test-results');
+			const div = document.createElement('div');
+			div.className = `step ${type}`;
+			div.innerHTML = message;
+			results.appendChild(div);
+		}
+
+		function clearStorage() {
+			try {
+				localStorage.removeItem('konficurator_files');
+				localStorage.removeItem('konficurator_version');
+				log('🗑️ Storage cleared successfully', 'info');
+			} catch (error) {
+				log(`❌ Error clearing storage: ${error.message}`, 'warning');
+			}
+		}
+
+		function testStorage() {
+			try {
+				const files = localStorage.getItem('konficurator_files');
+				const version = localStorage.getItem('konficurator_version');
+
+				if (files) {
+					const parsed = JSON.parse(files);
+					log(`📁 Found ${parsed.length} files in storage (version: ${version || 'unknown'})`, 'info');
+				} else {
+					log('📂 No files in storage', 'info');
+				}
+			} catch (error) {
+				log(`❌ Error checking storage: ${error.message}`, 'warning');
+			}
+		}
+
+		// Auto-check storage on load
+		window.addEventListener('load', () => {
+			log('🧪 File Path Display Test Page Loaded', 'info');
+			testStorage();
+		});
+
+		function runValidation() {
+			log('🚀 Running detailed validation...', 'info');
+			// Load the validation script
+			const script = document.createElement('script');
+			script.src = '/validate-file-path-display.js';
+			script.onload = () => {
+				log('✅ Validation script loaded', 'info');
+				log('📋 Check browser console for detailed test results', 'info');
+			};
+			document.head.appendChild(script);
+		}
+	</script>
+</body>
+
+</html>

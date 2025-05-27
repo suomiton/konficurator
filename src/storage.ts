@@ -10,6 +10,7 @@ export interface StoredFileData {
 	lastModified: number;
 	content: string; // Store the actual file content
 	size: number; // Store file size for reference
+	path?: string; // Store file path when available
 }
 
 export class StorageService {
@@ -22,13 +23,22 @@ export class StorageService {
 	 */
 	static saveFiles(files: FileData[]): void {
 		try {
-			const storedFiles: StoredFileData[] = files.map((file) => ({
-				name: file.name,
-				type: file.type,
-				lastModified: Date.now(),
-				content: file.originalContent, // Store raw string content
-				size: file.originalContent.length,
-			}));
+			const storedFiles: StoredFileData[] = files.map((file) => {
+				const stored: StoredFileData = {
+					name: file.name,
+					type: file.type,
+					lastModified: file.lastModified || Date.now(),
+					content: file.originalContent, // Store raw string content
+					size: file.size || file.originalContent.length,
+				};
+
+				// Only include path if it exists
+				if (file.path) {
+					stored.path = file.path;
+				}
+
+				return stored;
+			});
 
 			localStorage.setItem(this.STORAGE_KEY, JSON.stringify(storedFiles));
 			localStorage.setItem(this.VERSION_KEY, this.CURRENT_VERSION);
@@ -58,13 +68,24 @@ export class StorageService {
 
 			// Create FileData objects from stored content
 			// Note: These won't have file handles, so saving will require user action
-			const restoredFiles: FileData[] = storedFiles.map((stored) => ({
-				name: stored.name,
-				handle: null, // Will be null for restored files
-				type: stored.type,
-				content: stored.content, // Raw string content, will be parsed later
-				originalContent: stored.content, // Keep original content for future saves
-			}));
+			const restoredFiles: FileData[] = storedFiles.map((stored) => {
+				const fileData: FileData = {
+					name: stored.name,
+					handle: null, // Will be null for restored files
+					type: stored.type,
+					content: stored.content, // Raw string content, will be parsed later
+					originalContent: stored.content, // Keep original content for future saves
+					lastModified: stored.lastModified,
+					size: stored.size,
+				};
+
+				// Only include path if it exists
+				if (stored.path) {
+					fileData.path = stored.path;
+				}
+
+				return fileData;
+			});
 
 			return restoredFiles;
 		} catch (error) {

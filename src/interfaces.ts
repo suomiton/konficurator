@@ -6,6 +6,9 @@ export interface FileData {
 	type: "json" | "xml" | "config";
 	content: any; // Parsed content
 	originalContent: string; // Raw string content for storage/saving
+	path?: string; // File path information when available
+	lastModified?: number; // Last modified timestamp
+	size?: number; // File size in bytes
 }
 
 export interface ParsedData {

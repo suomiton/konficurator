@@ -35,7 +35,8 @@ export class FileHandler implements IFileHandler {
 
 			const fileDataPromises = fileHandles.map(
 				async (handle): Promise<FileData> => {
-					const content = await this.readFile(handle);
+					const file = await handle.getFile();
+					const content = await file.text();
 					const fileType = this.determineFileType(handle.name);
 
 					return {
@@ -44,6 +45,9 @@ export class FileHandler implements IFileHandler {
 						type: fileType,
 						content: content, // Will be parsed later
 						originalContent: content, // Keep raw string for storage
+						path: file.webkitRelativePath || handle.name, // Use relative path if available, fallback to name
+						lastModified: file.lastModified,
+						size: file.size,
 					};
 				}
 			);

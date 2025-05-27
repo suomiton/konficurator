@@ -83,14 +83,21 @@ export class FormRenderer implements IRenderer {
 		// Add file path display below the filename
 		const pathDisplay = document.createElement("div");
 		pathDisplay.className = "file-path";
-		
-		// Determine path text based on file source
-		if (fileData.handle) {
-			// File was loaded from file system
+
+		// Determine path text based on available information
+		if (fileData.path && fileData.path !== fileData.name) {
+			// Show actual file path if available and different from name
+			pathDisplay.textContent = `📁 ${fileData.path}`;
+		} else if (fileData.handle) {
+			// File was loaded from file system but no specific path available
 			pathDisplay.textContent = "📁 Loaded from local file system";
 		} else {
 			// File was restored from browser storage
-			pathDisplay.textContent = "💾 Restored from browser storage";
+			const pathText =
+				fileData.path && fileData.path !== fileData.name
+					? `💾 ${fileData.path} (from storage)`
+					: "💾 Restored from browser storage";
+			pathDisplay.textContent = pathText;
 		}
 
 		titleContainer.appendChild(title);
