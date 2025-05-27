@@ -3,7 +3,7 @@
 export interface FileData {
 	name: string;
 	handle: FileSystemFileHandle;
-	type: "json" | "xml";
+	type: "json" | "xml" | "config";
 	content: any;
 }
 
@@ -20,7 +20,7 @@ export interface IParser {
 
 // File handler interface
 export interface IFileHandler {
-	selectFiles(): Promise<FileData[]>;
+	selectFiles(existingFiles?: FileData[]): Promise<FileData[]>;
 	readFile(handle: FileSystemFileHandle): Promise<string>;
 	writeFile(handle: FileSystemFileHandle, content: string): Promise<void>;
 }

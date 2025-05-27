@@ -200,6 +200,7 @@ export class ParserFactory {
 	private static parsers: Map<string, () => IParser> = new Map([
 		["json", () => new JsonParser()],
 		["xml", () => new XmlParser()],
+		["config", () => new JsonParser()], // Treat config files as JSON
 	]);
 
 	static createParser(fileType: string): IParser {

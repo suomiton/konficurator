@@ -9,7 +9,7 @@ export class FileHandler implements IFileHandler {
 	/**
 	 * Opens file picker and allows user to select multiple configuration files
 	 */
-	async selectFiles(): Promise<FileData[]> {
+	async selectFiles(existingFiles: FileData[] = []): Promise<FileData[]> {
 		try {
 			// Check if File System Access API is supported
 			if (!window.showOpenFilePicker) {
@@ -24,9 +24,10 @@ export class FileHandler implements IFileHandler {
 					{
 						description: "Configuration files",
 						accept: {
-							"application/json": [".json"],
+							"application/json": [".json", ".config"],
 							"application/xml": [".xml"],
 							"text/xml": [".xml"],
+							"text/plain": [".config"],
 						},
 					},
 				],
@@ -46,7 +47,17 @@ export class FileHandler implements IFileHandler {
 				}
 			);
 
-			return Promise.all(fileDataPromises);
+			const newFiles = await Promise.all(fileDataPromises);
+
+			// Filter out duplicates based on file name
+			const uniqueNewFiles = newFiles.filter(
+				(newFile) =>
+					!existingFiles.some(
+						(existingFile) => existingFile.name === newFile.name
+					)
+			);
+
+			return uniqueNewFiles;
 		} catch (error) {
 			if (error instanceof Error && error.name === "AbortError") {
 				// User cancelled file selection
@@ -79,8 +90,10 @@ export class FileHandler implements IFileHandler {
 	/**
 	 * Determines file type based on extension
 	 */
-	private determineFileType(filename: string): "json" | "xml" {
+	private determineFileType(filename: string): "json" | "xml" | "config" {
 		const extension = filename.toLowerCase().split(".").pop();
-		return extension === "xml" ? "xml" : "json";
+		if (extension === "xml") return "xml";
+		if (extension === "config") return "config";
+		return "json";
 	}
 }

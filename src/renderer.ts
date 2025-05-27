@@ -80,8 +80,16 @@ export class FormRenderer implements IRenderer {
 		typeTag.className = "file-type";
 		typeTag.textContent = fileData.type;
 
+		const removeButton = document.createElement("button");
+		removeButton.className = "btn btn-danger btn-small remove-file-btn";
+		removeButton.type = "button";
+		removeButton.innerHTML = "🗑️ Remove";
+		removeButton.setAttribute("data-file", fileData.name);
+		removeButton.title = `Remove ${fileData.name}`;
+
 		header.appendChild(title);
 		header.appendChild(typeTag);
+		header.appendChild(removeButton);
 
 		return header;
 	}

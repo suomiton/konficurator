@@ -240,6 +240,7 @@ We welcome contributions! Here's how to get started:
 ### Reporting Issues
 
 Found a bug or have a feature request? [Open an issue](https://github.com/suomiton/konficurator/issues) with:
+
 - Clear description of the problem or feature
 - Steps to reproduce (for bugs)
 - Browser and version information
