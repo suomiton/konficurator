@@ -19,14 +19,24 @@ The Konficurator application has been successfully implemented with all requeste
 - ✅ Graceful handling of File System Access API limitations
 - ✅ Version compatibility checking
 
-### 3. **Additive File Selection**
+### 3. **File Path Display**
+
+- ✅ Added file path display below filename in file tiles
+- ✅ Smaller font styling (0.8rem vs 1.2rem for filename)
+- ✅ Different indicators based on file source:
+  - "📁 Loaded from local file system" for fresh files
+  - "💾 Restored from browser storage" for persisted files
+- ✅ Muted gray color (#6c757d) with reduced opacity (0.85)
+- ✅ Proper spacing and positioning below filename
+
+### 4. **Additive File Selection**
 
 - ✅ New files are added to existing selection
 - ✅ Duplicate files are filtered out automatically
 - ✅ Existing files remain open when adding more
 - ✅ Success messages for newly added files
 
-### 4. **Remove File Functionality**
+### 5. **Remove File Functionality**
 
 - ✅ Remove buttons (×) in file headers
 - ✅ Confirmation dialogs before removal
@@ -40,10 +50,11 @@ The Konficurator application has been successfully implemented with all requeste
 1. **Open the app**: http://localhost:8081
 2. **Load sample files**: Click "Open Configuration Files" and select files from `/samples/`
 3. **Test .config support**: Load `samples/app.config`
-4. **Test additive selection**: Load more files without losing existing ones
-5. **Test removal**: Use × buttons to remove files
-6. **Test persistence**: Refresh browser to verify files remain loaded
-7. **Test editing**: Modify form values and save changes
+4. **Test file path display**: Verify files show "📁 Loaded from local file system"
+5. **Test persistence & path indicators**: Refresh browser to see "💾 Restored from browser storage"
+6. **Test additive selection**: Load more files without losing existing ones
+7. **Test removal**: Use × buttons to remove files
+8. **Test editing**: Modify form values and save changes
 
 ### Sample Files Available:
 
