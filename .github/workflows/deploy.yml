@@ -4,22 +4,17 @@ on:
   push:
     branches: [ main ]
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,6 +31,13 @@ jobs:
         
       - name: Build TypeScript
         run: npm run build
+        
+      - name: List built files
+        run: |
+          echo "Contents of dist directory:"
+          ls -la dist/ || echo "No dist directory found"
+          echo "Root directory contents:"
+          ls -la
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
