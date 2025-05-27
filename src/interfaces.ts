@@ -2,7 +2,7 @@
 
 export interface FileData {
 	name: string;
-	handle: FileSystemFileHandle;
+	handle: FileSystemFileHandle | null; // Allow null for restored files
 	type: "json" | "xml" | "config";
 	content: any;
 }

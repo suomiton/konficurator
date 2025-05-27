@@ -8,7 +8,8 @@ export interface StoredFileData {
 	name: string;
 	type: "json" | "xml" | "config";
 	lastModified: number;
-	serializedHandle?: any; // For File System Access API handles
+	content: string; // Store the actual file content
+	size: number; // Store file size for reference
 }
 
 export class StorageService {
@@ -25,7 +26,8 @@ export class StorageService {
 				name: file.name,
 				type: file.type,
 				lastModified: Date.now(),
-				serializedHandle: this.serializeHandle(file.handle),
+				content: file.content,
+				size: file.content.length,
 			}));
 
 			localStorage.setItem(this.STORAGE_KEY, JSON.stringify(storedFiles));
@@ -53,35 +55,17 @@ export class StorageService {
 			}
 
 			const storedFiles: StoredFileData[] = JSON.parse(storedData);
-			const fileDataPromises = storedFiles.map(
-				async (stored): Promise<FileData | null> => {
-					try {
-						const handle = await this.deserializeHandle(
-							stored.serializedHandle
-						);
-						if (!handle) {
-							return null;
-						}
+			
+			// Create FileData objects from stored content
+			// Note: These won't have file handles, so saving will require user action
+			const restoredFiles: FileData[] = storedFiles.map((stored) => ({
+				name: stored.name,
+				handle: null, // Will be null for restored files
+				type: stored.type,
+				content: stored.content,
+			}));
 
-						// Verify file still exists and we have permission
-						const file = await handle.getFile();
-						const content = await file.text();
-
-						return {
-							name: stored.name,
-							handle,
-							type: stored.type,
-							content,
-						};
-					} catch (error) {
-						console.warn(`Failed to restore file ${stored.name}:`, error);
-						return null;
-					}
-				}
-			);
-
-			const results = await Promise.all(fileDataPromises);
-			return results.filter((file): file is FileData => file !== null);
+			return restoredFiles;
 		} catch (error) {
 			console.warn("Failed to load files from localStorage:", error);
 			return [];
@@ -134,46 +118,6 @@ export class StorageService {
 			return storedFiles.length;
 		} catch (error) {
 			return 0;
-		}
-	}
-
-	/**
-	 * Serialize FileSystemFileHandle for storage
-	 * Note: This is experimental and may not work in all browsers
-	 */
-	private static serializeHandle(handle: FileSystemFileHandle): any {
-		try {
-			// For now, we can only store metadata
-			// Full handle serialization is limited by browser security
-			return {
-				name: handle.name,
-				kind: handle.kind,
-			};
-		} catch (error) {
-			console.warn("Failed to serialize file handle:", error);
-			return null;
-		}
-	}
-
-	/**
-	 * Deserialize FileSystemFileHandle from storage
-	 * Note: This is experimental and may require user permission again
-	 */
-	private static async deserializeHandle(
-		serializedHandle: any
-	): Promise<FileSystemFileHandle | null> {
-		try {
-			if (!serializedHandle) {
-				return null;
-			}
-
-			// Due to browser security limitations, we cannot fully restore handles
-			// The user will need to reselect files after browser restart
-			// This is a placeholder for future browser capabilities
-			return null;
-		} catch (error) {
-			console.warn("Failed to deserialize file handle:", error);
-			return null;
 		}
 	}
 

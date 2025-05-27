@@ -260,6 +260,13 @@ class KonficuratorApp {
 				this.updateFileInfo(storedFiles);
 				this.renderFileEditors();
 				this.hideLoading();
+
+				// Show success message for restored files
+				const fileNames = storedFiles.map(f => f.name).join(", ");
+				this.showTemporaryMessage(
+					`📂 Restored ${storedFiles.length} file(s) from previous session: ${fileNames}`,
+					"info"
+				);
 			}
 		} catch (error) {
 			console.warn("Failed to load persisted files:", error);
@@ -372,6 +379,14 @@ declare global {
 				accept: Record<string, string[]>;
 			}>;
 		}) => Promise<FileSystemFileHandle[]>;
+		
+		showSaveFilePicker: (options?: {
+			suggestedName?: string;
+			types?: Array<{
+				description: string;
+				accept: Record<string, string[]>;
+			}>;
+		}) => Promise<FileSystemFileHandle>;
 	}
 
 	interface FileSystemFileHandle {
