@@ -1,5 +1,12 @@
 # 🔧 Konficurator
 
+[![Deploy to GitHub Pages](https://github.com/suomiton/konficurator/actions/workflows/deploy.yml/badge.svg)](https://github.com/suomiton/konficurator/actions/workflows/deploy.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![File System Access API](https://img.shields.io/badge/File%20System%20Access%20API-✓-green.svg)](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API)
+
+🌐 **[Live Demo](https://suomiton.github.io/konficurator/)** | 📚 **[Documentation](https://github.com/suomiton/konficurator/blob/main/README.md)** | 🐛 **[Issues](https://github.com/suomiton/konficurator/issues)**
+
 A lightweight, browser-only configuration file manager for JSON and XML files. Built with vanilla TypeScript and modern web APIs.
 
 ## Features
@@ -13,7 +20,21 @@ A lightweight, browser-only configuration file manager for JSON and XML files. B
 
 ## Quick Start
 
-1. **Serve the application**:
+### 🚀 Try it Online
+
+**[Open Konficurator →](https://suomiton.github.io/konficurator/)**
+
+### 🛠️ Local Development
+
+1. **Clone and setup**:
+
+   ```bash
+   git clone https://github.com/suomiton/konficurator.git
+   cd konficurator
+   npm install
+   ```
+
+2. **Serve the application**:
 
    ```bash
    npm run serve
@@ -21,11 +42,11 @@ A lightweight, browser-only configuration file manager for JSON and XML files. B
 
    Or simply open `index.html` in a modern browser that supports the File System Access API.
 
-2. **Select files**: Click "Select Configuration Files" and choose your JSON/XML files
+3. **Select files**: Click "Select Configuration Files" and choose your JSON/XML files
 
-3. **Edit values**: Modify values in the generated forms
+4. **Edit values**: Modify values in the generated forms
 
-4. **Save changes**: Click the "Save Changes" button for each file you want to update
+5. **Save changes**: Click the "Save Changes" button for each file you want to update
 
 ## Browser Support
 
@@ -189,16 +210,53 @@ The `samples/` directory contains example configuration files:
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Follow the existing code style and architecture patterns
-4. Add tests for new functionality
-5. Submit a pull request
+We welcome contributions! Here's how to get started:
+
+1. **Fork the repository** on GitHub
+2. **Clone your fork** locally:
+   ```bash
+   git clone https://github.com/your-username/konficurator.git
+   ```
+3. **Create a feature branch**:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+4. **Follow the existing patterns**:
+   - Use TypeScript for type safety
+   - Follow SOLID principles
+   - Add comprehensive error handling
+   - Update documentation as needed
+5. **Test your changes** thoroughly
+6. **Submit a pull request** with a clear description
+
+### Development Guidelines
+
+- Follow the existing code style and architecture patterns
+- Add JSDoc comments for new public methods
+- Ensure TypeScript compilation passes without errors
+- Test with both JSON and XML files
+- Verify responsiveness on different screen sizes
+
+### Reporting Issues
+
+Found a bug or have a feature request? [Open an issue](https://github.com/suomiton/konficurator/issues) with:
+- Clear description of the problem or feature
+- Steps to reproduce (for bugs)
+- Browser and version information
+- Sample configuration files (if applicable)
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Built with modern web standards and TypeScript
+- Inspired by the need for simple, client-side configuration management
+- Uses the File System Access API for seamless file operations
 
 ---
 
-**Note**: This application requires modern browser support for the File System Access API. For older browsers, consider using the File API with manual file upload/download as a fallback.
+**⚠️ Browser Compatibility**: This application requires modern browser support for the File System Access API. For a compatibility matrix, see [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API#browser_compatibility).
+
+**🚀 [Try Konficurator Now](https://suomiton.github.io/konficurator/)** | **⭐ [Star on GitHub](https://github.com/suomiton/konficurator)**

@@ -4,6 +4,14 @@
 	"description": "Lightweight, browser-only configuration file manager for JSON and XML files",
 	"main": "index.html",
 	"type": "module",
+	"homepage": "https://suomiton.github.io/konficurator/",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/suomiton/konficurator.git"
+	},
+	"bugs": {
+		"url": "https://github.com/suomiton/konficurator/issues"
+	},
 	"scripts": {
 		"build": "tsc",
 		"watch": "tsc --watch",
