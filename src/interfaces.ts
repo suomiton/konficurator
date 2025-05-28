@@ -9,6 +9,8 @@ export interface FileData {
 	path?: string; // File path information when available
 	lastModified?: number; // Last modified timestamp
 	size?: number; // File size in bytes
+	autoRefreshed?: boolean; // Flag to indicate if file was auto-refreshed from disk
+	permissionDenied?: boolean; // Flag to indicate if permission was denied for auto-refresh
 }
 
 export interface ParsedData {

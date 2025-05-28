@@ -106,6 +106,17 @@ main {
 	box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
 }
 
+.btn-warning {
+	background: #ffc107;
+	color: #212529;
+}
+
+.btn-warning:hover {
+	background: #e0a800;
+	color: #212529;
+	box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
 /* File info */
 .file-info {
 	margin-top: 1rem;
@@ -229,6 +240,32 @@ main {
 }
 
 .refresh-file-btn:active {
+	transform: translateY(0) !important;
+}
+
+/* Reload from disk button specific styles */
+.reload-from-disk-btn {
+	background: #ffc107 !important;
+	color: #212529 !important;
+	border: none !important;
+	padding: 0.5rem 1rem !important;
+	border-radius: 4px !important;
+	font-size: 0.875rem !important;
+	cursor: pointer !important;
+	transition: all 0.2s ease !important;
+	display: flex !important;
+	align-items: center !important;
+	gap: 0.5rem !important;
+}
+
+.reload-from-disk-btn:hover {
+	background: #e0a800 !important;
+	color: #212529 !important;
+	transform: translateY(-1px) !important;
+	box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3) !important;
+}
+
+.reload-from-disk-btn:active {
 	transform: translateY(0) !important;
 }
 

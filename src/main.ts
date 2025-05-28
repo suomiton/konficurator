@@ -4,6 +4,10 @@ import { FormRenderer } from "./renderer.js";
 import { FilePersistence } from "./persistence.js";
 import { FileData } from "./interfaces.js";
 import { StorageService } from "./storage.js";
+import { EnhancedStorageService } from "./handleStorage.js";
+import { NotificationService, FileNotifications } from "./ui/notifications.js";
+import { ConfirmationDialog } from "./confirmation.js";
+import { PermissionManager } from "./permissionManager.js";
 
 /**
  * Main Application Controller
@@ -21,7 +25,14 @@ class KonficuratorApp {
 		this.persistence = new FilePersistence();
 
 		this.init();
-		this.loadPersistedFiles();
+
+		// Initialize file loading with error handling
+		this.loadPersistedFiles().catch((error) => {
+			console.error("Error in loadPersistedFiles:", error);
+			NotificationService.showError(
+				"Failed to load persisted files: " + error.message
+			);
+		});
 	}
 
 	/**
@@ -57,6 +68,11 @@ class KonficuratorApp {
 				if (filename) {
 					this.handleFileRefresh(filename);
 				}
+			} else if (target.classList.contains("reload-from-disk-btn")) {
+				const filename = target.getAttribute("data-file");
+				if (filename) {
+					this.handleReloadFromDisk(filename);
+				}
 			} else if (
 				target.classList.contains("btn") &&
 				target.textContent?.includes("Save")
@@ -74,7 +90,7 @@ class KonficuratorApp {
 	 */
 	private checkBrowserSupport(): void {
 		if (!window.showOpenFilePicker) {
-			this.showError(
+			NotificationService.showErrorInContainer(
 				"Your browser does not support the File System Access API. " +
 					"Please use a modern browser like Chrome, Edge, or Opera."
 			);
@@ -86,12 +102,12 @@ class KonficuratorApp {
 	 */
 	private async handleFileSelection(): Promise<void> {
 		try {
-			this.showLoading("Selecting files...");
+			NotificationService.showLoading("Selecting files...");
 
 			const newFiles = await this.fileHandler.selectFiles(this.loadedFiles);
 
 			if (newFiles.length === 0) {
-				this.hideLoading();
+				NotificationService.hideLoading();
 				return;
 			}
 
@@ -104,28 +120,19 @@ class KonficuratorApp {
 			this.loadedFiles.push(...newFiles);
 
 			// Save to storage
-			this.saveToStorage();
+			await this.saveToStorage();
 
 			this.updateFileInfo(this.loadedFiles);
 			this.renderFileEditors();
 
 			// Show success message for new files
-			if (newFiles.length === 1) {
-				this.showTemporaryMessage(
-					`Added "${newFiles[0].name}" to editor.`,
-					"success"
-				);
-			} else {
-				this.showTemporaryMessage(
-					`Added ${newFiles.length} files to editor.`,
-					"success"
-				);
-			}
+			const filenames = newFiles.map((f) => f.name);
+			FileNotifications.showFilesLoaded(newFiles.length, filenames);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
-			this.showError(`Failed to load files: ${message}`);
+			NotificationService.showError(`Failed to load files: ${message}`);
 		} finally {
-			this.hideLoading();
+			NotificationService.hideLoading();
 		}
 	}
 
@@ -160,7 +167,18 @@ class KonficuratorApp {
 		files.forEach((file) => {
 			const fileTag = document.createElement("span");
 			fileTag.className = "file-tag";
-			fileTag.textContent = `${file.name} (${file.type.toUpperCase()})`;
+
+			// Add visual indicator for file source
+			const indicator = file.handle ? "🖥️" : "💾";
+			fileTag.textContent = `${indicator} ${
+				file.name
+			} (${file.type.toUpperCase()})`;
+
+			// Add tooltip
+			fileTag.title = file.handle
+				? "File loaded from disk - can be refreshed"
+				: "File restored from storage - use reload button to get latest version";
+
 			fileList.appendChild(fileTag);
 		});
 
@@ -206,13 +224,13 @@ class KonficuratorApp {
 			await this.persistence.saveFile(fileData, formElement);
 
 			// Update storage after successful save
-			this.saveToStorage();
+			await this.saveToStorage();
 
 			// Show success message
-			this.showTemporaryMessage(`"${filename}" saved successfully.`, "success");
+			FileNotifications.showSaveSuccess(filename);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
-			this.showError(`Failed to save ${filename}: ${message}`);
+			NotificationService.showError(`Failed to save ${filename}: ${message}`);
 		}
 	}
 
@@ -226,7 +244,7 @@ class KonficuratorApp {
 				throw new Error(`File ${filename} not found`);
 			}
 
-			this.showLoading(`Refreshing ${filename}...`);
+			NotificationService.showLoading(`Refreshing ${filename}...`);
 
 			// Refresh file content from disk
 			const refreshedFileData = await this.fileHandler.refreshFile(fileData);
@@ -241,75 +259,187 @@ class KonficuratorApp {
 			}
 
 			// Update storage with fresh content
-			this.saveToStorage();
+			await this.saveToStorage();
 
 			// Re-render the specific file editor
 			this.renderFileEditors();
 
-			this.hideLoading();
+			NotificationService.hideLoading();
 
 			// Show success message
-			this.showTemporaryMessage(
-				`🔄 "${filename}" refreshed successfully from disk.`,
-				"success"
-			);
+			FileNotifications.showRefreshSuccess(filename);
 		} catch (error) {
-			this.hideLoading();
+			NotificationService.hideLoading();
 			const message = error instanceof Error ? error.message : "Unknown error";
 
 			// Show user-friendly error messages
 			if (message.includes("No file handle available")) {
-				this.showError(
-					`Cannot refresh "${filename}": File was restored from storage and has no disk connection. ` +
-						`Please use "Select Files" to reload from disk.`
-				);
+				FileNotifications.showNoFileHandle(filename);
 			} else if (message.includes("File not found")) {
-				this.showError(
-					`📁 File not found: "${filename}" may have been moved, renamed, or deleted. ` +
-						`Please check the file location and use "Select Files" to reload.`
-				);
+				FileNotifications.showFileNotFound(filename);
 			} else if (message.includes("Permission denied")) {
-				this.showError(
-					`🔒 Permission denied: Cannot access "${filename}". ` +
-						`You may need to grant permission again or the file may be locked.`
-				);
+				FileNotifications.showPermissionDenied(filename);
 			} else {
-				this.showError(`Failed to refresh "${filename}": ${message}`);
+				NotificationService.showError(
+					`Failed to refresh "${filename}": ${message}`
+				);
 			}
 		}
 	}
 
 	/**
-	 * Show loading indicator
+	 * Handle reload from disk operation - select and replace storage file with disk version
 	 */
-	private showLoading(message: string): void {
-		const container = document.getElementById("editorContainer");
-		if (container) {
-			container.innerHTML = `<div class="loading">${message}</div>`;
+	private async handleReloadFromDisk(filename: string): Promise<void> {
+		try {
+			const fileData = this.loadedFiles.find((f) => f.name === filename);
+			if (!fileData) {
+				throw new Error(`File ${filename} not found`);
+			}
+
+			NotificationService.showLoading(`Selecting ${filename} from disk...`);
+
+			// Use file picker to select the specific file from disk
+			const newFiles = await this.fileHandler.selectFiles([]);
+
+			// Find the file with matching name
+			const matchingFile = newFiles.find((f) => f.name === filename);
+
+			if (!matchingFile) {
+				NotificationService.hideLoading();
+				NotificationService.showInfo(
+					`📁 No file named "${filename}" was selected. Please select the correct file to reload.`
+				);
+				return;
+			}
+
+			// Process the new file
+			await this.processFile(matchingFile);
+
+			// Replace the old file in loaded files array
+			const fileIndex = this.loadedFiles.findIndex((f) => f.name === filename);
+			if (fileIndex !== -1) {
+				this.loadedFiles[fileIndex] = matchingFile;
+			}
+
+			// Update storage with fresh content and file handle
+			await this.saveToStorage();
+
+			// Re-render the specific file editor
+			this.renderFileEditors();
+
+			NotificationService.hideLoading();
+
+			// Show success message
+			NotificationService.showSuccess(
+				`📁 "${filename}" successfully reloaded from disk with latest content and file handle.`
+			);
+		} catch (error) {
+			NotificationService.hideLoading();
+			const message = error instanceof Error ? error.message : "Unknown error";
+
+			if (error instanceof Error && error.name === "AbortError") {
+				// User cancelled file selection
+				NotificationService.showInfo(
+					`File selection cancelled. "${filename}" remains unchanged.`
+				);
+			} else {
+				NotificationService.showError(
+					`Failed to reload "${filename}" from disk: ${message}`
+				);
+			}
 		}
 	}
 
 	/**
-	 * Hide loading indicator
-	 */
-	private hideLoading(): void {
-		// Loading will be replaced by content or cleared
-	}
-
-	/**
-	 * Show error message
-	 */
-	private showError(message: string): void {
-		const container = document.getElementById("editorContainer");
-		if (container) {
-			container.innerHTML = `<div class="error">${message}</div>`;
-		}
-	}
-
-	/**
-	 * Load persisted files from browser storage
+	 * Load persisted files from browser storage with automatic file refresh
 	 */
 	private async loadPersistedFiles(): Promise<void> {
+		// Try enhanced storage first
+		try {
+			const restoredFiles = await EnhancedStorageService.loadFiles();
+
+			if (restoredFiles.length > 0) {
+				NotificationService.showLoading(
+					`Loading ${restoredFiles.length} persisted file(s)...`
+				);
+
+				// Use PermissionManager to handle file restoration with proper permission management
+				const processedFiles = await PermissionManager.restoreSavedHandles(
+					restoredFiles,
+					async (file: FileData) => {
+						await this.processFile(file);
+					}
+				);
+
+				// Auto-refresh files that have valid handles and permissions
+				const refreshedFiles = await EnhancedStorageService.autoRefreshFiles(
+					processedFiles
+				);
+
+				let autoRefreshedCount = 0;
+				let permissionDeniedCount = 0;
+				let grantedFiles = 0;
+
+				// Process refreshed files and update UI
+				for (const fileData of refreshedFiles) {
+					if (fileData.autoRefreshed) {
+						autoRefreshedCount++;
+					}
+					if (fileData.permissionDenied) {
+						permissionDeniedCount++;
+					}
+					if (fileData.handle && !fileData.permissionDenied) {
+						grantedFiles++;
+					}
+
+					// Update existing file or add new one
+					const existingIndex = this.loadedFiles.findIndex(
+						(f) => f.name === fileData.name
+					);
+					if (existingIndex >= 0) {
+						this.loadedFiles[existingIndex] = fileData;
+					} else {
+						this.loadedFiles.push(fileData);
+					}
+				}
+
+				this.updateFileInfo(this.loadedFiles);
+				this.renderFileEditors();
+				NotificationService.hideLoading();
+
+				// Show detailed success message
+				const fileNames = refreshedFiles.map((f) => f.name).join(", ");
+				let message = `📂 Restored ${refreshedFiles.length} file(s): ${fileNames}`;
+
+				if (grantedFiles > 0) {
+					message += `\n✅ ${grantedFiles} file(s) have disk access`;
+				}
+
+				if (autoRefreshedCount > 0) {
+					message += `\n🔄 Auto-refreshed ${autoRefreshedCount} file(s) from disk`;
+				}
+
+				if (permissionDeniedCount > 0) {
+					message += `\n🔒 ${permissionDeniedCount} file(s) need permission (see cards above)`;
+				}
+
+				NotificationService.showInfo(message);
+				return;
+			} else {
+				// No files in storage - show helpful message for first-time users
+				NotificationService.showInfo(
+					'💡 No saved files found. Use the "Select Files" button to load configuration files from your computer.'
+				);
+			}
+		} catch (error) {
+			console.warn(
+				"Enhanced storage failed, falling back to legacy storage:",
+				error
+			);
+		}
+
+		// Fallback to legacy storage
 		if (!StorageService.isStorageAvailable()) {
 			return;
 		}
@@ -317,7 +447,9 @@ class KonficuratorApp {
 		try {
 			const storedFiles = await StorageService.loadFiles();
 			if (storedFiles.length > 0) {
-				this.showLoading(`Loading ${storedFiles.length} persisted file(s)...`);
+				NotificationService.showLoading(
+					`Loading ${storedFiles.length} persisted file(s)...`
+				);
 
 				// Process stored files
 				for (const fileData of storedFiles) {
@@ -327,13 +459,12 @@ class KonficuratorApp {
 				this.loadedFiles = storedFiles;
 				this.updateFileInfo(storedFiles);
 				this.renderFileEditors();
-				this.hideLoading();
+				NotificationService.hideLoading();
 
 				// Show success message for restored files
 				const fileNames = storedFiles.map((f) => f.name).join(", ");
-				this.showTemporaryMessage(
-					`📂 Restored ${storedFiles.length} file(s) from previous session: ${fileNames}`,
-					"info"
+				NotificationService.showInfo(
+					`📂 Restored ${storedFiles.length} file(s) from previous session: ${fileNames}`
 				);
 			}
 		} catch (error) {
@@ -359,20 +490,25 @@ class KonficuratorApp {
 			);
 
 			// Update storage
-			StorageService.removeFile(filename);
+			try {
+				await EnhancedStorageService.removeFile(filename);
+			} catch (error) {
+				console.warn(
+					"Enhanced storage removal failed, falling back to legacy storage:",
+					error
+				);
+				StorageService.removeFile(filename);
+			}
 
 			// Update UI
 			this.updateFileInfo(this.loadedFiles);
 			this.renderFileEditors();
 
 			// Show success message
-			this.showTemporaryMessage(
-				`File "${filename}" removed successfully.`,
-				"success"
-			);
+			FileNotifications.showFileRemoved(filename);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
-			this.showError(`Failed to remove file: ${message}`);
+			NotificationService.showError(`Failed to remove file: ${message}`);
 		}
 	}
 
@@ -380,54 +516,30 @@ class KonficuratorApp {
 	 * Show confirmation dialog for file removal
 	 */
 	private async showRemoveConfirmation(filename: string): Promise<boolean> {
-		// Simple browser confirmation for now
-		return confirm(
-			`Are you sure you want to remove "${filename}" from the editor?\n\nThis will not delete the actual file, only remove it from the current session.`
+		return await ConfirmationDialog.show(
+			"Remove File",
+			`Are you sure you want to remove "${filename}" from the editor?\n\nThis will not delete the actual file, only remove it from the current session.`,
+			"Remove",
+			"Cancel"
 		);
-	}
-
-	/**
-	 * Show temporary success/info message
-	 */
-	private showTemporaryMessage(
-		message: string,
-		type: "success" | "info" = "info"
-	): void {
-		const messageDiv = document.createElement("div");
-		messageDiv.className = `temporary-message ${type}`;
-		messageDiv.textContent = message;
-		messageDiv.style.cssText = `
-			position: fixed;
-			top: 20px;
-			right: 20px;
-			padding: 12px 20px;
-			background: ${type === "success" ? "#2ecc71" : "#3498db"};
-			color: white;
-			border-radius: 4px;
-			box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-			z-index: 1000;
-			animation: slideInRight 0.3s ease-out;
-		`;
-
-		document.body.appendChild(messageDiv);
-
-		// Remove after 3 seconds
-		setTimeout(() => {
-			messageDiv.style.animation = "slideOutRight 0.3s ease-in";
-			setTimeout(() => {
-				if (messageDiv.parentNode) {
-					messageDiv.parentNode.removeChild(messageDiv);
-				}
-			}, 300);
-		}, 3000);
 	}
 
 	/**
 	 * Save files to storage when files change
 	 */
-	private saveToStorage(): void {
-		if (StorageService.isStorageAvailable()) {
-			StorageService.saveFiles(this.loadedFiles);
+	private async saveToStorage(): Promise<void> {
+		try {
+			// Try enhanced storage first
+			await EnhancedStorageService.saveFiles(this.loadedFiles);
+		} catch (error) {
+			console.warn(
+				"Enhanced storage failed, falling back to legacy storage:",
+				error
+			);
+			// Fallback to legacy storage
+			if (StorageService.isStorageAvailable()) {
+				StorageService.saveFiles(this.loadedFiles);
+			}
 		}
 	}
 }

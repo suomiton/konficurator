@@ -1,5 +1,6 @@
 import { IPersistence, FileData } from "./interfaces.js";
 import { ParserFactory } from "./parsers.js";
+import { NotificationService } from "./ui/notifications.js";
 
 /**
  * Persistence Module
@@ -42,10 +43,12 @@ export class FilePersistence implements IPersistence {
 			fileData.content = updatedData;
 			fileData.originalContent = serializedContent; // Update original content too
 
-			this.showSuccessMessage(fileData.name);
+			NotificationService.showSuccess(`Successfully saved ${fileData.name}`);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
-			this.showErrorMessage(`Failed to save ${fileData.name}: ${message}`);
+			NotificationService.showError(
+				`Failed to save ${fileData.name}: ${message}`
+			);
 			throw error;
 		}
 	}
@@ -159,72 +162,6 @@ export class FilePersistence implements IPersistence {
 		}
 
 		return cloned;
-	}
-
-	/**
-	 * Shows success message to user
-	 */
-	private showSuccessMessage(filename: string): void {
-		this.showMessage(`✅ Successfully saved ${filename}`, "success");
-	}
-
-	/**
-	 * Shows error message to user
-	 */
-	private showErrorMessage(message: string): void {
-		this.showMessage(`❌ ${message}`, "error");
-	}
-
-	/**
-	 * Generic message display function
-	 */
-	private showMessage(message: string, type: "success" | "error"): void {
-		// Remove existing messages
-		const existingMessages = document.querySelectorAll(".message-toast");
-		existingMessages.forEach((msg) => msg.remove());
-
-		// Create new message
-		const messageDiv = document.createElement("div");
-		messageDiv.className = `message-toast ${type}`;
-		messageDiv.textContent = message;
-		messageDiv.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            border-radius: 8px;
-            color: white;
-            font-weight: 500;
-            z-index: 1000;
-            background: ${type === "success" ? "#28a745" : "#dc3545"};
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            animation: slideIn 0.3s ease-out;
-        `;
-
-		// Add CSS animation
-		if (!document.querySelector("#toast-styles")) {
-			const styles = document.createElement("style");
-			styles.id = "toast-styles";
-			styles.textContent = `
-                @keyframes slideIn {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes slideOut {
-                    from { transform: translateX(0); opacity: 1; }
-                    to { transform: translateX(100%); opacity: 0; }
-                }
-            `;
-			document.head.appendChild(styles);
-		}
-
-		document.body.appendChild(messageDiv);
-
-		// Auto-remove after 3 seconds
-		setTimeout(() => {
-			messageDiv.style.animation = "slideOut 0.3s ease-in";
-			setTimeout(() => messageDiv.remove(), 300);
-		}, 3000);
 	}
 
 	/**

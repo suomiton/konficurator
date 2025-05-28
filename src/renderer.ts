@@ -120,11 +120,12 @@ export class FormRenderer implements IRenderer {
 		removeButton.setAttribute("data-file", fileData.name);
 		removeButton.title = `Remove ${fileData.name}`;
 
-		// Add refresh button if file has a handle (can be refreshed from disk)
+		// Add action buttons based on file state
 		const actionButtons = document.createElement("div");
 		actionButtons.className = "file-action-buttons";
 
 		if (fileData.handle) {
+			// File has disk handle - show refresh button
 			const refreshButton = document.createElement("button");
 			refreshButton.className = "btn btn-info btn-small refresh-file-btn";
 			refreshButton.type = "button";
@@ -132,6 +133,15 @@ export class FormRenderer implements IRenderer {
 			refreshButton.setAttribute("data-file", fileData.name);
 			refreshButton.title = `Reload ${fileData.name} from disk`;
 			actionButtons.appendChild(refreshButton);
+		} else {
+			// File restored from storage - show reload from disk button
+			const reloadButton = document.createElement("button");
+			reloadButton.className = "btn btn-warning btn-small reload-from-disk-btn";
+			reloadButton.type = "button";
+			reloadButton.innerHTML = "📁 Reload from Disk";
+			reloadButton.setAttribute("data-file", fileData.name);
+			reloadButton.title = `Select and reload ${fileData.name} from disk to get latest content`;
+			actionButtons.appendChild(reloadButton);
 		}
 
 		actionButtons.appendChild(removeButton);
