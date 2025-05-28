@@ -3,8 +3,7 @@ import { ParserFactory } from "./parsers.js";
 import { FormRenderer } from "./renderer.js";
 import { FilePersistence } from "./persistence.js";
 import { FileData } from "./interfaces.js";
-import { StorageService } from "./storage.js";
-import { EnhancedStorageService } from "./handleStorage.js";
+import { StorageService } from "./handleStorage.js";
 import { NotificationService, FileNotifications } from "./ui/notifications.js";
 import { ConfirmationDialog } from "./confirmation.js";
 import { PermissionManager } from "./permissionManager.js";
@@ -357,7 +356,7 @@ class KonficuratorApp {
 	private async loadPersistedFiles(): Promise<void> {
 		// Try enhanced storage first
 		try {
-			const restoredFiles = await EnhancedStorageService.loadFiles();
+			const restoredFiles = await StorageService.loadFiles();
 
 			if (restoredFiles.length > 0) {
 				NotificationService.showLoading(
@@ -373,9 +372,7 @@ class KonficuratorApp {
 				);
 
 				// Auto-refresh files that have valid handles and permissions
-				const refreshedFiles = await EnhancedStorageService.autoRefreshFiles(
-					processedFiles
-				);
+				const refreshedFiles = await StorageService.autoRefresh(processedFiles);
 
 				let autoRefreshedCount = 0;
 				let permissionDeniedCount = 0;
@@ -440,9 +437,9 @@ class KonficuratorApp {
 		}
 
 		// Fallback to legacy storage
-		if (!StorageService.isStorageAvailable()) {
-			return;
-		}
+		// if (!StorageService.isStorageAvailable()) {
+		// 	return;
+		// }
 
 		try {
 			const storedFiles = await StorageService.loadFiles();
@@ -491,7 +488,7 @@ class KonficuratorApp {
 
 			// Update storage
 			try {
-				await EnhancedStorageService.removeFile(filename);
+				await StorageService.removeFile(filename);
 			} catch (error) {
 				console.warn(
 					"Enhanced storage removal failed, falling back to legacy storage:",
@@ -530,16 +527,16 @@ class KonficuratorApp {
 	private async saveToStorage(): Promise<void> {
 		try {
 			// Try enhanced storage first
-			await EnhancedStorageService.saveFiles(this.loadedFiles);
+			await StorageService.saveFiles(this.loadedFiles);
 		} catch (error) {
 			console.warn(
 				"Enhanced storage failed, falling back to legacy storage:",
 				error
 			);
 			// Fallback to legacy storage
-			if (StorageService.isStorageAvailable()) {
-				StorageService.saveFiles(this.loadedFiles);
-			}
+			// if (StorageService.isStorageAvailable()) {
+			// 	StorageService.saveFiles(this.loadedFiles);
+			// }
 		}
 	}
 }
