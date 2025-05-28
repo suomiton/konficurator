@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  konficurator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount the source code for development
+      - ./src:/app/src
+      - ./styles:/app/styles
+      - ./samples:/app/samples
+      - ./index.html:/app/index.html
+      # Preserve node_modules in container
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run dev
+    restart: unless-stopped
+
+  # Production service
+  konficurator-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    profiles:
+      - production
+
+networks:
+  default:
+    name: konficurator-network
