@@ -13,6 +13,8 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy source code
 COPY . .
 
+RUN npm install
+
 # Build TypeScript
 RUN npm run build
 
