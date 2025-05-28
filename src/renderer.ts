@@ -120,9 +120,25 @@ export class FormRenderer implements IRenderer {
 		removeButton.setAttribute("data-file", fileData.name);
 		removeButton.title = `Remove ${fileData.name}`;
 
+		// Add refresh button if file has a handle (can be refreshed from disk)
+		const actionButtons = document.createElement("div");
+		actionButtons.className = "file-action-buttons";
+
+		if (fileData.handle) {
+			const refreshButton = document.createElement("button");
+			refreshButton.className = "btn btn-info btn-small refresh-file-btn";
+			refreshButton.type = "button";
+			refreshButton.innerHTML = "🔄 Refresh";
+			refreshButton.setAttribute("data-file", fileData.name);
+			refreshButton.title = `Reload ${fileData.name} from disk`;
+			actionButtons.appendChild(refreshButton);
+		}
+
+		actionButtons.appendChild(removeButton);
+
 		header.appendChild(titleContainer);
 		header.appendChild(typeTag);
-		header.appendChild(removeButton);
+		header.appendChild(actionButtons);
 
 		return header;
 	}

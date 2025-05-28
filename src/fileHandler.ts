@@ -93,6 +93,52 @@ export class FileHandler implements IFileHandler {
 	}
 
 	/**
+	 * Refreshes file content from disk using existing file handle
+	 * @param fileData The file data with handle to refresh
+	 * @returns Updated FileData with fresh content from disk
+	 * @throws Error if file handle is invalid or file cannot be accessed
+	 */
+	async refreshFile(fileData: FileData): Promise<FileData> {
+		if (!fileData.handle) {
+			throw new Error(
+				"Cannot refresh file: No file handle available. File was restored from storage."
+			);
+		}
+
+		try {
+			// Verify file handle is still valid by attempting to get file
+			const file = await fileData.handle.getFile();
+			const content = await file.text();
+
+			// Return updated file data with fresh content
+			return {
+				...fileData,
+				content: content, // Will be parsed later by the main app
+				originalContent: content,
+				lastModified: file.lastModified,
+				size: file.size,
+			};
+		} catch (error) {
+			if (error instanceof Error) {
+				if (error.name === "NotAllowedError") {
+					throw new Error(
+						"Permission denied: Cannot access the file. You may need to grant permission again."
+					);
+				} else if (error.name === "NotFoundError") {
+					throw new Error(
+						"File not found: The file may have been moved, renamed, or deleted."
+					);
+				}
+			}
+			throw new Error(
+				`Failed to refresh file: ${
+					error instanceof Error ? error.message : "Unknown error"
+				}`
+			);
+		}
+	}
+
+	/**
 	 * Determines file type based on extension
 	 */
 	private determineFileType(filename: string): "json" | "xml" | "config" {

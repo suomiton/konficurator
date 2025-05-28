@@ -52,6 +52,11 @@ class KonficuratorApp {
 				if (filename) {
 					this.handleFileRemove(filename);
 				}
+			} else if (target.classList.contains("refresh-file-btn")) {
+				const filename = target.getAttribute("data-file");
+				if (filename) {
+					this.handleFileRefresh(filename);
+				}
 			} else if (
 				target.classList.contains("btn") &&
 				target.textContent?.includes("Save")
@@ -208,6 +213,69 @@ class KonficuratorApp {
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			this.showError(`Failed to save ${filename}: ${message}`);
+		}
+	}
+
+	/**
+	 * Handle file refresh operation - reload content from disk
+	 */
+	private async handleFileRefresh(filename: string): Promise<void> {
+		try {
+			const fileData = this.loadedFiles.find((f) => f.name === filename);
+			if (!fileData) {
+				throw new Error(`File ${filename} not found`);
+			}
+
+			this.showLoading(`Refreshing ${filename}...`);
+
+			// Refresh file content from disk
+			const refreshedFileData = await this.fileHandler.refreshFile(fileData);
+
+			// Process the refreshed file (parse content)
+			await this.processFile(refreshedFileData);
+
+			// Update the file in loaded files array
+			const fileIndex = this.loadedFiles.findIndex((f) => f.name === filename);
+			if (fileIndex !== -1) {
+				this.loadedFiles[fileIndex] = refreshedFileData;
+			}
+
+			// Update storage with fresh content
+			this.saveToStorage();
+
+			// Re-render the specific file editor
+			this.renderFileEditors();
+
+			this.hideLoading();
+
+			// Show success message
+			this.showTemporaryMessage(
+				`🔄 "${filename}" refreshed successfully from disk.`,
+				"success"
+			);
+		} catch (error) {
+			this.hideLoading();
+			const message = error instanceof Error ? error.message : "Unknown error";
+
+			// Show user-friendly error messages
+			if (message.includes("No file handle available")) {
+				this.showError(
+					`Cannot refresh "${filename}": File was restored from storage and has no disk connection. ` +
+						`Please use "Select Files" to reload from disk.`
+				);
+			} else if (message.includes("File not found")) {
+				this.showError(
+					`📁 File not found: "${filename}" may have been moved, renamed, or deleted. ` +
+						`Please check the file location and use "Select Files" to reload.`
+				);
+			} else if (message.includes("Permission denied")) {
+				this.showError(
+					`🔒 Permission denied: Cannot access "${filename}". ` +
+						`You may need to grant permission again or the file may be locked.`
+				);
+			} else {
+				this.showError(`Failed to refresh "${filename}": ${message}`);
+			}
 		}
 	}
 

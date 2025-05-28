@@ -27,6 +27,7 @@ export interface IFileHandler {
 	selectFiles(existingFiles?: FileData[]): Promise<FileData[]>;
 	readFile(handle: FileSystemFileHandle): Promise<string>;
 	writeFile(handle: FileSystemFileHandle, content: string): Promise<void>;
+	refreshFile(fileData: FileData): Promise<FileData>;
 }
 
 // Renderer interface for UI generation
