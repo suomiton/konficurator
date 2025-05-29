@@ -53,8 +53,10 @@ logs
 *.tsbuildinfo
 
 # Temporary files and root clutter prevention
-*temp*
-*debug*
+temp*
+*temp
+debug*
+*debug
 *test-*.html
 *validate-*.js
 *final-*.sh
