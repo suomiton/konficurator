@@ -120,6 +120,22 @@ export class PermissionManager {
 					const restoredFile = { ...file, permissionDenied: false };
 					await onFileRestored(restoredFile);
 
+					// Remove the reconnect card for this file
+					const reconnectContainer = document.getElementById("reconnectCards");
+					if (reconnectContainer) {
+						const existingCards = reconnectContainer.querySelectorAll(
+							`[data-reconnect-file="${file.name}"]`
+						);
+						existingCards.forEach((card) => card.remove());
+					}
+
+					// Trigger a custom event to notify main app to update UI
+					window.dispatchEvent(
+						new CustomEvent("filePermissionGranted", {
+							detail: { file: restoredFile },
+						})
+					);
+
 					NotificationService.showSuccess(
 						`✅ Access granted to "${file.name}". File loaded successfully.`
 					);

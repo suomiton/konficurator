@@ -53,6 +53,27 @@ class KonficuratorApp {
 			);
 		}
 
+		// Listen for file permission granted events
+		window.addEventListener("filePermissionGranted", async (event: Event) => {
+			const customEvent = event as CustomEvent;
+			const { file } = customEvent.detail;
+
+			// Update existing file or add new one
+			const existingIndex = this.loadedFiles.findIndex(
+				(f) => f.name === file.name
+			);
+			if (existingIndex >= 0) {
+				this.loadedFiles[existingIndex] = file;
+			} else {
+				this.loadedFiles.push(file);
+			}
+
+			// Update UI and storage
+			this.updateFileInfo(this.loadedFiles);
+			this.renderFileEditors();
+			await this.saveToStorage();
+		});
+
 		// Delegate save button clicks
 		document.addEventListener("click", (event) => {
 			const target = event.target as HTMLElement;
