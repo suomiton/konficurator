@@ -54,20 +54,22 @@ describe("Renderer Module - Basic Tests", () => {
 		it("should create error notification elements", () => {
 			const notification = document.createElement("div");
 			notification.className = "error-notification";
-			
+
 			const title = document.createElement("h3");
 			title.textContent = "Error";
-			
+
 			const message = document.createElement("p");
 			message.textContent = "An error occurred";
-			
+
 			notification.appendChild(title);
 			notification.appendChild(message);
 
 			expect(notification.className).toBe("error-notification");
 			expect(notification.children.length).toBe(2);
 			expect(notification.querySelector("h3")?.textContent).toBe("Error");
-			expect(notification.querySelector("p")?.textContent).toBe("An error occurred");
+			expect(notification.querySelector("p")?.textContent).toBe(
+				"An error occurred"
+			);
 		});
 	});
 });
