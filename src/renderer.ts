@@ -18,6 +18,20 @@ export class FormRenderer implements IRenderer {
 		const header = this.createFileHeader(fileData);
 		container.appendChild(header);
 
+		// Check if content has parse error
+		if (
+			fileData.content &&
+			typeof fileData.content === "object" &&
+			"_error" in fileData.content
+		) {
+			// Show error notification instead of form
+			const errorNotification = this.createErrorNotification(
+				fileData.content._error as string
+			);
+			container.appendChild(errorNotification);
+			return container; // Don't add form or save button for error case
+		}
+
 		// Form
 		const form = document.createElement("form");
 		form.className = "config-form";
@@ -345,6 +359,43 @@ export class FormRenderer implements IRenderer {
 		errorDiv.className = "error";
 		errorDiv.textContent = message;
 		return errorDiv;
+	}
+
+	/**
+	 * Creates error notification for parse errors (shown instead of form)
+	 */
+	private createErrorNotification(errorMessage: string): HTMLElement {
+		const notification = document.createElement("div");
+		notification.className = "error-notification";
+
+		const icon = document.createElement("div");
+		icon.className = "error-icon";
+		icon.textContent = "⚠️";
+
+		const content = document.createElement("div");
+		content.className = "error-content";
+
+		const title = document.createElement("div");
+		title.className = "error-title";
+		title.textContent = "Unable to Parse File";
+
+		const message = document.createElement("div");
+		message.className = "error-message";
+		message.textContent = errorMessage;
+
+		const hint = document.createElement("div");
+		hint.className = "error-hint";
+		hint.textContent =
+			"This file format is not supported for editing. Supported formats: JSON, XML";
+
+		content.appendChild(title);
+		content.appendChild(message);
+		content.appendChild(hint);
+
+		notification.appendChild(icon);
+		notification.appendChild(content);
+
+		return notification;
 	}
 
 	/**

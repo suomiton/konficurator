@@ -533,6 +533,51 @@ footer {
 	margin-bottom: 1rem;
 }
 
+/* Error notification styles for parse errors in tiles */
+.error-notification {
+	background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+	border: 1px solid #ffeaa7;
+	border-left: 4px solid #ffc107;
+	border-radius: 8px;
+	padding: 1.5rem;
+	margin: 1rem 0;
+	display: flex;
+	align-items: flex-start;
+	gap: 1rem;
+	animation: fadeIn 0.3s ease-in;
+}
+
+.error-notification .error-icon {
+	font-size: 1.5rem;
+	flex-shrink: 0;
+	line-height: 1;
+}
+
+.error-notification .error-content {
+	flex: 1;
+}
+
+.error-notification .error-title {
+	font-weight: 600;
+	color: #856404;
+	margin-bottom: 0.5rem;
+	font-size: 1rem;
+}
+
+.error-notification .error-message {
+	color: #856404;
+	margin-bottom: 0.75rem;
+	font-size: 0.9rem;
+	line-height: 1.4;
+}
+
+.error-notification .error-hint {
+	color: #6c5700;
+	font-size: 0.85rem;
+	font-style: italic;
+	opacity: 0.8;
+}
+
 /* Sticky save button styles */
 .save-sticky-sentinel {
 	height: 1px;
