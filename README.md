@@ -1,5 +1,6 @@
 # 🔧 Konficurator
 
+[![CI](https://github.com/suomiton/konficurator/actions/workflows/ci.yml/badge.svg)](https://github.com/suomiton/konficurator/actions/workflows/ci.yml)
 [![Deploy to GitHub Pages](https://github.com/suomiton/konficurator/actions/workflows/deploy.yml/badge.svg)](https://github.com/suomiton/konficurator/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)

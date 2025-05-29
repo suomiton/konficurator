@@ -7,6 +7,9 @@ yarn-error.log*
 # Build output
 dist/
 
+# Test coverage
+coverage/
+
 # Runtime data
 pids
 *.pid
