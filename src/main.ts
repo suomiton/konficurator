@@ -364,12 +364,13 @@ class KonficuratorApp {
 				);
 
 				// Use PermissionManager to handle file restoration with proper permission management
-				const processedFiles = await PermissionManager.restoreSavedHandles(
-					restoredFiles,
-					async (file: FileData) => {
-						await this.processFile(file);
-					}
-				);
+				const { restoredFiles: processedFiles, filesNeedingPermission } =
+					await PermissionManager.restoreSavedHandles(
+						restoredFiles,
+						async (file: FileData) => {
+							await this.processFile(file);
+						}
+					);
 
 				// Auto-refresh files that have valid handles and permissions
 				const refreshedFiles = await StorageService.autoRefresh(processedFiles);
@@ -405,6 +406,13 @@ class KonficuratorApp {
 				this.renderFileEditors();
 				NotificationService.hideLoading();
 
+				// Show permission warning if needed (after hideLoading)
+				if (filesNeedingPermission.length > 0) {
+					NotificationService.showWarning(
+						`⚠️ ${filesNeedingPermission.length} file(s) need permission to access. Please grant access using the cards above.`
+					);
+				}
+
 				// Show detailed success message
 				const fileNames = refreshedFiles.map((f) => f.name).join(", ");
 				let message = `📂 Restored ${refreshedFiles.length} file(s): ${fileNames}`;
@@ -417,11 +425,14 @@ class KonficuratorApp {
 					message += `\n🔄 Auto-refreshed ${autoRefreshedCount} file(s) from disk`;
 				}
 
-				if (permissionDeniedCount > 0) {
-					message += `\n🔒 ${permissionDeniedCount} file(s) need permission (see cards above)`;
+				// Only show info notification if no files need permission
+				if (
+					permissionDeniedCount === 0 &&
+					filesNeedingPermission.length === 0
+				) {
+					NotificationService.showInfo(message);
 				}
 
-				NotificationService.showInfo(message);
 				return;
 			} else {
 				// No files in storage - show helpful message for first-time users

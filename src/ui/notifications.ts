@@ -449,7 +449,7 @@ export class FileNotifications {
 
 		const reconnectId = `reconnect-${handle.name}-${Date.now()}`;
 
-		const container = document.getElementById("editorContainer");
+		const container = document.getElementById("reconnectCards");
 		if (!container) {
 			console.error(
 				"Could not find editorContainer element for reconnect card"

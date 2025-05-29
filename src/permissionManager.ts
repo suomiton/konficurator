@@ -15,9 +15,12 @@ export class PermissionManager {
 	static async restoreSavedHandles(
 		files: FileData[],
 		onFileRestored: (file: FileData) => Promise<void>
-	): Promise<FileData[]> {
+	): Promise<{
+		restoredFiles: FileData[];
+		filesNeedingPermission: FileData[];
+	}> {
 		if (files.length === 0) {
-			return [];
+			return { restoredFiles: [], filesNeedingPermission: [] };
 		}
 
 		const restoredFiles: FileData[] = [];
@@ -78,15 +81,8 @@ export class PermissionManager {
 			}
 		}
 
-		// Show summary message
-		if (filesNeedingPermission.length > 0) {
-			NotificationService.showWarning(
-				`⚠️ ${filesNeedingPermission.length} file(s) need permission to access. Please grant access using the cards above.`,
-				{ duration: 5000 }
-			);
-		}
-
-		return restoredFiles;
+		// Do not show notification here, let main.ts handle it
+		return { restoredFiles, filesNeedingPermission };
 	}
 
 	/**
@@ -168,9 +164,26 @@ export class PermissionManager {
 	): void {
 		if (!file.handle) return;
 
+		// Use a dedicated container for reconnect cards
+		let reconnectContainer = document.getElementById("reconnectCards");
+		if (!reconnectContainer) {
+			reconnectContainer = document.createElement("div");
+			reconnectContainer.id = "reconnectCards";
+			// Insert before editorContainer if possible
+			const editorContainer = document.getElementById("editorContainer");
+			if (editorContainer && editorContainer.parentNode) {
+				editorContainer.parentNode.insertBefore(
+					reconnectContainer,
+					editorContainer
+				);
+			} else {
+				document.body.appendChild(reconnectContainer);
+			}
+		}
+
 		FileNotifications.showReconnectCard(file.handle, async (handle) => {
 			// Remove any existing reconnect cards for this file
-			const existingCards = document.querySelectorAll(
+			const existingCards = reconnectContainer.querySelectorAll(
 				`[data-reconnect-file="${file.name}"]`
 			);
 			existingCards.forEach((card) => card.remove());
