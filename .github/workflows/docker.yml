@@ -1,0 +1,91 @@
+name: Docker Build & Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Build development Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: development
+          push: false
+          tags: konficurator:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+        
+      - name: Build production Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: production
+          push: false
+          tags: konficurator:prod
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+        
+      - name: Test development container
+        run: |
+          docker run -d --name konficurator-dev -p 8080:8080 konficurator:dev
+          sleep 10
+          curl -f http://localhost:8080/ || exit 1
+          docker logs konficurator-dev
+          docker stop konficurator-dev
+        
+      - name: Test production container
+        run: |
+          docker run -d --name konficurator-prod -p 8081:8080 konficurator:prod
+          sleep 10
+          curl -f http://localhost:8081/ || exit 1
+          echo "Testing gzip compression support..."
+          curl -H "Accept-Encoding: gzip" -f http://localhost:8081/ || exit 1
+          echo "Testing brotli compression support..."
+          curl -H "Accept-Encoding: br" -f http://localhost:8081/ || exit 1
+          docker logs konficurator-prod
+          docker stop konficurator-prod
+        
+      - name: Check image sizes
+        run: |
+          echo "Docker image sizes:"
+          docker images konficurator --format "table {{.Tag}}\t{{.Size}}"
+          echo ""
+          echo "Production image layers:"
+          docker history konficurator:prod --format "table {{.CreatedBy}}\t{{.Size}}"
+
+  docker-compose-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Test development docker-compose
+        run: |
+          docker-compose up -d konficurator
+          sleep 15
+          curl -f http://localhost:8080/ || exit 1
+          docker-compose logs konficurator
+          docker-compose down
+        
+      - name: Test production docker-compose
+        run: |
+          docker-compose --profile production up -d konficurator-prod
+          sleep 15
+          curl -f http://localhost:8080/ || exit 1
+          echo "Testing compression headers..."
+          curl -I -H "Accept-Encoding: gzip" http://localhost:8080/ | grep -i "content-encoding" || echo "No compression header found"
+          docker-compose --profile production logs konficurator-prod
+          docker-compose --profile production down

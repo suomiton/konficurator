@@ -1,0 +1,150 @@
+name: Build Verification & Performance
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-verification:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run development build
+        run: npm run build
+        
+      - name: Measure development build size
+        run: |
+          echo "=== DEVELOPMENT BUILD METRICS ===" 
+          echo "TypeScript compilation completed"
+          if [ -d "dist" ]; then
+            dev_size=$(du -sb dist/ styles/ index.html | awk '{sum += $1} END {print sum}')
+            echo "Development build size: $dev_size bytes"
+            echo "DEV_SIZE=$dev_size" >> $GITHUB_ENV
+            echo "Files in dist/:"
+            ls -lah dist/
+          else
+            echo "No dist directory found"
+            exit 1
+          fi
+        
+      - name: Run production optimization build
+        run: npm run build:prod
+        
+      - name: Measure production build size and verify optimization
+        run: |
+          echo "=== PRODUCTION BUILD METRICS ==="
+          if [ -d "build" ]; then
+            prod_size=$(du -sb build/ | tail -n1 | awk '{print $1}')
+            echo "Production build size: $prod_size bytes"
+            echo "PROD_SIZE=$prod_size" >> $GITHUB_ENV
+            
+            # Calculate size reduction
+            if [ -n "$DEV_SIZE" ] && [ "$DEV_SIZE" -gt 0 ]; then
+              reduction=$(echo "scale=1; (1 - $prod_size / $DEV_SIZE) * 100" | bc -l)
+              echo "Size reduction: $reduction%"
+              echo "REDUCTION=$reduction" >> $GITHUB_ENV
+            fi
+            
+            echo "Optimized files structure:"
+            ls -lah build/
+            echo ""
+            echo "JavaScript files:"
+            find build/dist/ -name "*.js" -exec ls -lh {} \; || echo "No JS files found"
+            echo ""
+            echo "Compressed files:"
+            echo "Gzip files: $(find build/ -name "*.gz" | wc -l)"
+            echo "Brotli files: $(find build/ -name "*.br" | wc -l)"
+            
+            # Verify critical files exist
+            echo ""
+            echo "=== VERIFICATION CHECKS ==="
+            [ -f "build/index.html" ] && echo "✅ index.html exists" || echo "❌ index.html missing"
+            [ -f "build/index.html.gz" ] && echo "✅ index.html.gz exists" || echo "❌ index.html.gz missing"
+            [ -f "build/index.html.br" ] && echo "✅ index.html.br exists" || echo "❌ index.html.br missing"
+            [ -f "build/nginx-config.txt" ] && echo "✅ nginx-config.txt exists" || echo "❌ nginx-config.txt missing"
+            [ -f "build/.htaccess" ] && echo "✅ .htaccess exists" || echo "❌ .htaccess missing"
+            [ -d "build/dist" ] && echo "✅ dist directory exists" || echo "❌ dist directory missing"
+            [ -d "build/styles" ] && echo "✅ styles directory exists" || echo "❌ styles directory missing"
+            [ -d "build/samples" ] && echo "✅ samples directory exists" || echo "❌ samples directory missing"
+            
+            # Check compression ratios for main files
+            echo ""
+            echo "=== COMPRESSION ANALYSIS ==="
+            for file in build/dist/main.js build/styles/main.css build/index.html; do
+              if [ -f "$file" ]; then
+                original_size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
+                if [ -f "$file.gz" ]; then
+                  gzip_size=$(stat -f%z "$file.gz" 2>/dev/null || stat -c%s "$file.gz" 2>/dev/null)
+                  gzip_ratio=$(echo "scale=1; (1 - $gzip_size / $original_size) * 100" | bc -l)
+                  echo "$(basename $file): $original_size → $gzip_size bytes (${gzip_ratio}% gzip reduction)"
+                fi
+                if [ -f "$file.br" ]; then
+                  brotli_size=$(stat -f%z "$file.br" 2>/dev/null || stat -c%s "$file.br" 2>/dev/null)
+                  brotli_ratio=$(echo "scale=1; (1 - $brotli_size / $original_size) * 100" | bc -l)
+                  echo "$(basename $file): $original_size → $brotli_size bytes (${brotli_ratio}% brotli reduction)"
+                fi
+              fi
+            done
+          else
+            echo "No build directory found"
+            exit 1
+          fi
+        
+      - name: Validate server configurations
+        run: |
+          echo "=== SERVER CONFIGURATION VALIDATION ==="
+          if [ -f "build/nginx-config.txt" ]; then
+            echo "✅ Nginx configuration generated"
+            echo "Checking nginx config content:"
+            grep -q "gzip on" build/nginx-config.txt && echo "  ✅ Gzip enabled" || echo "  ❌ Gzip not configured"
+            grep -q "brotli" build/nginx-config.txt && echo "  ✅ Brotli referenced" || echo "  ❌ Brotli not referenced"
+            grep -q "try_files.*\.br.*\.gz" build/nginx-config.txt && echo "  ✅ Pre-compressed files configured" || echo "  ❌ Pre-compressed files not configured"
+          fi
+          
+          if [ -f "build/.htaccess" ]; then
+            echo "✅ Apache .htaccess generated"
+            echo "Checking .htaccess content:"
+            grep -q "mod_deflate" build/.htaccess && echo "  ✅ Deflate compression enabled" || echo "  ❌ Deflate not configured"
+            grep -q "mod_rewrite" build/.htaccess && echo "  ✅ URL rewriting enabled" || echo "  ❌ URL rewriting not configured"
+          fi
+        
+      - name: Performance summary
+        run: |
+          echo "=== PERFORMANCE SUMMARY ==="
+          echo "Development size: ${DEV_SIZE:-unknown} bytes"
+          echo "Production size: ${PROD_SIZE:-unknown} bytes"
+          echo "Size reduction: ${REDUCTION:-unknown}%"
+          echo ""
+          echo "Build artifacts ready for deployment!"
+          
+          # Fail if reduction is less than expected (should be around 70%+)
+          if [ -n "$REDUCTION" ]; then
+            min_reduction=50
+            if (( $(echo "$REDUCTION > $min_reduction" | bc -l) )); then
+              echo "✅ Optimization target met (${REDUCTION}% > ${min_reduction}%)"
+            else
+              echo "❌ Optimization target not met (${REDUCTION}% <= ${min_reduction}%)"
+              exit 1
+            fi
+          fi
+        
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-build
+          path: build/
+          retention-days: 7

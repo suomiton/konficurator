@@ -25,27 +25,34 @@ RUN npm ci
 EXPOSE 8080
 CMD ["npm", "run", "dev"]
 
-# Production stage
-FROM node:18-alpine AS production
+# Production build stage
+FROM node:18-alpine AS build
+
 WORKDIR /app
 
-# Install Python for the HTTP server
-RUN apk add --no-cache python3
+# Copy package files and install all dependencies (including devDependencies for build)
+COPY package*.json ./
+RUN npm ci
 
-# Copy built application from base stage
-COPY --from=base /app/dist ./dist
-COPY --from=base /app/index.html ./
-COPY --from=base /app/styles ./styles
-COPY --from=base /app/samples ./samples
-COPY --from=base /app/package.json ./
+# Copy source code and build tools
+COPY . .
 
-# Create a simple script to serve the application
-RUN echo '#!/bin/sh\npython3 -m http.server 8080' > start.sh && chmod +x start.sh
+# Build optimized production bundle
+RUN npm run build:prod
+
+# Production stage
+FROM nginx:alpine AS production
+
+# Copy optimized build to nginx
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/ || exit 1
+	CMD wget --no-verbose --tries=1 --spider http://localhost:8080/ || exit 1
 
-CMD ["./start.sh"]
+CMD ["nginx", "-g", "daemon off;"]

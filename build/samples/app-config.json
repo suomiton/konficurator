@@ -1,0 +1,28 @@
+{
+  "app": {
+    "name": "My Application 7",
+    "version": "1.0.0",
+    "debug": true,
+    "port": 3000
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "myapp_db",
+    "ssl": false,
+    "connectionPool": {
+      "min": 2,
+      "max": 10,
+      "timeout": 30000
+    }
+  },
+  "features": {
+    "enableLogging": true,
+    "enableMetrics": true,
+    "enableCache": true
+  },
+  "allowedOrigins": [
+    "http://localhost:3000",
+    "https://example.com"
+  ]
+}

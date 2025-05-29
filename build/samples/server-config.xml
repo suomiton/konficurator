@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<server>
+		<host>localhost</host>
+		<port>8080</port>
+		<ssl>false</ssl>
+		<timeout>30</timeout>
+	</server>
+	<logging>
+		<level>INFO</level>
+		<file>/var/log/app.log</file>
+		<maxSize>100MB</maxSize>
+		<rotateDaily>true</rotateDaily>
+	</logging>
+	<cache>
+		<enabled>true</enabled>
+		<ttl>3600</ttl>
+		<maxEntries>1000</maxEntries>
+	</cache>
+	<features>
+		<authentication>true</authentication>
+		<rateLimit>false</rateLimit>
+		<compression>true</compression>
+	</features>
+</configuration>

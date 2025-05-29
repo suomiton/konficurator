@@ -51,15 +51,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
-      - name: Build TypeScript
-        run: npm run build
+      - name: Build optimized production version
+        run: npm run build:prod
         
       - name: List built files
         run: |
-          echo "Contents of dist directory:"
-          ls -la dist/ || echo "No dist directory found"
-          echo "Root directory contents:"
-          ls -la
+          echo "Production build completed with optimization"
+          echo "Contents of build directory:"
+          ls -la build/ || echo "No build directory found"
+          echo "Optimized file sizes:"
+          find build/ -name "*.js" -exec ls -lh {} \; | head -5
+          echo "Compressed files:"
+          find build/ -name "*.gz" | wc -l | sed 's/^/Gzip files: /'
+          find build/ -name "*.br" | wc -l | sed 's/^/Brotli files: /'
+          echo "Total build size:"
+          du -sh build/ || echo "Cannot calculate build size"
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -67,7 +73,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./
+          path: ./build/
           
       - name: Deploy to GitHub Pages
         id: deployment

@@ -85,13 +85,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
-      - name: Build application
+      - name: Build application (development)
         run: npm run build
         
-      - name: Verify build output
+      - name: Build production optimized version
+        run: npm run build:prod
+        
+      - name: Verify build outputs
         run: |
-          echo "Build completed successfully"
+          echo "Development build completed"
           echo "Contents of dist directory:"
           ls -la dist/ || echo "No dist directory found"
           echo "Checking for built files:"
           find . -name "*.js" -path "./dist/*" | head -10 || echo "No JS files in dist"
+          echo ""
+          echo "Production build completed"
+          echo "Contents of build directory:"
+          ls -la build/ || echo "No build directory found"
+          echo "Checking for optimized files:"
+          find build/ -name "*.js" | head -10 || echo "No JS files in build"
+          echo "Checking for compressed files:"
+          find build/ -name "*.gz" | wc -l | sed 's/^/Gzip files: /'
+          find build/ -name "*.br" | wc -l | sed 's/^/Brotli files: /'

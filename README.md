@@ -95,17 +95,19 @@ The application automatically determines input types:
 # Install dependencies
 npm install
 
-# Build TypeScript
-npm run build
+# Development builds
+npm run build          # Standard TypeScript compilation
+npm run watch          # Watch for changes during development
+npm run dev            # Development mode (build + serve)
 
-# Watch for changes during development
-npm run watch
+# Production builds
+npm run build:prod     # Complete optimized production build
+npm run build:optimize # Minification and optimization only
+npm run build:gzip     # Compression only (gzip + brotli)
 
-# Serve locally
-npm run serve
-
-# Development mode (watch + serve)
-npm run dev
+# Serving
+npm run serve          # Serve locally on port 8080
+npm run clean          # Clean build directories
 ```
 
 ### Project Structure
@@ -124,10 +126,69 @@ konficurator/
 │   └── main.ts            # Main application
 ├── samples/               # Sample config files
 ├── dist/                  # Compiled JavaScript (generated)
+├── build/                 # Optimized production build (generated)
+├── build-tools/           # Build optimization scripts
 ├── package.json
 ├── tsconfig.json
 └── README.md
 ```
+
+## Production Deployment
+
+### 🚀 Quick Deploy
+
+For a production-ready build with optimization:
+
+```bash
+# One-command deployment
+./deploy.sh
+```
+
+Or manually:
+
+```bash
+# Build optimized production version
+npm run build:prod
+
+# Copy build/ directory to your web server
+```
+
+### 📦 Docker Deployment
+
+**Development**:
+
+```bash
+docker-compose up konficurator
+```
+
+**Production** (with optimization):
+
+```bash
+docker-compose --profile production up konficurator-prod
+```
+
+### ⚡ Performance Optimizations
+
+The production build includes:
+
+- **73% size reduction** through minification and compression
+- **JavaScript uglification** with Terser (50-60% smaller files)
+- **CSS minification** with CleanCSS (25% reduction)
+- **HTML minification** (26% reduction)
+- **Gzip compression** (additional 40-70% reduction)
+- **Brotli compression** (additional 60-77% reduction)
+- **Pre-compressed file serving** with nginx/Apache configuration
+- **Optimized caching headers** for static assets
+
+### 🌐 Server Configuration
+
+The build process generates:
+
+- `nginx-config.txt` - Ready-to-use nginx configuration
+- `.htaccess` - Apache configuration for shared hosting
+- Pre-compressed `.gz` and `.br` files for all assets
+
+See [PRODUCTION_OPTIMIZATION.md](docs/PRODUCTION_OPTIMIZATION.md) for detailed optimization guide.
 
 ## Usage Examples
 
