@@ -41,7 +41,8 @@ export class FilePersistence implements IPersistence {
 
 			// Update in-memory content
 			fileData.content = updatedData;
-			fileData.originalContent = serializedContent; // Update original content too
+			// Note: originalContent should only be updated when content is reloaded from disk,
+			// not when saving changes. The serializedContent here is for file output only.
 
 			NotificationService.showSuccess(`Successfully saved ${fileData.name}`);
 		} catch (error) {
