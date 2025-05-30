@@ -32,6 +32,19 @@ export class FormRenderer implements IRenderer {
 			return container; // Don't add form or save button for error case
 		}
 
+		// NEW: If content is not a plain object, show error
+		if (
+			!fileData.content ||
+			typeof fileData.content !== "object" ||
+			Array.isArray(fileData.content)
+		) {
+			const errorNotification = this.createErrorNotification(
+				"Failed to parse file: Not a valid configuration object."
+			);
+			container.appendChild(errorNotification);
+			return container;
+		}
+
 		// Form
 		const form = document.createElement("form");
 		form.className = "config-form";
@@ -71,6 +84,9 @@ export class FormRenderer implements IRenderer {
 		container.className = "form-fields";
 
 		for (const [key, value] of Object.entries(data)) {
+			// Hide @type, @value, and @attributes fields for XML - these are handled by XML-specific field types
+			if (key === "@type" || key === "@value" || key === "@attributes")
+				continue;
 			const fieldPath = path ? `${path}.${key}` : key;
 			const fieldType = this.determineFieldType(value);
 			const fieldElement = this.createFormField(
@@ -575,13 +591,41 @@ export class FormRenderer implements IRenderer {
 		headingLabel.className = "xml-heading-label";
 		headingLabel.textContent = this.formatLabel(key);
 
+		// Render attributes block at the top if present
+		if (value["@attributes"]) {
+			const attributesBlock = document.createElement("div");
+			attributesBlock.className = "xml-attributes-block";
+
+			const badge = document.createElement("span");
+			badge.className = "xml-attributes-badge";
+			// Remove text content - visual distinction maintained through CSS styling
+			attributesBlock.appendChild(badge);
+
+			for (const [attrKey, attrValue] of Object.entries(value["@attributes"])) {
+				const attrField = this.createAttributeField(
+					attrKey,
+					attrValue,
+					`${path}.@attributes.${attrKey}`
+				);
+				attributesBlock.appendChild(attrField);
+			}
+
+			formGroup.appendChild(attributesBlock);
+		}
+
+		formGroup.appendChild(headingLabel);
+
 		const nestedContainer = document.createElement("div");
 		nestedContainer.className = "nested-object";
 
-		// Process child elements, excluding @type
+		// Process child elements, excluding @type, @value, and @attributes
 		const childData: any = {};
 		for (const [childKey, childValue] of Object.entries(value)) {
-			if (childKey !== "@type") {
+			if (
+				childKey !== "@type" &&
+				childKey !== "@value" &&
+				childKey !== "@attributes"
+			) {
 				childData[childKey] = childValue;
 			}
 		}
@@ -589,7 +633,6 @@ export class FormRenderer implements IRenderer {
 		const nestedFields = this.generateFormFields(childData, path);
 		nestedContainer.appendChild(nestedFields);
 
-		formGroup.appendChild(headingLabel);
 		formGroup.appendChild(nestedContainer);
 
 		return formGroup;
@@ -624,11 +667,8 @@ export class FormRenderer implements IRenderer {
 			const attributesContainer = document.createElement("div");
 			attributesContainer.className = "xml-attributes-container";
 
-			const attributesLabel = document.createElement("div");
-			attributesLabel.className = "xml-attributes-label";
-			attributesLabel.textContent = "Attributes:";
-			attributesContainer.appendChild(attributesLabel);
-
+			// Remove the attributesLabel block entirely
+			// for (const [attrKey, attrValue] of Object.entries(value["@attributes"])) {
 			for (const [attrKey, attrValue] of Object.entries(value["@attributes"])) {
 				const attrField = this.createAttributeField(
 					attrKey,
@@ -657,7 +697,7 @@ export class FormRenderer implements IRenderer {
 
 		const headingLabel = document.createElement("div");
 		headingLabel.className = "xml-attributes-heading";
-		headingLabel.textContent = `${this.formatLabel(key)} (Attributes Only)`;
+		headingLabel.textContent = this.formatLabel(key);
 
 		formGroup.appendChild(headingLabel);
 
@@ -689,7 +729,7 @@ export class FormRenderer implements IRenderer {
 
 		const label = document.createElement("label");
 		label.textContent = key;
-		label.setAttribute("for", path);
+		// Do NOT set label.setAttribute("for", path) to avoid making it editable
 
 		const input = document.createElement("input");
 		input.type = this.determineInputType(value);
