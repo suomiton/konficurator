@@ -23,6 +23,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: false
+          load: true
           tags: konficurator:dev
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -33,29 +34,43 @@ jobs:
           context: .
           file: ./Dockerfile.prod
           push: false
+          load: true
           tags: konficurator:prod
           cache-from: type=gha
           cache-to: type=gha,mode=max
         
+      - name: List built images
+        run: |
+          echo "Available Docker images:"
+          docker images
+        
       - name: Test development container
         run: |
+          echo "Starting development container test..."
           docker run -d --name konficurator-dev -p 8080:8080 konficurator:dev
-          sleep 10
+          sleep 15
+          echo "Testing development container endpoint..."
           curl -f http://localhost:8080/ || exit 1
+          echo "Development container test successful!"
           docker logs konficurator-dev
           docker stop konficurator-dev
+          docker rm konficurator-dev
         
       - name: Test production container
         run: |
+          echo "Starting production container test..."
           docker run -d --name konficurator-prod -p 8081:8080 konficurator:prod
-          sleep 10
+          sleep 15
+          echo "Testing production container endpoint..."
           curl -f http://localhost:8081/ || exit 1
           echo "Testing gzip compression support..."
           curl -H "Accept-Encoding: gzip" -f http://localhost:8081/ || exit 1
           echo "Testing brotli compression support..."
           curl -H "Accept-Encoding: br" -f http://localhost:8081/ || exit 1
+          echo "Production container test successful!"
           docker logs konficurator-prod
           docker stop konficurator-prod
+          docker rm konficurator-prod
         
       - name: Check image sizes
         run: |
