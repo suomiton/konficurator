@@ -17,6 +17,7 @@ class KonficuratorApp {
 	private renderer: FormRenderer;
 	private persistence: FilePersistence;
 	private loadedFiles: FileData[] = [];
+	private activeSaveOperations: Set<string> = new Set();
 
 	constructor() {
 		this.fileHandler = new FileHandler();
@@ -273,19 +274,24 @@ class KonficuratorApp {
 	 * Handle file save operation
 	 */
 	private async handleFileSave(filename: string): Promise<void> {
+		// Prevent concurrent save operations on the same file
+		if (this.activeSaveOperations.has(filename)) {
+			console.warn(`Save operation already in progress for ${filename}`);
+			return;
+		}
+
+		this.activeSaveOperations.add(filename);
+		
 		try {
 			const fileData = this.loadedFiles.find((f) => f.name === filename);
 			if (!fileData) {
 				throw new Error(`File ${filename} not found`);
 			}
 
-			const editorElement = document.querySelector(`[data-file="${filename}"]`);
-			const formElement = editorElement?.querySelector(
-				"form"
-			) as HTMLFormElement;
-
+			// Robust form element finding with retry logic for race conditions
+			const formElement = await this.findFormElementWithRetry(filename);
 			if (!formElement) {
-				throw new Error("Form not found");
+				throw new Error("Form not found after retries");
 			}
 
 			await this.persistence.saveFile(fileData, formElement);
@@ -298,7 +304,51 @@ class KonficuratorApp {
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			NotificationService.showError(`Failed to save ${filename}: ${message}`);
+		} finally {
+			// Always remove from active operations
+			this.activeSaveOperations.delete(filename);
 		}
+	}
+
+	/**
+	 * Find form element with retry logic to handle potential race conditions
+	 */
+	private async findFormElementWithRetry(filename: string, maxRetries: number = 3): Promise<HTMLFormElement | null> {
+		for (let attempt = 1; attempt <= maxRetries; attempt++) {
+			// Find editor element
+			const editorElement = document.querySelector(`[data-file="${filename}"]`);
+			if (!editorElement) {
+				console.warn(`Attempt ${attempt}: Editor element not found for ${filename}`);
+				if (attempt === maxRetries) {
+					// Final attempt: provide debugging info
+					const allDataFileElements = document.querySelectorAll('[data-file]');
+					console.error(`Available data-file elements: ${Array.from(allDataFileElements).map(el => el.getAttribute('data-file')).join(', ')}`);
+					return null;
+				}
+				await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms before retry
+				continue;
+			}
+
+			// Find form element within editor
+			const formElement = editorElement.querySelector('form') as HTMLFormElement;
+			if (!formElement) {
+				console.warn(`Attempt ${attempt}: Form not found in editor for ${filename}`);
+				if (attempt === maxRetries) {
+					// Final attempt: provide debugging info
+					const children = Array.from(editorElement.children);
+					console.error(`Editor children: ${children.map(c => `${c.tagName}.${c.className}`).join(', ')}`);
+					return null;
+				}
+				await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms before retry
+				continue;
+			}
+
+			// Success!
+			console.log(`Form found for ${filename} on attempt ${attempt}`);
+			return formElement;
+		}
+
+		return null;
 	}
 
 	/**
