@@ -67,7 +67,11 @@ export class XmlParser extends BaseParser {
 				throw new Error("Invalid XML format");
 			}
 
-			return this.xmlToObject(xmlDoc.documentElement);
+			// Return object with root element name as key
+			const rootElement = xmlDoc.documentElement;
+			const result: ParsedData = {};
+			result[rootElement.tagName] = this.xmlToObject(rootElement);
+			return result;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			throw new Error(`Failed to parse XML: ${message}`);
@@ -76,8 +80,17 @@ export class XmlParser extends BaseParser {
 
 	serialize(data: ParsedData): string {
 		try {
-			const xmlString = this.objectToXml(data, "root");
-			return `<?xml version="1.0" encoding="UTF-8"?>\n${xmlString}`;
+			// If data has a single root property, use that as the root element
+			const keys = Object.keys(data);
+			if (keys.length === 1) {
+				const rootName = keys[0];
+				const xmlString = this.objectToXml(data[rootName], rootName);
+				return `<?xml version="1.0" encoding="UTF-8"?>\n${xmlString}`;
+			} else {
+				// Fallback to generic root if multiple top-level properties
+				const xmlString = this.objectToXml(data, "root");
+				return `<?xml version="1.0" encoding="UTF-8"?>\n${xmlString}`;
+			}
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			throw new Error(`Failed to serialize XML: ${message}`);
@@ -89,42 +102,71 @@ export class XmlParser extends BaseParser {
 	}
 
 	/**
-	 * Converts XML element to JavaScript object
+	 * Converts XML element to JavaScript object with specific structure for the editor
 	 */
 	private xmlToObject(element: Element): ParsedData {
 		const result: ParsedData = {};
+		const children = Array.from(element.children);
+		const textContent = element.textContent?.trim() || "";
+		const hasAttributes = element.attributes.length > 0;
+		const hasChildren = children.length > 0;
+		const hasTextContent = textContent !== "";
+
+		// Determine the element type based on its characteristics
+		const types: string[] = [];
+
+		if (hasAttributes) {
+			types.push("attributes");
+		}
+
+		if (hasChildren) {
+			types.push("heading");
+		}
+
+		if (hasTextContent) {
+			types.push("value");
+		}
+
+		// Set the appropriate type
+		if (types.length === 0) {
+			// Empty element
+			result["@type"] = "value";
+			result["@value"] = "";
+		} else {
+			result["@type"] = types.join("+");
+		}
 
 		// Handle attributes
-		if (element.attributes.length > 0) {
+		if (hasAttributes) {
 			result["@attributes"] = {};
 			for (let i = 0; i < element.attributes.length; i++) {
 				const attr = element.attributes[i];
-				result["@attributes"][attr.name] = attr.value;
+				result["@attributes"][attr.name] = this.parseValue(attr.value);
 			}
 		}
 
-		// Handle child elements
-		const children = Array.from(element.children);
-		if (children.length === 0) {
-			// Leaf node - return text content
-			const textContent = element.textContent?.trim() || "";
-			return this.parseValue(textContent);
+		// Handle text content
+		if (hasTextContent) {
+			result["@value"] = this.parseValue(textContent);
 		}
 
-		children.forEach((child) => {
-			const childName = child.tagName;
-			const childValue = this.xmlToObject(child);
+		// Handle children
+		if (hasChildren) {
+			children.forEach((child) => {
+				const childName = child.tagName;
+				const childValue = this.xmlToObject(child);
 
-			if (result[childName]) {
-				// Convert to array if multiple elements with same name
-				if (!Array.isArray(result[childName])) {
-					result[childName] = [result[childName]];
+				if (result[childName]) {
+					// Convert to array if multiple elements with same name
+					if (!Array.isArray(result[childName])) {
+						result[childName] = [result[childName]];
+					}
+					result[childName].push(childValue);
+				} else {
+					result[childName] = childValue;
 				}
-				result[childName].push(childValue);
-			} else {
-				result[childName] = childValue;
-			}
-		});
+			});
+		}
 
 		return result;
 	}
@@ -140,27 +182,64 @@ export class XmlParser extends BaseParser {
 		let xml = `<${rootName}`;
 		let content = "";
 
-		// Handle attributes
-		if (obj["@attributes"]) {
+		// Handle different object types based on @type
+		const objType = obj["@type"];
+
+		// Handle attributes for all types that have them
+		if (objType && objType.includes("attributes") && obj["@attributes"]) {
 			for (const [key, value] of Object.entries(obj["@attributes"])) {
 				xml += ` ${key}="${this.escapeXml(String(value))}"`;
 			}
 		}
 
-		// Handle other properties
-		for (const [key, value] of Object.entries(obj)) {
-			if (key === "@attributes") continue;
+		// Handle value content
+		if (objType && objType.includes("value") && obj["@value"] !== undefined) {
+			const textValue = obj["@value"];
+			content += this.escapeXml(String(textValue));
+		}
 
-			if (Array.isArray(value)) {
-				value.forEach((item) => {
-					content += this.objectToXml(item, key);
-				});
-			} else {
-				content += this.objectToXml(value, key);
+		// Handle child elements (heading content)
+		if (objType && objType.includes("heading")) {
+			for (const [key, value] of Object.entries(obj)) {
+				if (key === "@type" || key === "@attributes" || key === "@value")
+					continue;
+
+				if (Array.isArray(value)) {
+					value.forEach((item) => {
+						content += this.objectToXml(item, key);
+					});
+				} else {
+					content += this.objectToXml(value, key);
+				}
 			}
 		}
 
-		if (content) {
+		// Handle objects without @type (backward compatibility for simple objects)
+		if (!objType) {
+			// Handle legacy attributes
+			if (obj["@attributes"]) {
+				for (const [key, value] of Object.entries(obj["@attributes"])) {
+					xml += ` ${key}="${this.escapeXml(String(value))}"`;
+				}
+			}
+
+			// Handle other properties as child elements
+			for (const [key, value] of Object.entries(obj)) {
+				if (key === "@attributes" || key === "@type" || key === "@value")
+					continue;
+
+				if (Array.isArray(value)) {
+					value.forEach((item) => {
+						content += this.objectToXml(item, key);
+					});
+				} else {
+					content += this.objectToXml(value, key);
+				}
+			}
+		}
+
+		// Close the element
+		if (content || (objType && objType.includes("value"))) {
 			xml += `>${content}</${rootName}>`;
 		} else {
 			xml += "/>";
@@ -202,34 +281,36 @@ export class EnvParser extends BaseParser {
 
 		try {
 			const result: ParsedData = {};
-			
+
 			// Split by lines and process each line
-			const lines = content.split('\n');
-			
+			const lines = content.split("\n");
+
 			for (const line of lines) {
 				// Skip empty lines and comments
 				const trimmedLine = line.trim();
-				if (!trimmedLine || trimmedLine.startsWith('#')) {
+				if (!trimmedLine || trimmedLine.startsWith("#")) {
 					continue;
 				}
-				
+
 				// Split by first = character
-				const equalPos = trimmedLine.indexOf('=');
+				const equalPos = trimmedLine.indexOf("=");
 				if (equalPos > 0) {
 					const key = trimmedLine.substring(0, equalPos).trim();
 					let value = trimmedLine.substring(equalPos + 1).trim();
-					
+
 					// Remove quotes if present
-					if ((value.startsWith('"') && value.endsWith('"')) || 
-						(value.startsWith("'") && value.endsWith("'"))) {
+					if (
+						(value.startsWith('"') && value.endsWith('"')) ||
+						(value.startsWith("'") && value.endsWith("'"))
+					) {
 						value = value.substring(1, value.length - 1);
 					}
-					
+
 					// Try to parse boolean and number values
 					result[key] = this.parseValue(value);
 				}
 			}
-			
+
 			return result;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
@@ -239,24 +320,24 @@ export class EnvParser extends BaseParser {
 
 	serialize(data: ParsedData): string {
 		try {
-			let result = '';
-			
+			let result = "";
+
 			for (const [key, value] of Object.entries(data)) {
 				// Skip nested objects or arrays
-				if (typeof value === 'object' && value !== null) {
+				if (typeof value === "object" && value !== null) {
 					result += `# Complex object for key "${key}" represented as JSON string\n`;
 					result += `${key}="${JSON.stringify(value)}"\n`;
 				} else {
 					// Determine if quotes are needed
 					let serializedValue = String(value);
-					if (serializedValue.includes(' ') || serializedValue.includes('#')) {
+					if (serializedValue.includes(" ") || serializedValue.includes("#")) {
 						serializedValue = `"${serializedValue}"`;
 					}
-					
+
 					result += `${key}=${serializedValue}\n`;
 				}
 			}
-			
+
 			return result;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
@@ -267,7 +348,7 @@ export class EnvParser extends BaseParser {
 	getFileType(): string {
 		return "env";
 	}
-	
+
 	/**
 	 * Attempts to parse string values to appropriate types
 	 */

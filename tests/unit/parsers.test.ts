@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach } from "@jest/globals";
-import { JsonParser, XmlParser, EnvParser, ParserFactory } from "../../src/parsers";
+import {
+	JsonParser,
+	XmlParser,
+	EnvParser,
+	ParserFactory,
+} from "../../src/parsers";
 
 // Mock DOMParser for testing XML parsing
 global.DOMParser = class MockDOMParser {
@@ -340,6 +345,310 @@ describe("Parser Implementations - Real Tests", () => {
 
 				expect(parser).toBe(mockParser);
 			});
+		});
+	});
+
+	describe("XmlParser - Element Type Detection", () => {
+		let parser: XmlParser;
+
+		beforeEach(() => {
+			parser = new XmlParser();
+
+			// Mock a more sophisticated DOMParser for our XML type tests
+			global.DOMParser = class MockDOMParser {
+				parseFromString(content: string, _mimeType: string) {
+					if (content.includes("parsererror-trigger")) {
+						return {
+							querySelector: (selector: string) =>
+								selector === "parsererror" ? { tagName: "parsererror" } : null,
+							documentElement: null,
+						};
+					}
+
+					// Parse simple XML structures for our tests
+					if (
+						content.includes(
+							"<config><server><host>localhost</host><port>8080</port></server></config>"
+						)
+					) {
+						return {
+							querySelector: () => null,
+							documentElement: {
+								tagName: "config",
+								attributes: [],
+								children: [
+									{
+										tagName: "server",
+										attributes: [],
+										children: [
+											{
+												tagName: "host",
+												attributes: [],
+												children: [],
+												textContent: "localhost",
+											},
+											{
+												tagName: "port",
+												attributes: [],
+												children: [],
+												textContent: "8080",
+											},
+										],
+										textContent: "",
+									},
+								],
+								textContent: "",
+							},
+						};
+					}
+
+					if (
+						content.includes('<database connectionString="test" driver="mysql"')
+					) {
+						return {
+							querySelector: () => null,
+							documentElement: {
+								tagName: "config",
+								attributes: [],
+								children: [
+									{
+										tagName: "database",
+										attributes: [
+											{ name: "connectionString", value: "test" },
+											{ name: "driver", value: "mysql" },
+										],
+										children: [],
+										textContent: "",
+									},
+								],
+								textContent: "",
+							},
+						};
+					}
+
+					// Combination: attributes + text content
+					if (content.includes('<element attr="a">text</element>')) {
+						return {
+							querySelector: () => null,
+							documentElement: {
+								tagName: "element",
+								attributes: [{ name: "attr", value: "a" }],
+								children: [],
+								textContent: "text",
+							},
+						};
+					}
+
+					// Combination: attributes + children
+					if (
+						content.includes('<element attr="a"><child>c</child></element>')
+					) {
+						return {
+							querySelector: () => null,
+							documentElement: {
+								tagName: "element",
+								attributes: [{ name: "attr", value: "a" }],
+								children: [
+									{
+										tagName: "child",
+										attributes: [],
+										children: [],
+										textContent: "c",
+									},
+								],
+								textContent: "",
+							},
+						};
+					}
+
+					// Combination: attributes + children + text content (mixed)
+					if (
+						content.includes('<element attr="a">text<child>c</child></element>')
+					) {
+						return {
+							querySelector: () => null,
+							documentElement: {
+								tagName: "element",
+								attributes: [{ name: "attr", value: "a" }],
+								children: [
+									{
+										tagName: "child",
+										attributes: [],
+										children: [],
+										textContent: "c",
+									},
+								],
+								textContent: "text",
+							},
+						};
+					}
+
+					// Empty/self-closing element with attributes
+					if (content.includes('<empty attr="a"/>')) {
+						return {
+							querySelector: () => null,
+							documentElement: {
+								tagName: "empty",
+								attributes: [{ name: "attr", value: "a" }],
+								children: [],
+								textContent: "",
+							},
+						};
+					}
+
+					// Deeply nested
+					if (content.includes("<a><b><c><d>val</d></c></b></a>")) {
+						return {
+							querySelector: () => null,
+							documentElement: {
+								tagName: "a",
+								attributes: [],
+								children: [
+									{
+										tagName: "b",
+										attributes: [],
+										children: [
+											{
+												tagName: "c",
+												attributes: [],
+												children: [
+													{
+														tagName: "d",
+														attributes: [],
+														children: [],
+														textContent: "val",
+													},
+												],
+												textContent: "",
+											},
+										],
+										textContent: "",
+									},
+								],
+								textContent: "",
+							},
+						};
+					}
+
+					// Default mock
+					return {
+						querySelector: () => null,
+						documentElement: {
+							tagName: "root",
+							attributes: [],
+							children: [],
+							textContent: "test",
+						},
+					};
+				}
+			} as any;
+		});
+
+		it("should identify heading elements (elements with children)", () => {
+			const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<config><server><host>localhost</host><port>8080</port></server></config>`;
+
+			const result = parser.parse(xml);
+
+			expect(result.config["@type"]).toBe("heading");
+			expect(result.config.server["@type"]).toBe("heading");
+		});
+
+		it("should identify value elements (elements with text content)", () => {
+			const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<config><server><host>localhost</host><port>8080</port></server></config>`;
+
+			const result = parser.parse(xml);
+
+			expect(result.config.server.host["@type"]).toBe("value");
+			expect(result.config.server.host["@value"]).toBe("localhost");
+			expect(result.config.server.port["@type"]).toBe("value");
+			expect(result.config.server.port["@value"]).toBe(8080);
+		});
+
+		it("should identify attribute-only elements", () => {
+			const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<config><database connectionString="test" driver="mysql" /></config>`;
+
+			const result = parser.parse(xml);
+
+			expect(result.config.database["@type"]).toBe("attributes");
+			expect(result.config.database["@attributes"]).toBeDefined();
+			expect(result.config.database["@attributes"].connectionString).toBe(
+				"test"
+			);
+			expect(result.config.database["@attributes"].driver).toBe("mysql");
+		});
+
+		it("should serialize XML with correct structure types", () => {
+			const data = {
+				config: {
+					"@type": "heading",
+					server: {
+						"@type": "heading",
+						host: {
+							"@type": "value",
+							"@value": "localhost",
+						},
+					},
+					database: {
+						"@type": "attributes",
+						"@attributes": {
+							connectionString: "test",
+						},
+					},
+				},
+			};
+
+			const result = parser.serialize(data);
+
+			expect(result).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+			expect(result).toContain("<config>");
+			expect(result).toContain("<server>");
+			expect(result).toContain("<host>localhost</host>");
+			expect(result).toContain("</server>");
+			expect(result).toContain("</config>");
+			expect(result).toContain('<database connectionString="test"/>');
+		});
+
+		it("should handle element with both attributes and text content", () => {
+			const xml = '<element attr="a">text</element>';
+			const result = parser.parse(xml);
+			expect(result.element["@type"]).toBe("attributes+value");
+			expect(result.element["@attributes"].attr).toBe("a");
+			expect(result.element["@value"]).toBe("text");
+		});
+
+		it("should handle element with both attributes and children", () => {
+			const xml = '<element attr="a"><child>c</child></element>';
+			const result = parser.parse(xml);
+			expect(result.element["@type"]).toBe("attributes+heading");
+			expect(result.element["@attributes"].attr).toBe("a");
+			expect(result.element.child["@type"]).toBe("value");
+		});
+
+		it("should handle element with attributes, children, and text content (mixed)", () => {
+			const xml = '<element attr="a">text<child>c</child></element>';
+			const result = parser.parse(xml);
+			expect(result.element["@type"]).toBe("attributes+heading+value");
+			expect(result.element["@attributes"].attr).toBe("a");
+			expect(result.element.child["@type"]).toBe("value");
+			expect(result.element["@value"]).toBe("text");
+		});
+
+		it("should handle empty/self-closing element with attributes", () => {
+			const xml = '<empty attr="a"/>';
+			const result = parser.parse(xml);
+			expect(result.empty["@type"]).toBe("attributes");
+			expect(result.empty["@attributes"].attr).toBe("a");
+		});
+
+		it("should handle deeply nested elements", () => {
+			const xml = "<a><b><c><d>val</d></c></b></a>";
+			const result = parser.parse(xml);
+			expect(result.a["@type"]).toBe("heading");
+			expect(result.a.b.c.d["@type"]).toBe("value");
+			expect(result.a.b.c.d["@value"]).toBe("val");
 		});
 	});
 });
