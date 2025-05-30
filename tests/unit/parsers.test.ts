@@ -205,6 +205,12 @@ describe("Parser Implementations - Real Tests", () => {
 				expect(parser).toBeInstanceOf(XmlParser);
 				expect(parser.getFileType()).toBe("xml");
 			});
+			
+			it("should create XmlParser for config file type", () => {
+				const parser = ParserFactory.createParser("config");
+				expect(parser).toBeInstanceOf(XmlParser);
+				expect(parser.getFileType()).toBe("xml");
+			});
 
 			it("should throw error for unsupported file type", () => {
 				expect(() => ParserFactory.createParser("yaml")).toThrow(
@@ -215,9 +221,11 @@ describe("Parser Implementations - Real Tests", () => {
 			it("should handle case insensitive file types", () => {
 				const jsonParser = ParserFactory.createParser("JSON");
 				const xmlParser = ParserFactory.createParser("XML");
+				const configParser = ParserFactory.createParser("CONFIG");
 
 				expect(jsonParser).toBeInstanceOf(JsonParser);
 				expect(xmlParser).toBeInstanceOf(XmlParser);
+				expect(configParser).toBeInstanceOf(XmlParser);
 			});
 		});
 
