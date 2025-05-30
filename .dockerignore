@@ -1,11 +1,13 @@
-# Node modules
+# Node modules and caches
 node_modules
 npm-debug.log*
 
-# Build outputs
+# Build outputs (these will be generated during build)
 dist
+build
+coverage
 
-# Git
+# Git repository
 .git
 .gitignore
 
@@ -14,6 +16,13 @@ docs
 *.md
 README.md
 LICENSE
+
+# Development tools
+dev-tools
+
+# Test files
+tests
+manual-tests
 
 # IDE files
 .vscode
@@ -25,13 +34,19 @@ LICENSE
 .DS_Store
 Thumbs.db
 
-# Test files
-tests
+# Environment files
+.env*
 
-# Scripts (except those needed for build)
-scripts
-
-# Docker files
+# Docker files (not needed in container)
 Dockerfile*
 docker-compose*
 .dockerignore
+
+# Keep these essential files for builds:
+# - package*.json (for dependencies)
+# - src/ (source code)
+# - styles/ (CSS files)
+# - samples/ (sample configs)
+# - index.html (main HTML)
+# - nginx.conf (for production)
+# - build-tools/ (for production builds)

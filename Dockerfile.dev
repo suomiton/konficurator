@@ -1,10 +1,5 @@
 # Development Dockerfile for Konficurator
-# For production builds, use Dockerfile.prod instead
-
 FROM node:20-alpine
-
-# Install Python3 for development server
-RUN apk add --no-cache python3
 
 # Set working directory
 WORKDIR /app
