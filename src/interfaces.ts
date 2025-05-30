@@ -11,6 +11,7 @@ export interface FileData {
 	size?: number; // File size in bytes
 	autoRefreshed?: boolean; // Flag to indicate if file was auto-refreshed from disk
 	permissionDenied?: boolean; // Flag to indicate if permission was denied for auto-refresh
+	isActive?: boolean; // Flag to indicate if file editor should be visible (defaults to true)
 }
 
 export interface ParsedData {
@@ -44,7 +45,15 @@ export interface IPersistence {
 }
 
 // Form field types
-export type FieldType = "text" | "number" | "boolean" | "object" | "array";
+export type FieldType =
+	| "text"
+	| "number"
+	| "boolean"
+	| "object"
+	| "array"
+	| "xml-heading"
+	| "xml-value"
+	| "xml-attributes";
 
 export interface FormField {
 	type: FieldType;

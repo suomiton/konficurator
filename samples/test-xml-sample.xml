@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<server>
+		<host>localhost</host>
+		<port>8080</port>
+		<ssl>true</ssl>
+	</server>
+	<database connectionString="mysql://localhost:3306/mydb" driver="mysql" />
+	<features>
+		<auth>enabled</auth>
+		<logging>debug</logging>
+		<cache>redis</cache>
+	</features>
+</configuration>

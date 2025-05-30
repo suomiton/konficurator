@@ -144,11 +144,24 @@ main {
 	font-size: 0.875rem;
 	font-weight: 500;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-	transition: transform 0.2s ease;
+	transition: all 0.2s ease;
+	cursor: pointer;
+	user-select: none;
 }
 
 .file-tag:hover {
 	transform: translateY(-1px);
+}
+
+.file-tag.inactive {
+	background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+	color: #adb5bd;
+	opacity: 0.7;
+}
+
+.file-tag.inactive:hover {
+	background: linear-gradient(135deg, #5a6268 0%, #3d4142 100%);
+	color: #ced4da;
 }
 
 /* Editor container */
@@ -681,5 +694,169 @@ footer {
 	.save-file-indicator {
 		font-size: 0.75rem;
 		margin-right: 0.5rem;
+	}
+}
+
+/* XML-specific field styles */
+.xml-heading {
+	background: #f8f9fa;
+	border: 1px solid #dee2e6;
+	border-radius: 8px;
+	padding: 1rem;
+	margin-bottom: 1rem;
+}
+
+.xml-heading-label {
+	font-weight: 600;
+	color: #495057;
+	font-size: 1.1rem;
+	margin-bottom: 0.75rem;
+	padding-bottom: 0.5rem;
+	border-bottom: 2px solid #e9ecef;
+	display: flex;
+	align-items: center;
+}
+
+.xml-heading-label::before {
+	content: "📁";
+	margin-right: 0.5rem;
+	font-size: 1rem;
+}
+
+.xml-value {
+	background: #fff;
+	border: 1px solid #e9ecef;
+	border-radius: 6px;
+	padding: 0.75rem;
+	margin-bottom: 0.5rem;
+}
+
+.xml-value label {
+	color: #28a745;
+	font-weight: 500;
+	margin-bottom: 0.5rem;
+}
+
+.xml-value input {
+	border: 1px solid #ced4da;
+	border-radius: 4px;
+	padding: 0.5rem;
+	width: 100%;
+	font-family: 'Courier New', monospace;
+}
+
+.xml-value input:focus {
+	border-color: #28a745;
+	box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.1);
+}
+
+.xml-attributes {
+	background: #fff3cd;
+	border: 1px solid #ffeaa7;
+	border-radius: 6px;
+	padding: 0.75rem;
+	margin-bottom: 0.5rem;
+}
+
+.xml-attributes-heading {
+	font-weight: 600;
+	color: #856404;
+	font-size: 1rem;
+	margin-bottom: 0.75rem;
+	display: flex;
+	align-items: center;
+}
+
+.xml-attributes-heading::before {
+	content: "🏷️";
+	margin-right: 0.5rem;
+	font-size: 0.9rem;
+}
+
+.xml-attributes-container {
+	background: #f8f9fa;
+	border: 1px solid #e9ecef;
+	border-radius: 4px;
+	padding: 0.75rem;
+	margin-top: 0.75rem;
+}
+
+.xml-attributes-label {
+	font-weight: 500;
+	color: #6c757d;
+	font-size: 0.9rem;
+	margin-bottom: 0.5rem;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.attribute-field {
+	background: white;
+	border: 1px solid #e9ecef;
+	border-radius: 4px;
+	padding: 0.5rem;
+	margin-bottom: 0.5rem;
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.attribute-field:last-child {
+	margin-bottom: 0;
+}
+
+.attribute-field label {
+	font-weight: 500;
+	color: #495057;
+	min-width: 80px;
+	margin: 0;
+	font-size: 0.9rem;
+}
+
+.attribute-field input {
+	flex: 1;
+	border: 1px solid #ced4da;
+	border-radius: 4px;
+	padding: 0.375rem 0.5rem;
+	font-size: 0.9rem;
+	font-family: 'Courier New', monospace;
+}
+
+.attribute-field input:focus {
+	border-color: #ffc107;
+	box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.1);
+}
+
+.attribute-field input[type="checkbox"] {
+	width: auto;
+	flex: none;
+}
+
+/* XML field hover effects */
+.xml-heading:hover {
+	border-color: #667eea;
+	box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.xml-value:hover {
+	border-color: #28a745;
+	box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1);
+}
+
+.xml-attributes:hover {
+	border-color: #ffc107;
+	box-shadow: 0 2px 8px rgba(255, 193, 7, 0.1);
+}
+
+/* Responsive adjustments for XML fields */
+@media (max-width: 768px) {
+	.attribute-field {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.5rem;
+	}
+
+	.attribute-field label {
+		min-width: auto;
 	}
 }

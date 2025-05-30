@@ -130,9 +130,12 @@ class KonficuratorApp {
 				NotificationService.hideLoading();
 				return;
 			}
-
 			// Process new files and add to existing ones
 			for (const fileData of newFiles) {
+				// Ensure new files are active by default
+				if (fileData.isActive === undefined) {
+					fileData.isActive = true;
+				}
 				await this.processFile(fileData);
 			}
 
@@ -187,6 +190,12 @@ class KonficuratorApp {
 		files.forEach((file) => {
 			const fileTag = document.createElement("span");
 			fileTag.className = "file-tag";
+			fileTag.setAttribute("data-file", file.name);
+
+			// Add inactive class if file is inactive
+			if (file.isActive === false) {
+				fileTag.classList.add("inactive");
+			}
 
 			// Add visual indicator for file source
 			const indicator = file.handle ? "🖥️" : "💾";
@@ -195,9 +204,18 @@ class KonficuratorApp {
 			} (${file.type.toUpperCase()})`;
 
 			// Add tooltip
-			fileTag.title = file.handle
+			const baseTooltip = file.handle
 				? "File loaded from disk - can be refreshed"
 				: "File restored from storage - use reload button to get latest version";
+
+			fileTag.title = `${baseTooltip}. Click to ${
+				file.isActive === false ? "show" : "hide"
+			} editor.`;
+
+			// Add click event to toggle file visibility
+			fileTag.addEventListener("click", () => {
+				this.toggleFileVisibility(file.name);
+			});
 
 			fileList.appendChild(fileTag);
 		});
@@ -205,6 +223,32 @@ class KonficuratorApp {
 		fileInfo.innerHTML = "";
 		fileInfo.appendChild(fileList);
 		fileInfo.classList.add("visible");
+	}
+
+	/**
+	 * Toggle file editor visibility
+	 */
+	private toggleFileVisibility(filename: string): void {
+		const fileData = this.loadedFiles.find((f) => f.name === filename);
+		if (!fileData) return;
+
+		// Toggle the isActive state (default to true if undefined)
+		fileData.isActive = fileData.isActive === false ? true : false;
+
+		// Update UI to reflect the change
+		this.updateFileInfo(this.loadedFiles);
+		this.renderFileEditors();
+
+		// Update storage to persist the state
+		this.saveToStorage().catch((error) => {
+			console.warn("Failed to save file visibility state:", error);
+		});
+
+		// Show notification
+		const action = fileData.isActive ? "shown" : "hidden";
+		NotificationService.showInfo(
+			`📄 Editor for "${filename}" is now ${action}.`
+		);
 	}
 
 	/**
@@ -216,10 +260,13 @@ class KonficuratorApp {
 
 		container.innerHTML = "";
 
-		this.loadedFiles.forEach((fileData) => {
-			const editorElement = this.renderer.renderFileEditor(fileData);
-			container.appendChild(editorElement);
-		});
+		// Only render editors for active files (isActive is true or undefined)
+		this.loadedFiles
+			.filter((fileData) => fileData.isActive !== false)
+			.forEach((fileData) => {
+				const editorElement = this.renderer.renderFileEditor(fileData);
+				container.appendChild(editorElement);
+			});
 	}
 
 	/**
@@ -402,6 +449,11 @@ class KonficuratorApp {
 
 				// Process refreshed files and update UI
 				for (const fileData of refreshedFiles) {
+					// Ensure restored files are active by default if not explicitly set
+					if (fileData.isActive === undefined) {
+						fileData.isActive = true;
+					}
+
 					if (fileData.autoRefreshed) {
 						autoRefreshedCount++;
 					}
@@ -482,6 +534,10 @@ class KonficuratorApp {
 
 				// Process stored files
 				for (const fileData of storedFiles) {
+					// Ensure restored files are active by default if not explicitly set
+					if (fileData.isActive === undefined) {
+						fileData.isActive = true;
+					}
 					await this.processFile(fileData);
 				}
 

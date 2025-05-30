@@ -205,6 +205,12 @@ export class FormRenderer implements IRenderer {
 		formGroup.className = "form-group";
 
 		switch (type) {
+			case "xml-heading":
+				return this.createXmlHeadingField(key, value, path);
+			case "xml-value":
+				return this.createXmlValueField(key, value, path);
+			case "xml-attributes":
+				return this.createXmlAttributesField(key, value, path);
 			case "object":
 				return this.createObjectField(key, value, path);
 			case "array":
@@ -406,6 +412,18 @@ export class FormRenderer implements IRenderer {
 			return "text";
 		}
 
+		// Handle XML-specific types
+		if (typeof value === "object" && value["@type"]) {
+			switch (value["@type"]) {
+				case "heading":
+					return "xml-heading";
+				case "value":
+					return "xml-value";
+				case "attributes":
+					return "xml-attributes";
+			}
+		}
+
 		if (Array.isArray(value)) {
 			return "array";
 		}
@@ -540,5 +558,167 @@ export class FormRenderer implements IRenderer {
 		});
 
 		console.log(`Removed sticky behavior for ${fileName}`);
+	}
+
+	/**
+	 * Creates XML heading field (container with child elements)
+	 */
+	private createXmlHeadingField(
+		key: string,
+		value: any,
+		path: string
+	): HTMLElement {
+		const formGroup = document.createElement("div");
+		formGroup.className = "form-group xml-heading";
+
+		const headingLabel = document.createElement("div");
+		headingLabel.className = "xml-heading-label";
+		headingLabel.textContent = this.formatLabel(key);
+
+		const nestedContainer = document.createElement("div");
+		nestedContainer.className = "nested-object";
+
+		// Process child elements, excluding @type
+		const childData: any = {};
+		for (const [childKey, childValue] of Object.entries(value)) {
+			if (childKey !== "@type") {
+				childData[childKey] = childValue;
+			}
+		}
+
+		const nestedFields = this.generateFormFields(childData, path);
+		nestedContainer.appendChild(nestedFields);
+
+		formGroup.appendChild(headingLabel);
+		formGroup.appendChild(nestedContainer);
+
+		return formGroup;
+	}
+
+	/**
+	 * Creates XML value field (editable input for text content)
+	 */
+	private createXmlValueField(
+		key: string,
+		value: any,
+		path: string
+	): HTMLElement {
+		const formGroup = document.createElement("div");
+		formGroup.className = "form-group xml-value";
+
+		const label = document.createElement("label");
+		label.textContent = this.formatLabel(key);
+		label.setAttribute("for", `${path}.@value`);
+
+		const input = document.createElement("input");
+		input.type = "text";
+		input.id = `${path}.@value`;
+		input.name = `${path}.@value`;
+		input.value = String(value["@value"] || "");
+
+		formGroup.appendChild(label);
+		formGroup.appendChild(input);
+
+		// Add attributes fields if they exist
+		if (value["@attributes"]) {
+			const attributesContainer = document.createElement("div");
+			attributesContainer.className = "xml-attributes-container";
+
+			const attributesLabel = document.createElement("div");
+			attributesLabel.className = "xml-attributes-label";
+			attributesLabel.textContent = "Attributes:";
+			attributesContainer.appendChild(attributesLabel);
+
+			for (const [attrKey, attrValue] of Object.entries(value["@attributes"])) {
+				const attrField = this.createAttributeField(
+					attrKey,
+					attrValue,
+					`${path}.@attributes.${attrKey}`
+				);
+				attributesContainer.appendChild(attrField);
+			}
+
+			formGroup.appendChild(attributesContainer);
+		}
+
+		return formGroup;
+	}
+
+	/**
+	 * Creates XML attributes field (multiple attribute inputs)
+	 */
+	private createXmlAttributesField(
+		key: string,
+		value: any,
+		path: string
+	): HTMLElement {
+		const formGroup = document.createElement("div");
+		formGroup.className = "form-group xml-attributes";
+
+		const headingLabel = document.createElement("div");
+		headingLabel.className = "xml-attributes-heading";
+		headingLabel.textContent = `${this.formatLabel(key)} (Attributes Only)`;
+
+		formGroup.appendChild(headingLabel);
+
+		// Create input fields for each attribute
+		if (value["@attributes"]) {
+			for (const [attrKey, attrValue] of Object.entries(value["@attributes"])) {
+				const attrField = this.createAttributeField(
+					attrKey,
+					attrValue,
+					`${path}.@attributes.${attrKey}`
+				);
+				formGroup.appendChild(attrField);
+			}
+		}
+
+		return formGroup;
+	}
+
+	/**
+	 * Creates individual attribute field
+	 */
+	private createAttributeField(
+		key: string,
+		value: any,
+		path: string
+	): HTMLElement {
+		const attrGroup = document.createElement("div");
+		attrGroup.className = "form-group attribute-field";
+
+		const label = document.createElement("label");
+		label.textContent = key;
+		label.setAttribute("for", path);
+
+		const input = document.createElement("input");
+		input.type = this.determineInputType(value);
+		input.id = path;
+		input.name = path;
+
+		if (typeof value === "boolean") {
+			input.type = "checkbox";
+			input.checked = Boolean(value);
+		} else {
+			input.value = String(value || "");
+		}
+
+		attrGroup.appendChild(label);
+		attrGroup.appendChild(input);
+
+		return attrGroup;
+	}
+
+	/**
+	 * Determines HTML input type for attribute values
+	 */
+	private determineInputType(value: any): string {
+		if (typeof value === "boolean") {
+			return "checkbox";
+		}
+		if (typeof value === "number") {
+			return "number";
+		}
+		return "text";
 	}
 }
