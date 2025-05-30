@@ -26,6 +26,7 @@ export interface StoredFile {
 	handle?: FileSystemFileHandle | undefined;
 	/** original location hint – purely informational */
 	path?: string | undefined;
+	isActive?: boolean | undefined; // Allow undefined for backward compatibility
 }
 
 export class StorageService {
@@ -82,6 +83,7 @@ export class StorageService {
 				size: f.size ?? f.originalContent.length,
 				handle: f.handle ?? undefined,
 				path: f.path ?? undefined,
+				isActive: f.isActive, // Save toggle state
 			};
 			store.put(record);
 		}
@@ -114,6 +116,7 @@ export class StorageService {
 				lastModified: r.lastModified,
 				size: r.size,
 				handle: null,
+				isActive: r.isActive !== undefined ? r.isActive : true, // Restore toggle state, default true
 			};
 			if (r.path) fd.path = r.path;
 
