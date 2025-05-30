@@ -31,7 +31,7 @@ Object.values(buildStructure).forEach(dir => {
 
 console.log('🔨 Starting optimization process...');
 
-// Minify JavaScript files
+// Minify JavaScript files recursively
 async function minifyJS() {
     console.log('📦 Minifying JavaScript files...');
     
@@ -40,46 +40,61 @@ async function minifyJS() {
         process.exit(1);
     }
 
-    const jsFiles = fs.readdirSync(distDir).filter(file => file.endsWith('.js'));
-    
-    for (const file of jsFiles) {
-        const inputPath = path.join(distDir, file);
-        const outputPath = path.join(buildStructure.dist, file);
+    // Recursive function to process directories
+    async function processDirectory(sourceDir, targetDir) {
+        const items = fs.readdirSync(sourceDir);
         
-        try {
-            const code = fs.readFileSync(inputPath, 'utf8');
-            const result = await terserMinify(code, {
-                compress: {
-                    drop_console: true,
-                    drop_debugger: true,
-                    pure_funcs: ['console.log', 'console.info', 'console.debug'],
-                    passes: 2
-                },
-                mangle: {
-                    toplevel: true,
-                    properties: false
-                },
-                format: {
-                    comments: false
-                },
-                sourceMap: false
-            });
+        for (const item of items) {
+            const sourcePath = path.join(sourceDir, item);
+            const targetPath = path.join(targetDir, item);
+            const stat = fs.statSync(sourcePath);
             
-            if (result.error) {
-                throw result.error;
+            if (stat.isDirectory()) {
+                // Create directory in target and process recursively
+                if (!fs.existsSync(targetPath)) {
+                    fs.mkdirSync(targetPath, { recursive: true });
+                }
+                await processDirectory(sourcePath, targetPath);
+            } else if (item.endsWith('.js')) {
+                // Process JavaScript file
+                try {
+                    const code = fs.readFileSync(sourcePath, 'utf8');
+                    const result = await terserMinify(code, {
+                        compress: {
+                            drop_console: true,
+                            drop_debugger: true,
+                            pure_funcs: ['console.log', 'console.info', 'console.debug'],
+                            passes: 2
+                        },
+                        mangle: {
+                            toplevel: true,
+                            properties: false
+                        },
+                        format: {
+                            comments: false
+                        },
+                        sourceMap: false
+                    });
+                    
+                    if (result.error) {
+                        throw result.error;
+                    }
+                    
+                    fs.writeFileSync(targetPath, result.code);
+                    
+                    const originalSize = fs.statSync(sourcePath).size;
+                    const minifiedSize = fs.statSync(targetPath).size;
+                    const savings = Math.round((1 - minifiedSize / originalSize) * 100);
+                    
+                    console.log(`   ✅ ${path.relative(distDir, sourcePath)}: ${originalSize} → ${minifiedSize} bytes (${savings}% smaller)`);
+                } catch (error) {
+                    console.error(`   ❌ Error minifying ${path.relative(distDir, sourcePath)}:`, error.message);
+                }
             }
-            
-            fs.writeFileSync(outputPath, result.code);
-            
-            const originalSize = fs.statSync(inputPath).size;
-            const minifiedSize = fs.statSync(outputPath).size;
-            const savings = Math.round((1 - minifiedSize / originalSize) * 100);
-            
-            console.log(`   ✅ ${file}: ${originalSize} → ${minifiedSize} bytes (${savings}% smaller)`);
-        } catch (error) {
-            console.error(`   ❌ Error minifying ${file}:`, error.message);
         }
     }
+    
+    await processDirectory(distDir, buildStructure.dist);
 }
 
 // Minify CSS files
