@@ -27,7 +27,7 @@ export class FileHandler implements IFileHandler {
 							"application/json": [".json", ".config"],
 							"application/xml": [".xml"],
 							"text/xml": [".xml"],
-							"text/plain": [".config"],
+							"text/plain": [".config", ".env"],
 						},
 					},
 				],
@@ -141,10 +141,11 @@ export class FileHandler implements IFileHandler {
 	/**
 	 * Determines file type based on extension
 	 */
-	private determineFileType(filename: string): "json" | "xml" | "config" {
+	private determineFileType(filename: string): "json" | "xml" | "config" | "env" {
 		const extension = filename.toLowerCase().split(".").pop();
 		if (extension === "xml") return "xml";
 		if (extension === "config") return "config";
+		if (extension === "env") return "env";
 		return "json";
 	}
 }

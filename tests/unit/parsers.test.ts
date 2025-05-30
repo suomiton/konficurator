@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "@jest/globals";
-import { JsonParser, XmlParser, ParserFactory } from "../../src/parsers";
+import { JsonParser, XmlParser, EnvParser, ParserFactory } from "../../src/parsers";
 
 // Mock DOMParser for testing XML parsing
 global.DOMParser = class MockDOMParser {
@@ -192,6 +192,95 @@ describe("Parser Implementations - Real Tests", () => {
 		});
 	});
 
+	describe("EnvParser", () => {
+		let parser: EnvParser;
+
+		beforeEach(() => {
+			parser = new EnvParser();
+		});
+
+		describe("parse", () => {
+			it("should parse simple ENV content", () => {
+				const envContent = `
+					# This is a comment
+					KEY1=value1
+					KEY2=true
+					KEY3=123
+					KEY4="value with spaces"
+					KEY5='single quotes'
+				`;
+
+				const result = parser.parse(envContent);
+				expect(result).toEqual({
+					KEY1: "value1",
+					KEY2: true,
+					KEY3: 123,
+					KEY4: "value with spaces",
+					KEY5: "single quotes",
+				});
+			});
+
+			it("should handle empty lines and comments", () => {
+				const envContent = `
+					# This is a comment
+					
+					KEY1=value1
+					# Another comment
+					KEY2=value2
+				`;
+
+				const result = parser.parse(envContent);
+				expect(result).toEqual({
+					KEY1: "value1",
+					KEY2: "value2",
+				});
+			});
+
+			it("should throw error for empty content", () => {
+				expect(() => parser.parse("")).toThrow("Content cannot be empty");
+				expect(() => parser.parse("   ")).toThrow("Content cannot be empty");
+			});
+		});
+
+		describe("serialize", () => {
+			it("should serialize object to ENV format", () => {
+				const data = {
+					KEY1: "value1",
+					KEY2: true,
+					KEY3: 123,
+					KEY4: "value with spaces",
+				};
+				const result = parser.serialize(data);
+
+				expect(result).toContain("KEY1=value1");
+				expect(result).toContain("KEY2=true");
+				expect(result).toContain("KEY3=123");
+				expect(result).toContain('KEY4="value with spaces"');
+			});
+
+			it("should handle complex objects in ENV serialization", () => {
+				const data = {
+					KEY1: "value1",
+					COMPLEX: {
+						nested: "value",
+						number: 42,
+					},
+				};
+				const result = parser.serialize(data);
+
+				expect(result).toContain("KEY1=value1");
+				expect(result).toContain('# Complex object for key "COMPLEX"');
+				expect(result).toContain('COMPLEX="{');
+			});
+		});
+
+		describe("getFileType", () => {
+			it("should return correct file type", () => {
+				expect(parser.getFileType()).toBe("env");
+			});
+		});
+	});
+
 	describe("ParserFactory", () => {
 		describe("createParser", () => {
 			it("should create JsonParser for json file type", () => {
@@ -205,11 +294,17 @@ describe("Parser Implementations - Real Tests", () => {
 				expect(parser).toBeInstanceOf(XmlParser);
 				expect(parser.getFileType()).toBe("xml");
 			});
-			
+
 			it("should create XmlParser for config file type", () => {
 				const parser = ParserFactory.createParser("config");
 				expect(parser).toBeInstanceOf(XmlParser);
 				expect(parser.getFileType()).toBe("xml");
+			});
+
+			it("should create EnvParser for env file type", () => {
+				const parser = ParserFactory.createParser("env");
+				expect(parser).toBeInstanceOf(EnvParser);
+				expect(parser.getFileType()).toBe("env");
 			});
 
 			it("should throw error for unsupported file type", () => {
@@ -222,10 +317,12 @@ describe("Parser Implementations - Real Tests", () => {
 				const jsonParser = ParserFactory.createParser("JSON");
 				const xmlParser = ParserFactory.createParser("XML");
 				const configParser = ParserFactory.createParser("CONFIG");
+				const envParser = ParserFactory.createParser("ENV");
 
 				expect(jsonParser).toBeInstanceOf(JsonParser);
 				expect(xmlParser).toBeInstanceOf(XmlParser);
 				expect(configParser).toBeInstanceOf(XmlParser);
+				expect(envParser).toBeInstanceOf(EnvParser);
 			});
 		});
 

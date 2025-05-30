@@ -30,7 +30,8 @@ A lightweight, browser-only configuration file manager for JSON and XML files. B
 
 ## ✨ Features
 
-- **📁 Multi-file Support**: Select and edit multiple JSON/XML files simultaneously
+- **📁 Multi-file Support**: Select and edit multiple configuration files simultaneously
+- **🧩 Multiple File Formats**: Support for JSON, XML, .config, and .env files
 - **🔄 Smart Form Generation**: Automatically generates appropriate form inputs based on data types  
 - **📍 Enhanced File Display**: Shows actual file paths and storage indicators
 - **📌 Sticky Save Buttons**: Always-accessible save functionality that appears when scrolling
@@ -87,7 +88,7 @@ The application follows SOLID principles with clear separation of concerns:
 ### Core Modules
 
 - **FileHandler** (`src/fileHandler.ts`): Advanced file operations with File System Access API and permission management
-- **Parsers** (`src/parsers.ts`): JSON and XML parsing with extensible parser factory
+- **Parsers** (`src/parsers.ts`): JSON, XML, and ENV file parsing with extensible parser factory
 - **Renderer** (`src/renderer.ts`): Dynamic form generation with sticky save buttons and enhanced UI
 - **Persistence** (`src/persistence.ts`): Intelligent file saving with conflict detection and resolution
 - **Storage** (`src/handleStorage.ts`): Enhanced persistent storage with metadata and restoration capabilities

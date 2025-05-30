@@ -3,7 +3,7 @@
 export interface FileData {
 	name: string;
 	handle: FileSystemFileHandle | null; // Allow null for restored files
-	type: "json" | "xml" | "config";
+	type: "json" | "xml" | "config" | "env";
 	content: any; // Parsed content
 	originalContent: string; // Raw string content for storage/saving
 	path?: string; // File path information when available

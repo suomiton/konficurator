@@ -193,6 +193,93 @@ export class XmlParser extends BaseParser {
 }
 
 /**
+ * ENV Parser implementation for environment variables files (.env)
+ * Follows Single Responsibility Principle
+ */
+export class EnvParser extends BaseParser {
+	parse(content: string): ParsedData {
+		this.validateContent(content);
+
+		try {
+			const result: ParsedData = {};
+			
+			// Split by lines and process each line
+			const lines = content.split('\n');
+			
+			for (const line of lines) {
+				// Skip empty lines and comments
+				const trimmedLine = line.trim();
+				if (!trimmedLine || trimmedLine.startsWith('#')) {
+					continue;
+				}
+				
+				// Split by first = character
+				const equalPos = trimmedLine.indexOf('=');
+				if (equalPos > 0) {
+					const key = trimmedLine.substring(0, equalPos).trim();
+					let value = trimmedLine.substring(equalPos + 1).trim();
+					
+					// Remove quotes if present
+					if ((value.startsWith('"') && value.endsWith('"')) || 
+						(value.startsWith("'") && value.endsWith("'"))) {
+						value = value.substring(1, value.length - 1);
+					}
+					
+					// Try to parse boolean and number values
+					result[key] = this.parseValue(value);
+				}
+			}
+			
+			return result;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			throw new Error(`Failed to parse ENV file: ${message}`);
+		}
+	}
+
+	serialize(data: ParsedData): string {
+		try {
+			let result = '';
+			
+			for (const [key, value] of Object.entries(data)) {
+				// Skip nested objects or arrays
+				if (typeof value === 'object' && value !== null) {
+					result += `# Complex object for key "${key}" represented as JSON string\n`;
+					result += `${key}="${JSON.stringify(value)}"\n`;
+				} else {
+					// Determine if quotes are needed
+					let serializedValue = String(value);
+					if (serializedValue.includes(' ') || serializedValue.includes('#')) {
+						serializedValue = `"${serializedValue}"`;
+					}
+					
+					result += `${key}=${serializedValue}\n`;
+				}
+			}
+			
+			return result;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			throw new Error(`Failed to serialize ENV file: ${message}`);
+		}
+	}
+
+	getFileType(): string {
+		return "env";
+	}
+	
+	/**
+	 * Attempts to parse string values to appropriate types
+	 */
+	private parseValue(value: string): any {
+		if (value === "true") return true;
+		if (value === "false") return false;
+		if (!isNaN(Number(value)) && value !== "") return Number(value);
+		return value;
+	}
+}
+
+/**
  * Parser Factory following Factory Pattern
  * Follows Open/Closed Principle - easy to add new parsers
  */
@@ -201,6 +288,7 @@ export class ParserFactory {
 		["json", () => new JsonParser()],
 		["xml", () => new XmlParser()],
 		["config", () => new XmlParser()], // Treat config files as XML instead of JSON
+		["env", () => new EnvParser()], // Parser for .env files
 	]);
 
 	static createParser(fileType: string): IParser {
