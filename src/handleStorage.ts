@@ -18,7 +18,7 @@ import { FileData } from "./interfaces.js";
 
 export interface StoredFile {
 	name: string;
-	type: "json" | "xml" | "config";
+	type: "json" | "xml" | "config" | "env";
 	lastModified: number;
 	content: string;
 	size: number;

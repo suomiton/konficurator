@@ -171,7 +171,7 @@ export class FilePersistence implements IPersistence {
 	private async saveAsNewFile(
 		originalName: string,
 		content: string,
-		fileType: "json" | "xml" | "config"
+		fileType: "json" | "xml" | "config" | "env"
 	): Promise<void> {
 		try {
 			// Use showSaveFilePicker to let user choose save location
@@ -185,6 +185,8 @@ export class FilePersistence implements IPersistence {
 								? { "application/xml": [".xml"] }
 								: fileType === "config"
 								? { "text/plain": [".config"] }
+								: fileType === "env"
+								? { "text/plain": [".env"] }
 								: { "application/json": [".json"] },
 					},
 				],
