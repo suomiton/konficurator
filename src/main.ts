@@ -281,7 +281,7 @@ class KonficuratorApp {
 		}
 
 		this.activeSaveOperations.add(filename);
-		
+
 		try {
 			const fileData = this.loadedFiles.find((f) => f.name === filename);
 			if (!fileData) {
@@ -313,33 +313,50 @@ class KonficuratorApp {
 	/**
 	 * Find form element with retry logic to handle potential race conditions
 	 */
-	private async findFormElementWithRetry(filename: string, maxRetries: number = 3): Promise<HTMLFormElement | null> {
+	private async findFormElementWithRetry(
+		filename: string,
+		maxRetries: number = 3
+	): Promise<HTMLFormElement | null> {
 		for (let attempt = 1; attempt <= maxRetries; attempt++) {
-			// Find editor element
-			const editorElement = document.querySelector(`[data-file="${filename}"]`);
+			// Find the main file editor container (not buttons or other elements with data-file)
+			const editorElement = document.querySelector(`div.file-editor[data-file="${filename}"]`);
 			if (!editorElement) {
-				console.warn(`Attempt ${attempt}: Editor element not found for ${filename}`);
+				console.warn(
+					`Attempt ${attempt}: File editor container not found for ${filename}`
+				);
 				if (attempt === maxRetries) {
 					// Final attempt: provide debugging info
-					const allDataFileElements = document.querySelectorAll('[data-file]');
-					console.error(`Available data-file elements: ${Array.from(allDataFileElements).map(el => el.getAttribute('data-file')).join(', ')}`);
+					const allEditorElements = document.querySelectorAll("div.file-editor[data-file]");
+					console.error(
+						`Available file editor elements: ${Array.from(allEditorElements)
+							.map((el) => el.getAttribute("data-file"))
+							.join(", ")}`
+					);
 					return null;
 				}
-				await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms before retry
+				await new Promise((resolve) => setTimeout(resolve, 100)); // Wait 100ms before retry
 				continue;
 			}
 
-			// Find form element within editor
-			const formElement = editorElement.querySelector('form') as HTMLFormElement;
+			// Find form element within the file editor container
+			const formElement = editorElement.querySelector(
+				"form"
+			) as HTMLFormElement;
 			if (!formElement) {
-				console.warn(`Attempt ${attempt}: Form not found in editor for ${filename}`);
+				console.warn(
+					`Attempt ${attempt}: Form not found in file editor container for ${filename}`
+				);
 				if (attempt === maxRetries) {
 					// Final attempt: provide debugging info
 					const children = Array.from(editorElement.children);
-					console.error(`Editor children: ${children.map(c => `${c.tagName}.${c.className}`).join(', ')}`);
+					console.error(
+						`File editor container children: ${children
+							.map((c) => `${c.tagName}.${c.className}`)
+							.join(", ")}`
+					);
 					return null;
 				}
-				await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms before retry
+				await new Promise((resolve) => setTimeout(resolve, 100)); // Wait 100ms before retry
 				continue;
 			}
 
