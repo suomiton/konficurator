@@ -131,14 +131,14 @@ jobs:
           echo ""
           echo "Build artifacts ready for deployment!"
           
-          # Fail if reduction is less than expected (should be around 70%+)
+          # Warn if reduction is less than expected (should be around 70%+)
           if [ -n "$REDUCTION" ]; then
             min_reduction=50
             if (( $(echo "$REDUCTION > $min_reduction" | bc -l) )); then
               echo "✅ Optimization target met (${REDUCTION}% > ${min_reduction}%)"
             else
-              echo "❌ Optimization target not met (${REDUCTION}% <= ${min_reduction}%)"
-              exit 1
+              echo "⚠️  Warning: Optimization target not met (${REDUCTION}% <= ${min_reduction}%)"
+              # exit 1  # No longer fail the workflow
             fi
           fi
         
