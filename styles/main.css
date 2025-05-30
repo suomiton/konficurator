@@ -33,7 +33,6 @@ header p {
 
 /* Main content */
 main {
-	max-width: 1200px;
 	margin: 0 auto;
 	padding: 0 1rem;
 	background: white;
@@ -157,7 +156,7 @@ main {
 	padding: 2rem;
 	display: grid;
 	gap: 2rem;
-	grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(1024px, 1fr));
 }
 
 /* File editor */
