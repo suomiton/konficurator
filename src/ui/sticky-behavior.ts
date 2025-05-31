@@ -99,17 +99,7 @@ function activateStickyMode(state: StickyState): void {
 	const { element, options } = state;
 
 	element.classList.add(options.activeClassName);
-	element.style.position = "fixed";
-	element.style.bottom = `${options.offset}px`;
-	element.style.right = `${options.offset}px`;
-	element.style.zIndex = "1000";
-	element.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
-
-	// Show file indicator when sticky
-	const fileIndicator = element.querySelector(".save-file-indicator");
-	if (fileIndicator) {
-		(fileIndicator as HTMLElement).style.display = "inline";
-	}
+	element.classList.add("sticky-save-container");
 }
 
 /**
@@ -119,17 +109,7 @@ function deactivateStickyMode(state: StickyState): void {
 	const { element, options } = state;
 
 	element.classList.remove(options.activeClassName);
-	element.style.position = "";
-	element.style.bottom = "";
-	element.style.right = "";
-	element.style.zIndex = "";
-	element.style.boxShadow = "";
-
-	// Hide file indicator when not sticky
-	const fileIndicator = element.querySelector(".save-file-indicator");
-	if (fileIndicator) {
-		(fileIndicator as HTMLElement).style.display = "none";
-	}
+	element.classList.remove("sticky-save-container");
 }
 
 /**

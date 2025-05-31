@@ -18,5 +18,8 @@ module.exports = {
 	coverageReporters: ['text', 'lcov', 'html'],
 	setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
 	moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-	testTimeout: 10000
+	testTimeout: 10000,
+	moduleNameMapper: {
+		'^(\\.{1,2}/.*)\\.js$': '$1'
+	}
 };

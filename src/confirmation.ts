@@ -2,6 +2,9 @@
  * Confirmation Dialog Utility
  * Provides consistent confirmation dialogs throughout the application
  */
+
+import { createElement, createButton } from "./ui/dom-factory.js";
+
 export class ConfirmationDialog {
 	/**
 	 * Show a confirmation dialog with custom message
@@ -64,22 +67,10 @@ export class ConfirmationDialog {
 	 * Create overlay element
 	 */
 	private static createOverlay(): HTMLElement {
-		const overlay = document.createElement("div");
-		overlay.className = "confirmation-overlay";
-		overlay.style.cssText = `
-			position: fixed;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			background: rgba(0, 0, 0, 0.5);
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			z-index: 1000;
-			animation: fadeIn 0.2s ease-in-out;
-		`;
-		return overlay;
+		return createElement({
+			tag: "div",
+			className: "confirmation-overlay",
+		});
 	}
 
 	/**
@@ -91,61 +82,44 @@ export class ConfirmationDialog {
 		confirmText: string,
 		cancelText: string
 	): HTMLElement {
-		const dialog = document.createElement("div");
-		dialog.className = "confirmation-dialog";
-		dialog.style.cssText = `
-			background: white;
-			border-radius: 8px;
-			padding: 24px;
-			max-width: 400px;
-			margin: 20px;
-			box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-			animation: slideIn 0.3s ease-out;
-		`;
-
-		dialog.innerHTML = `
-			<h3 style="margin: 0 0 16px 0; color: #333; font-size: 18px;">${title}</h3>
-			<p style="margin: 0 0 24px 0; color: #666; line-height: 1.5;">${message}</p>
-			<div style="display: flex; gap: 12px; justify-content: flex-end;">
-				<button class="cancel-btn" style="
-					padding: 8px 16px;
-					border: 1px solid #ddd;
-					background: white;
-					border-radius: 4px;
-					cursor: pointer;
-					font-size: 14px;
-				">${cancelText}</button>
-				<button class="confirm-btn" style="
-					padding: 8px 16px;
-					border: none;
-					background: #e74c3c;
-					color: white;
-					border-radius: 4px;
-					cursor: pointer;
-					font-size: 14px;
-				">${confirmText}</button>
-			</div>
-		`;
-
-		// Add hover effects
-		const confirmBtn = dialog.querySelector(
-			".confirm-btn"
-		) as HTMLButtonElement;
-		const cancelBtn = dialog.querySelector(".cancel-btn") as HTMLButtonElement;
-
-		confirmBtn.addEventListener("mouseenter", () => {
-			confirmBtn.style.background = "#c0392b";
-		});
-		confirmBtn.addEventListener("mouseleave", () => {
-			confirmBtn.style.background = "#e74c3c";
+		const dialog = createElement({
+			tag: "div",
+			className: "confirmation-dialog",
 		});
 
-		cancelBtn.addEventListener("mouseenter", () => {
-			cancelBtn.style.background = "#f5f5f5";
+		const titleElement = createElement({
+			tag: "h3",
+			textContent: title,
 		});
-		cancelBtn.addEventListener("mouseleave", () => {
-			cancelBtn.style.background = "white";
+
+		const messageElement = createElement({
+			tag: "p",
+			textContent: message,
 		});
+
+		const buttonsContainer = createElement({
+			tag: "div",
+			className: "confirmation-buttons",
+		});
+
+		const cancelBtn = createButton({
+			tag: "button",
+			className: "cancel-btn",
+			textContent: cancelText,
+		});
+
+		const confirmBtn = createButton({
+			tag: "button",
+			className: "confirm-btn",
+			textContent: confirmText,
+		});
+
+		buttonsContainer.appendChild(cancelBtn);
+		buttonsContainer.appendChild(confirmBtn);
+
+		dialog.appendChild(titleElement);
+		dialog.appendChild(messageElement);
+		dialog.appendChild(buttonsContainer);
 
 		return dialog;
 	}
