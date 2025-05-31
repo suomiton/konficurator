@@ -1,4 +1,5 @@
 import { IRenderer, FileData, ParsedData, FieldType } from "./interfaces.js";
+import { createElement, createButton } from "./ui/dom-factory.js";
 
 /**
  * Rendering Module
@@ -10,9 +11,11 @@ export class FormRenderer implements IRenderer {
 	 * Renders a complete file editor component
 	 */
 	renderFileEditor(fileData: FileData): HTMLElement {
-		const container = document.createElement("div");
-		container.className = "file-editor fade-in";
-		container.setAttribute("data-file", fileData.name);
+		const container = createElement({
+			tag: "div",
+			className: "file-editor fade-in",
+			attributes: { "data-file": fileData.name },
+		});
 
 		// Header
 		const header = this.createFileHeader(fileData);
@@ -46,8 +49,10 @@ export class FormRenderer implements IRenderer {
 		}
 
 		// Form
-		const form = document.createElement("form");
-		form.className = "config-form";
+		const form = createElement({
+			tag: "form",
+			className: "config-form",
+		});
 		form.addEventListener("submit", (e) => e.preventDefault());
 
 		try {
@@ -80,8 +85,10 @@ export class FormRenderer implements IRenderer {
 	 * Generates form fields based on data structure
 	 */
 	generateFormFields(data: ParsedData, path: string): HTMLElement {
-		const container = document.createElement("div");
-		container.className = "form-fields";
+		const container = createElement({
+			tag: "div",
+			className: "form-fields",
+		});
 
 		for (const [key, value] of Object.entries(data)) {
 			// Hide @type, @value, and @attributes fields for XML - these are handled by XML-specific field types
@@ -105,20 +112,28 @@ export class FormRenderer implements IRenderer {
 	 * Creates file editor header
 	 */
 	private createFileHeader(fileData: FileData): HTMLElement {
-		const header = document.createElement("div");
-		header.className = "file-editor-header";
+		const header = createElement({
+			tag: "div",
+			className: "file-editor-header",
+		});
 
 		// Create title container to hold both filename and path
-		const titleContainer = document.createElement("div");
-		titleContainer.className = "file-title-container";
+		const titleContainer = createElement({
+			tag: "div",
+			className: "file-title-container",
+		});
 
-		const title = document.createElement("h3");
-		title.className = "file-title";
-		title.textContent = fileData.name;
+		const title = createElement({
+			tag: "h3",
+			className: "file-title",
+			textContent: fileData.name,
+		});
 
 		// Add file path display below the filename
-		const pathDisplay = document.createElement("div");
-		pathDisplay.className = "file-path";
+		const pathDisplay = createElement({
+			tag: "div",
+			className: "file-path",
+		});
 
 		// Determine path text based on available information
 		if (fileData.path && fileData.path !== fileData.name) {
@@ -139,38 +154,54 @@ export class FormRenderer implements IRenderer {
 		titleContainer.appendChild(title);
 		titleContainer.appendChild(pathDisplay);
 
-		const typeTag = document.createElement("span");
-		typeTag.className = "file-type";
-		typeTag.textContent = fileData.type;
+		const typeTag = createElement({
+			tag: "span",
+			className: "file-type",
+			textContent: fileData.type,
+		});
 
-		const removeButton = document.createElement("button");
-		removeButton.className = "btn btn-danger btn-small remove-file-btn";
-		removeButton.type = "button";
-		removeButton.innerHTML = "🗑️ Remove";
-		removeButton.setAttribute("data-file", fileData.name);
-		removeButton.title = `Remove ${fileData.name}`;
+		const removeButton = createButton({
+			tag: "button",
+			className: "btn btn-danger btn-small remove-file-btn",
+			type: "button",
+			innerHTML: "🗑️ Remove",
+			attributes: {
+				"data-file": fileData.name,
+				title: `Remove ${fileData.name}`,
+			},
+		});
 
 		// Add action buttons based on file state
-		const actionButtons = document.createElement("div");
-		actionButtons.className = "file-action-buttons";
+		const actionButtons = createElement({
+			tag: "div",
+			className: "file-action-buttons",
+		});
 
 		if (fileData.handle) {
 			// File has disk handle - show refresh button
-			const refreshButton = document.createElement("button");
-			refreshButton.className = "btn btn-info btn-small refresh-file-btn";
-			refreshButton.type = "button";
-			refreshButton.innerHTML = "🔄 Refresh";
-			refreshButton.setAttribute("data-file", fileData.name);
-			refreshButton.title = `Reload ${fileData.name} from disk`;
+			const refreshButton = createButton({
+				tag: "button",
+				className: "btn btn-info btn-small refresh-file-btn",
+				type: "button",
+				innerHTML: "🔄 Refresh",
+				attributes: {
+					"data-file": fileData.name,
+					title: `Reload ${fileData.name} from disk`,
+				},
+			});
 			actionButtons.appendChild(refreshButton);
 		} else {
 			// File restored from storage - show reload from disk button
-			const reloadButton = document.createElement("button");
-			reloadButton.className = "btn btn-warning btn-small reload-from-disk-btn";
-			reloadButton.type = "button";
-			reloadButton.innerHTML = "📁 Reload from Disk";
-			reloadButton.setAttribute("data-file", fileData.name);
-			reloadButton.title = `Select and reload ${fileData.name} from disk to get latest content`;
+			const reloadButton = createButton({
+				tag: "button",
+				className: "btn btn-warning btn-small reload-from-disk-btn",
+				type: "button",
+				innerHTML: "📁 Reload from Disk",
+				attributes: {
+					"data-file": fileData.name,
+					title: `Select and reload ${fileData.name} from disk to get latest content`,
+				},
+			});
 			actionButtons.appendChild(reloadButton);
 		}
 
@@ -187,18 +218,25 @@ export class FormRenderer implements IRenderer {
 	 * Creates save button container
 	 */
 	private createSaveContainer(fileData: FileData): HTMLElement {
-		const container = document.createElement("div");
-		container.className = "save-container";
-		container.setAttribute("data-file", fileData.name);
+		const container = createElement({
+			tag: "div",
+			className: "save-container",
+			attributes: { "data-file": fileData.name },
+		});
 
-		const saveButton = document.createElement("button");
-		saveButton.className = "btn btn-success btn-small";
-		saveButton.type = "button";
-		saveButton.innerHTML = "💾 Save Changes";
-		saveButton.setAttribute("data-file", fileData.name);
+		const saveButton = createButton({
+			tag: "button",
+			className: "btn btn-success btn-small",
+			type: "button",
+			innerHTML: "💾 Save Changes",
+			attributes: { "data-file": fileData.name },
+		});
 
 		// Add file name indicator for sticky mode (initially hidden)
-		const fileIndicator = document.createElement("span");
+		const fileIndicator = createElement({
+			tag: "span",
+			className: "save-file-indicator",
+		});
 		fileIndicator.className = "save-file-indicator";
 		fileIndicator.textContent = fileData.name;
 
@@ -217,9 +255,6 @@ export class FormRenderer implements IRenderer {
 		path: string,
 		type: FieldType
 	): HTMLElement {
-		const formGroup = document.createElement("div");
-		formGroup.className = "form-group";
-
 		switch (type) {
 			case "xml-heading":
 				return this.createXmlHeadingField(key, value, path);
@@ -244,18 +279,26 @@ export class FormRenderer implements IRenderer {
 	 * Creates text input field
 	 */
 	private createTextField(key: string, value: any, path: string): HTMLElement {
-		const formGroup = document.createElement("div");
-		formGroup.className = "form-group";
+		const formGroup = createElement({
+			tag: "div",
+			className: "form-group",
+		});
 
-		const label = document.createElement("label");
-		label.textContent = this.formatLabel(key);
-		label.setAttribute("for", path);
+		const label = createElement({
+			tag: "label",
+			textContent: this.formatLabel(key),
+			attributes: { for: path },
+		});
 
-		const input = document.createElement("input");
-		input.type = "text";
-		input.id = path;
-		input.name = path;
-		input.value = String(value || "");
+		const input = createElement({
+			tag: "input",
+			attributes: {
+				type: "text",
+				id: path,
+				name: path,
+				value: String(value || ""),
+			},
+		});
 
 		formGroup.appendChild(label);
 		formGroup.appendChild(input);
@@ -271,19 +314,27 @@ export class FormRenderer implements IRenderer {
 		value: any,
 		path: string
 	): HTMLElement {
-		const formGroup = document.createElement("div");
-		formGroup.className = "form-group";
+		const formGroup = createElement({
+			tag: "div",
+			className: "form-group",
+		});
 
-		const label = document.createElement("label");
-		label.textContent = this.formatLabel(key);
-		label.setAttribute("for", path);
+		const label = createElement({
+			tag: "label",
+			textContent: this.formatLabel(key),
+			attributes: { for: path },
+		});
 
-		const input = document.createElement("input");
-		input.type = "number";
-		input.id = path;
-		input.name = path;
-		input.value = String(value || "");
-		input.step = "any"; // Allow decimals
+		const input = createElement({
+			tag: "input",
+			attributes: {
+				type: "number",
+				id: path,
+				name: path,
+				value: String(value || ""),
+				step: "any", // Allow decimals
+			},
+		});
 
 		formGroup.appendChild(label);
 		formGroup.appendChild(input);
@@ -487,12 +538,11 @@ export class FormRenderer implements IRenderer {
 			return;
 		}
 
-		const sentinel = document.createElement("div");
-		sentinel.className = "save-sticky-sentinel";
-		sentinel.setAttribute("data-file", fileName);
-		sentinel.style.height = "1px";
-		sentinel.style.width = "100%";
-		sentinel.style.pointerEvents = "none";
+		const sentinel = createElement({
+			tag: "div",
+			className: "save-sticky-sentinel scroll-sentinel",
+			attributes: { "data-file": fileName },
+		});
 		fileEditor.appendChild(sentinel);
 
 		console.log(`Created sentinel for ${fileName}`, { fileEditor, sentinel });
@@ -550,7 +600,7 @@ export class FormRenderer implements IRenderer {
 		container.classList.add("save-container-sticky");
 
 		// Ensure the file editor has relative positioning for sticky positioning to work
-		fileEditor.style.position = "relative";
+		fileEditor.classList.add("file-editor-positioned");
 
 		console.log(`Made save button sticky for ${fileName}`, {
 			fileEditor,

@@ -22,6 +22,7 @@ import {
 	FormEventHandlers,
 } from "./event-handlers.js";
 import { setupStickyBehavior } from "./sticky-behavior.js";
+import { createElement, createButton } from "./dom-factory.js";
 
 export class ModernFormRenderer implements IRenderer {
 	private eventHandlers: FormEventHandlers;
@@ -39,9 +40,11 @@ export class ModernFormRenderer implements IRenderer {
 	 * Renders a complete file editor component
 	 */
 	renderFileEditor(fileData: FileData): HTMLElement {
-		const container = document.createElement("div");
-		container.className = "file-editor fade-in";
-		container.setAttribute("data-file", fileData.name);
+		const container = createElement({
+			tag: "div",
+			className: "file-editor fade-in",
+			attributes: { "data-file": fileData.name },
+		});
 
 		// Render header
 		const header = renderFileHeader(
@@ -125,8 +128,10 @@ export class ModernFormRenderer implements IRenderer {
 	 * Renders form fields from form field data
 	 */
 	private renderFormFields(formFieldsData: any[]): HTMLElement {
-		const container = document.createElement("div");
-		container.className = "form-fields";
+		const container = createElement({
+			tag: "div",
+			className: "form-fields",
+		});
 
 		for (const fieldData of formFieldsData) {
 			const fieldElement = renderFormField(fieldData, this.renderOptions);
@@ -170,14 +175,18 @@ export class ModernFormRenderer implements IRenderer {
 	 * Renders array items
 	 */
 	private renderArrayItems(items: any[], arrayPath: string): HTMLElement {
-		const container = document.createElement("div");
-		container.className = "array-items-list";
+		const container = createElement({
+			tag: "div",
+			className: "array-items-list",
+		});
 
 		items.forEach((item, index) => {
 			const itemPath = `${arrayPath}[${index}]`;
-			const itemContainer = document.createElement("div");
-			itemContainer.className = "array-item";
-			itemContainer.setAttribute("data-index", String(index));
+			const itemContainer = createElement({
+				tag: "div",
+				className: "array-item",
+				attributes: { "data-index": String(index) },
+			});
 
 			if (typeof item === "object" && !Array.isArray(item)) {
 				// Render object item
@@ -219,12 +228,16 @@ export class ModernFormRenderer implements IRenderer {
 			}
 
 			// Add remove button
-			const removeButton = document.createElement("button");
-			removeButton.className = "btn btn-danger btn-small remove-array-item";
-			removeButton.type = "button";
-			removeButton.textContent = "×";
-			removeButton.setAttribute("data-index", String(index));
-			removeButton.title = "Remove item";
+			const removeButton = createButton({
+				tag: "button",
+				className: "btn btn-danger btn-small remove-array-item",
+				type: "button",
+				textContent: "×",
+				attributes: {
+					"data-index": String(index),
+					title: "Remove item",
+				},
+			});
 
 			itemContainer.appendChild(removeButton);
 			container.appendChild(itemContainer);

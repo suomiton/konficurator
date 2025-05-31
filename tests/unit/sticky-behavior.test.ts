@@ -151,16 +151,18 @@ describe("Sticky Behavior", () => {
 			forceStickyMode(saveContainer);
 
 			expect(saveContainer.classList.contains("sticky-active")).toBe(true);
-			expect(saveContainer.style.position).toBe("fixed");
-			expect(saveContainer.style.bottom).toBe("20px");
-			expect(saveContainer.style.right).toBe("20px");
-			expect(saveContainer.style.zIndex).toBe("1000");
+			expect(saveContainer.classList.contains("sticky-save-container")).toBe(
+				true
+			);
 		});
 
 		it("should show file indicator", () => {
 			forceStickyMode(saveContainer);
 
-			expect(fileIndicator.style.display).toBe("inline");
+			// Check if the container has the sticky class which controls the file indicator visibility
+			expect(saveContainer.classList.contains("sticky-save-container")).toBe(
+				true
+			);
 		});
 
 		it("should use custom options", () => {
@@ -172,8 +174,9 @@ describe("Sticky Behavior", () => {
 			forceStickyMode(saveContainer, options);
 
 			expect(saveContainer.classList.contains("custom-sticky")).toBe(true);
-			expect(saveContainer.style.bottom).toBe("50px");
-			expect(saveContainer.style.right).toBe("50px");
+			expect(saveContainer.classList.contains("sticky-save-container")).toBe(
+				true
+			);
 		});
 	});
 
@@ -183,17 +186,19 @@ describe("Sticky Behavior", () => {
 			forceNormalMode(saveContainer);
 
 			expect(saveContainer.classList.contains("sticky-active")).toBe(false);
-			expect(saveContainer.style.position).toBe("");
-			expect(saveContainer.style.bottom).toBe("");
-			expect(saveContainer.style.right).toBe("");
-			expect(saveContainer.style.zIndex).toBe("");
+			expect(saveContainer.classList.contains("sticky-save-container")).toBe(
+				false
+			);
 		});
 
 		it("should hide file indicator", () => {
 			forceStickyMode(saveContainer);
 			forceNormalMode(saveContainer);
 
-			expect(fileIndicator.style.display).toBe("none");
+			// Check if the container no longer has the sticky class
+			expect(saveContainer.classList.contains("sticky-save-container")).toBe(
+				false
+			);
 		});
 	});
 

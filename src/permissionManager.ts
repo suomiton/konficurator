@@ -6,6 +6,7 @@
 import { FileData } from "./interfaces.js";
 import { FileNotifications } from "./ui/notifications.js";
 import { NotificationService } from "./ui/notifications.js";
+import { createElement } from "./ui/dom-factory.js";
 
 export class PermissionManager {
 	/**
@@ -183,8 +184,10 @@ export class PermissionManager {
 		// Use a dedicated container for reconnect cards
 		let reconnectContainer = document.getElementById("reconnectCards");
 		if (!reconnectContainer) {
-			reconnectContainer = document.createElement("div");
-			reconnectContainer.id = "reconnectCards";
+			reconnectContainer = createElement({
+				tag: "div",
+				attributes: { id: "reconnectCards" },
+			});
 			// Insert before editorContainer if possible
 			const editorContainer = document.getElementById("editorContainer");
 			if (editorContainer && editorContainer.parentNode) {

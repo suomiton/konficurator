@@ -7,6 +7,7 @@ import { StorageService } from "./handleStorage.js";
 import { NotificationService, FileNotifications } from "./ui/notifications.js";
 import { ConfirmationDialog } from "./confirmation.js";
 import { PermissionManager } from "./permissionManager.js";
+import { createElement } from "./ui/dom-factory.js";
 
 /**
  * Main Application Controller
@@ -185,13 +186,17 @@ class KonficuratorApp {
 		const fileInfo = document.getElementById("fileInfo");
 		if (!fileInfo) return;
 
-		const fileList = document.createElement("div");
-		fileList.className = "file-list";
+		const fileList = createElement({
+			tag: "div",
+			className: "file-list",
+		});
 
 		files.forEach((file) => {
-			const fileTag = document.createElement("span");
-			fileTag.className = "file-tag";
-			fileTag.setAttribute("data-file", file.name);
+			const fileTag = createElement({
+				tag: "span",
+				className: "file-tag",
+				attributes: { "data-file": file.name },
+			});
 
 			// Add inactive class if file is inactive
 			if (file.isActive === false) {
