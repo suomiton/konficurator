@@ -350,21 +350,31 @@ export class FormRenderer implements IRenderer {
 		value: any,
 		path: string
 	): HTMLElement {
-		const formGroup = document.createElement("div");
-		formGroup.className = "form-group";
+		const formGroup = createElement({
+			tag: "div",
+			className: "form-group",
+		});
 
-		const checkboxContainer = document.createElement("div");
-		checkboxContainer.className = "checkbox-container";
+		const checkboxContainer = createElement({
+			tag: "div",
+			className: "checkbox-container",
+		});
 
-		const input = document.createElement("input");
-		input.type = "checkbox";
-		input.id = path;
-		input.name = path;
-		input.checked = Boolean(value);
+		const input = createElement({
+			tag: "input",
+			attributes: {
+				type: "checkbox",
+				id: path,
+				name: path,
+			},
+		});
+		(input as HTMLInputElement).checked = Boolean(value);
 
-		const label = document.createElement("label");
-		label.textContent = this.formatLabel(key);
-		label.setAttribute("for", path);
+		const label = createElement({
+			tag: "label",
+			textContent: this.formatLabel(key),
+			attributes: { for: path },
+		});
 
 		checkboxContainer.appendChild(input);
 		checkboxContainer.appendChild(label);
@@ -381,15 +391,21 @@ export class FormRenderer implements IRenderer {
 		value: any,
 		path: string
 	): HTMLElement {
-		const formGroup = document.createElement("div");
-		formGroup.className = "form-group";
+		const formGroup = createElement({
+			tag: "div",
+			className: "form-group",
+		});
 
-		const objectLabel = document.createElement("div");
-		objectLabel.className = "object-label";
-		objectLabel.textContent = this.formatLabel(key);
+		const objectLabel = createElement({
+			tag: "div",
+			className: "object-label",
+			textContent: this.formatLabel(key),
+		});
 
-		const nestedContainer = document.createElement("div");
-		nestedContainer.className = "nested-object";
+		const nestedContainer = createElement({
+			tag: "div",
+			className: "nested-object",
+		});
 
 		const nestedFields = this.generateFormFields(value, path);
 		nestedContainer.appendChild(nestedFields);
@@ -404,19 +420,27 @@ export class FormRenderer implements IRenderer {
 	 * Creates array field (simplified - treating as JSON string for now)
 	 */
 	private createArrayField(key: string, value: any, path: string): HTMLElement {
-		const formGroup = document.createElement("div");
-		formGroup.className = "form-group";
+		const formGroup = createElement({
+			tag: "div",
+			className: "form-group",
+		});
 
-		const label = document.createElement("label");
-		label.textContent = `${this.formatLabel(key)} (Array)`;
-		label.setAttribute("for", path);
+		const label = createElement({
+			tag: "label",
+			textContent: `${this.formatLabel(key)} (Array)`,
+			attributes: { for: path },
+		});
 
-		const textarea = document.createElement("textarea");
-		textarea.id = path;
-		textarea.name = path;
-		textarea.value = JSON.stringify(value, null, 2);
-		textarea.rows = 4;
-		textarea.setAttribute("data-type", "array");
+		const textarea = createElement({
+			tag: "textarea",
+			attributes: {
+				id: path,
+				name: path,
+				rows: "4",
+				"data-type": "array",
+			},
+		});
+		(textarea as HTMLTextAreaElement).value = JSON.stringify(value, null, 2);
 
 		formGroup.appendChild(label);
 		formGroup.appendChild(textarea);
@@ -428,9 +452,11 @@ export class FormRenderer implements IRenderer {
 	 * Creates error message element
 	 */
 	private createErrorMessage(message: string): HTMLElement {
-		const errorDiv = document.createElement("div");
-		errorDiv.className = "error";
-		errorDiv.textContent = message;
+		const errorDiv = createElement({
+			tag: "div",
+			className: "error",
+			textContent: message,
+		});
 		return errorDiv;
 	}
 
@@ -438,28 +464,40 @@ export class FormRenderer implements IRenderer {
 	 * Creates error notification for parse errors (shown instead of form)
 	 */
 	private createErrorNotification(errorMessage: string): HTMLElement {
-		const notification = document.createElement("div");
-		notification.className = "error-notification";
+		const notification = createElement({
+			tag: "div",
+			className: "error-notification",
+		});
 
-		const icon = document.createElement("div");
-		icon.className = "error-icon";
-		icon.textContent = "⚠️";
+		const icon = createElement({
+			tag: "div",
+			className: "error-icon",
+			textContent: "⚠️",
+		});
 
-		const content = document.createElement("div");
-		content.className = "error-content";
+		const content = createElement({
+			tag: "div",
+			className: "error-content",
+		});
 
-		const title = document.createElement("div");
-		title.className = "error-title";
-		title.textContent = "Unable to Parse File";
+		const title = createElement({
+			tag: "div",
+			className: "error-title",
+			textContent: "Unable to Parse File",
+		});
 
-		const message = document.createElement("div");
-		message.className = "error-message";
-		message.textContent = errorMessage;
+		const message = createElement({
+			tag: "div",
+			className: "error-message",
+			textContent: errorMessage,
+		});
 
-		const hint = document.createElement("div");
-		hint.className = "error-hint";
-		hint.textContent =
-			"This file format is not supported for editing. Supported formats: JSON, XML";
+		const hint = createElement({
+			tag: "div",
+			className: "error-hint",
+			textContent:
+				"This file format is not supported for editing. Supported formats: JSON, XML",
+		});
 
 		content.appendChild(title);
 		content.appendChild(message);
@@ -634,20 +672,28 @@ export class FormRenderer implements IRenderer {
 		value: any,
 		path: string
 	): HTMLElement {
-		const formGroup = document.createElement("div");
-		formGroup.className = "form-group xml-heading";
+		const formGroup = createElement({
+			tag: "div",
+			className: "form-group xml-heading",
+		});
 
-		const headingLabel = document.createElement("div");
-		headingLabel.className = "xml-heading-label";
-		headingLabel.textContent = this.formatLabel(key);
+		const headingLabel = createElement({
+			tag: "div",
+			className: "xml-heading-label",
+			textContent: this.formatLabel(key),
+		});
 
 		// Render attributes block at the top if present
 		if (value["@attributes"]) {
-			const attributesBlock = document.createElement("div");
-			attributesBlock.className = "xml-attributes-block";
+			const attributesBlock = createElement({
+				tag: "div",
+				className: "xml-attributes-block",
+			});
 
-			const badge = document.createElement("span");
-			badge.className = "xml-attributes-badge";
+			const badge = createElement({
+				tag: "span",
+				className: "xml-attributes-badge",
+			});
 			// Remove text content - visual distinction maintained through CSS styling
 			attributesBlock.appendChild(badge);
 
@@ -665,8 +711,10 @@ export class FormRenderer implements IRenderer {
 
 		formGroup.appendChild(headingLabel);
 
-		const nestedContainer = document.createElement("div");
-		nestedContainer.className = "nested-object";
+		const nestedContainer = createElement({
+			tag: "div",
+			className: "nested-object",
+		});
 
 		// Process child elements, excluding @type, @value, and @attributes
 		const childData: any = {};
@@ -696,26 +744,36 @@ export class FormRenderer implements IRenderer {
 		value: any,
 		path: string
 	): HTMLElement {
-		const formGroup = document.createElement("div");
-		formGroup.className = "form-group xml-value";
+		const formGroup = createElement({
+			tag: "div",
+			className: "form-group xml-value",
+		});
 
-		const label = document.createElement("label");
-		label.textContent = this.formatLabel(key);
-		label.setAttribute("for", `${path}.@value`);
+		const label = createElement({
+			tag: "label",
+			textContent: this.formatLabel(key),
+			attributes: { for: `${path}.@value` },
+		});
 
-		const input = document.createElement("input");
-		input.type = "text";
-		input.id = `${path}.@value`;
-		input.name = `${path}.@value`;
-		input.value = String(value["@value"] || "");
+		const input = createElement({
+			tag: "input",
+			attributes: {
+				type: "text",
+				id: `${path}.@value`,
+				name: `${path}.@value`,
+				value: String(value["@value"] || ""),
+			},
+		});
 
 		formGroup.appendChild(label);
 		formGroup.appendChild(input);
 
 		// Add attributes fields if they exist
 		if (value["@attributes"]) {
-			const attributesContainer = document.createElement("div");
-			attributesContainer.className = "xml-attributes-container";
+			const attributesContainer = createElement({
+				tag: "div",
+				className: "xml-attributes-container",
+			});
 
 			// Remove the attributesLabel block entirely
 			// for (const [attrKey, attrValue] of Object.entries(value["@attributes"])) {
@@ -742,12 +800,16 @@ export class FormRenderer implements IRenderer {
 		value: any,
 		path: string
 	): HTMLElement {
-		const formGroup = document.createElement("div");
-		formGroup.className = "form-group xml-attributes";
+		const formGroup = createElement({
+			tag: "div",
+			className: "form-group xml-attributes",
+		});
 
-		const headingLabel = document.createElement("div");
-		headingLabel.className = "xml-attributes-heading";
-		headingLabel.textContent = this.formatLabel(key);
+		const headingLabel = createElement({
+			tag: "div",
+			className: "xml-attributes-heading",
+			textContent: this.formatLabel(key),
+		});
 
 		formGroup.appendChild(headingLabel);
 
@@ -774,23 +836,30 @@ export class FormRenderer implements IRenderer {
 		value: any,
 		path: string
 	): HTMLElement {
-		const attrGroup = document.createElement("div");
-		attrGroup.className = "form-group attribute-field";
+		const attrGroup = createElement({
+			tag: "div",
+			className: "form-group attribute-field",
+		});
 
-		const label = document.createElement("label");
-		label.textContent = key;
+		const label = createElement({
+			tag: "label",
+			textContent: key,
+		});
 		// Do NOT set label.setAttribute("for", path) to avoid making it editable
 
-		const input = document.createElement("input");
-		input.type = this.determineInputType(value);
-		input.id = path;
-		input.name = path;
+		const input = createElement({
+			tag: "input",
+			attributes: {
+				type: this.determineInputType(value),
+				id: path,
+				name: path,
+			},
+		});
 
 		if (typeof value === "boolean") {
-			input.type = "checkbox";
-			input.checked = Boolean(value);
+			(input as HTMLInputElement).checked = Boolean(value);
 		} else {
-			input.value = String(value || "");
+			(input as HTMLInputElement).value = String(value || "");
 		}
 
 		attrGroup.appendChild(label);
