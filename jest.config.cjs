@@ -1,4 +1,4 @@
-export default {
+module.exports = {
 	preset: 'ts-jest',
 	testEnvironment: 'jsdom',
 	roots: ['<rootDir>/src', '<rootDir>/tests'],
@@ -7,9 +7,7 @@ export default {
 		'**/*.(test|spec).+(ts|tsx|js)'
 	],
 	transform: {
-		'^.+\\.(ts|tsx)$': ['ts-jest', {
-			useESM: true
-		}]
+		'^.+\\.(ts|tsx)$': 'ts-jest'
 	},
 	collectCoverageFrom: [
 		'src/**/*.{ts,tsx}',
@@ -20,6 +18,5 @@ export default {
 	coverageReporters: ['text', 'lcov', 'html'],
 	setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
 	moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-	testTimeout: 10000,
-	extensionsToTreatAsEsm: ['.ts']
+	testTimeout: 10000
 };

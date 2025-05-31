@@ -1,5 +1,4 @@
 // Jest test setup file
-import { jest } from "@jest/globals";
 
 // Mock DOM APIs that might not be available in Jest environment
 Object.defineProperty(window, "matchMedia", {

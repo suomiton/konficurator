@@ -1,6 +1,6 @@
 import { FileHandler } from "./fileHandler.js";
 import { ParserFactory } from "./parsers.js";
-import { FormRenderer } from "./renderer.js";
+import { ModernFormRenderer } from "./ui/modern-form-renderer.js";
 import { FilePersistence } from "./persistence.js";
 import { FileData } from "./interfaces.js";
 import { StorageService } from "./handleStorage.js";
@@ -14,14 +14,14 @@ import { PermissionManager } from "./permissionManager.js";
  */
 class KonficuratorApp {
 	private fileHandler: FileHandler;
-	private renderer: FormRenderer;
+	private renderer: ModernFormRenderer;
 	private persistence: FilePersistence;
 	private loadedFiles: FileData[] = [];
 	private activeSaveOperations: Set<string> = new Set();
 
 	constructor() {
 		this.fileHandler = new FileHandler();
-		this.renderer = new FormRenderer();
+		this.renderer = new ModernFormRenderer();
 		this.persistence = new FilePersistence();
 
 		this.init();

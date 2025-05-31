@@ -1,0 +1,252 @@
+import { ParsedData, FieldType } from "../interfaces.js";
+
+/**
+ * Pure functions for form field creation - no DOM manipulation, just data transformation
+ */
+
+export interface FormFieldData {
+	key: string;
+	value: any;
+	path: string;
+	type: FieldType;
+	label: string;
+}
+
+export interface TextFieldData extends FormFieldData {
+	type: "text";
+	inputType?: "text" | "email" | "url" | "password";
+}
+
+export interface NumberFieldData extends FormFieldData {
+	type: "number";
+	min?: number;
+	max?: number;
+	step?: number;
+}
+
+export interface BooleanFieldData extends FormFieldData {
+	type: "boolean";
+	checked: boolean;
+}
+
+export interface ArrayFieldData extends FormFieldData {
+	type: "array";
+	jsonValue: string;
+	rows?: number;
+	items?: any[];
+}
+
+export interface ObjectFieldData extends FormFieldData {
+	type: "object";
+	children: FormFieldData[];
+}
+
+export interface XmlHeadingFieldData extends FormFieldData {
+	type: "xml-heading";
+	attributes?: Record<string, any>;
+	children: FormFieldData[];
+}
+
+export interface XmlValueFieldData extends FormFieldData {
+	type: "xml-value";
+	textValue: string;
+	attributes?: Record<string, any>;
+}
+
+export interface XmlAttributesFieldData extends FormFieldData {
+	type: "xml-attributes";
+	attributes: Record<string, any>;
+}
+
+export type AnyFormFieldData =
+	| TextFieldData
+	| NumberFieldData
+	| BooleanFieldData
+	| ArrayFieldData
+	| ObjectFieldData
+	| XmlHeadingFieldData
+	| XmlValueFieldData
+	| XmlAttributesFieldData;
+
+/**
+ * Pure function to determine field type from value
+ */
+export function determineFieldType(value: any): FieldType {
+	if (value === null || value === undefined) {
+		return "text";
+	}
+
+	// Handle XML-specific types
+	if (typeof value === "object" && value["@type"]) {
+		switch (value["@type"]) {
+			case "heading":
+				return "xml-heading";
+			case "value":
+				return "xml-value";
+			case "attributes":
+				return "xml-attributes";
+		}
+	}
+
+	if (Array.isArray(value)) {
+		return "array";
+	}
+
+	switch (typeof value) {
+		case "boolean":
+			return "boolean";
+		case "number":
+			return "number";
+		case "object":
+			return "object";
+		default:
+			return "text";
+	}
+}
+
+/**
+ * Pure function to format field labels
+ */
+export function formatLabel(key: string): string {
+	return key
+		.replace(/([a-z])([A-Z])/g, "$1 $2") // Add space before capital letters (only when preceded by lowercase)
+		.replace(/^./, (str) => str.toUpperCase()) // Capitalize first letter
+		.replace(/_/g, " ") // Replace underscores with spaces
+		.replace(/\s+/g, " ") // Replace multiple spaces with single space
+		.trim();
+}
+
+/**
+ * Pure function to determine HTML input type for values
+ */
+export function determineInputType(value: any): string {
+	if (typeof value === "boolean") {
+		return "checkbox";
+	}
+	if (typeof value === "number") {
+		return "number";
+	}
+	// Could be extended to detect email, url, etc.
+	return "text";
+}
+
+/**
+ * Pure function to convert parsed data to form field data structure
+ */
+export function createFormFieldData(
+	key: string,
+	value: any,
+	path: string,
+	forceType?: FieldType
+): AnyFormFieldData {
+	const fieldType = forceType || determineFieldType(value);
+	const label = formatLabel(key);
+
+	const baseData: FormFieldData = {
+		key,
+		value,
+		path,
+		type: fieldType,
+		label,
+	};
+
+	switch (fieldType) {
+		case "text":
+			return {
+				...baseData,
+				type: "text",
+				inputType: determineInputType(value) as any,
+			} as TextFieldData;
+
+		case "number":
+			return {
+				...baseData,
+				type: "number",
+				step: Number.isInteger(value) ? 1 : 0.01,
+			} as NumberFieldData;
+
+		case "boolean":
+			return {
+				...baseData,
+				type: "boolean",
+				checked: Boolean(value),
+			} as BooleanFieldData;
+
+		case "array":
+			return {
+				...baseData,
+				type: "array",
+				jsonValue: JSON.stringify(value, null, 2),
+				rows: Math.min(
+					Math.max(3, JSON.stringify(value, null, 2).split("\n").length),
+					10
+				),
+				items: Array.isArray(value) ? value : [],
+			} as ArrayFieldData;
+
+		case "object":
+			const children = Object.entries(value).map(([childKey, childValue]) => {
+				const childPath = path ? `${path}.${childKey}` : childKey;
+				return createFormFieldData(childKey, childValue, childPath);
+			});
+			return {
+				...baseData,
+				type: "object",
+				children,
+			} as ObjectFieldData;
+
+		case "xml-heading":
+			const xmlHeadingChildren = Object.entries(value)
+				.filter(([k]) => k !== "@type" && k !== "@value" && k !== "@attributes")
+				.map(([childKey, childValue]) => {
+					const childPath = path ? `${path}.${childKey}` : childKey;
+					return createFormFieldData(childKey, childValue, childPath);
+				});
+			return {
+				...baseData,
+				type: "xml-heading",
+				attributes: value["@attributes"],
+				children: xmlHeadingChildren,
+			} as XmlHeadingFieldData;
+
+		case "xml-value":
+			return {
+				...baseData,
+				type: "xml-value",
+				textValue: String(value["@value"] || ""),
+				attributes: value["@attributes"],
+			} as XmlValueFieldData;
+
+		case "xml-attributes":
+			return {
+				...baseData,
+				type: "xml-attributes",
+				attributes: value["@attributes"] || {},
+			} as XmlAttributesFieldData;
+
+		default:
+			return {
+				...baseData,
+				type: "text",
+			} as TextFieldData;
+	}
+}
+
+/**
+ * Pure function to generate form fields data from parsed data
+ */
+export function generateFormFieldsData(
+	data: ParsedData,
+	path: string = ""
+): AnyFormFieldData[] {
+	return Object.entries(data)
+		.filter(
+			([key]) =>
+				// Hide @type, @value, and @attributes fields for XML - these are handled by XML-specific field types
+				key !== "@type" && key !== "@value" && key !== "@attributes"
+		)
+		.map(([key, value]) => {
+			const fieldPath = path ? `${path}.${key}` : key;
+			return createFormFieldData(key, value, fieldPath);
+		});
+}
