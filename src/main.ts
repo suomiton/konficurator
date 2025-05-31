@@ -319,14 +319,18 @@ class KonficuratorApp {
 	): Promise<HTMLFormElement | null> {
 		for (let attempt = 1; attempt <= maxRetries; attempt++) {
 			// Find the main file editor container (not buttons or other elements with data-file)
-			const editorElement = document.querySelector(`div.file-editor[data-file="${filename}"]`);
+			const editorElement = document.querySelector(
+				`div.file-editor[data-file="${filename}"]`
+			);
 			if (!editorElement) {
 				console.warn(
 					`Attempt ${attempt}: File editor container not found for ${filename}`
 				);
 				if (attempt === maxRetries) {
 					// Final attempt: provide debugging info
-					const allEditorElements = document.querySelectorAll("div.file-editor[data-file]");
+					const allEditorElements = document.querySelectorAll(
+						"div.file-editor[data-file]"
+					);
 					console.error(
 						`Available file editor elements: ${Array.from(allEditorElements)
 							.map((el) => el.getAttribute("data-file"))

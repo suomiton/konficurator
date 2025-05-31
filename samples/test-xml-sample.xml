@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-	<server>
+	<server test="true">
 		<host>localhost</host>
 		<port>8080</port>
 		<ssl>true</ssl>
