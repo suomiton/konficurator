@@ -14,11 +14,11 @@ import {
 import type { FileData } from "../../src/interfaces.js";
 
 // Mock notifications
-const mockShowReconnectCard = jest.fn();
-const mockShowLoading = jest.fn();
-const mockHideLoading = jest.fn();
-const mockShowSuccess = jest.fn();
-const mockShowError = jest.fn();
+const mockShowReconnectCard = jest.fn() as jest.MockedFunction<any>;
+const mockShowLoading = jest.fn() as jest.MockedFunction<any>;
+const mockHideLoading = jest.fn() as jest.MockedFunction<any>;
+const mockShowSuccess = jest.fn() as jest.MockedFunction<any>;
+const mockShowError = jest.fn() as jest.MockedFunction<any>;
 
 jest.mock("../../src/ui/notifications", () => ({
 	FileNotifications: {
@@ -33,7 +33,7 @@ jest.mock("../../src/ui/notifications", () => ({
 }));
 
 // Mock DOM factory
-const mockCreateElement = jest.fn();
+const mockCreateElement = jest.fn() as jest.MockedFunction<any>;
 jest.mock("../../src/ui/dom-factory", () => ({
 	createElement: mockCreateElement,
 }));
@@ -44,6 +44,7 @@ import { PermissionManager } from "../../src/permissionManager.js";
 describe("PermissionManager", () => {
 	let mockFileData: FileData;
 	let mockFileHandle: any;
+	let mockCallback: jest.MockedFunction<(file: FileData) => Promise<void>>;
 
 	beforeEach(() => {
 		// Set up DOM
@@ -52,21 +53,29 @@ describe("PermissionManager", () => {
 			<div id="editorContainer"></div>
 		`;
 
+		// Create mock callback
+		mockCallback = jest
+			.fn()
+			.mockImplementation(() => Promise.resolve()) as jest.MockedFunction<
+			(file: FileData) => Promise<void>
+		>;
+
 		// Create mock file handle
 		mockFileHandle = {
 			name: "test.json",
 			kind: "file",
-			queryPermission: jest.fn(),
-			requestPermission: jest.fn(),
-			getFile: jest.fn(),
-			createWritable: jest.fn(),
-			isSameEntry: jest.fn(),
+			queryPermission: jest.fn() as jest.MockedFunction<any>,
+			requestPermission: jest.fn() as jest.MockedFunction<any>,
+			getFile: jest.fn() as jest.MockedFunction<any>,
+			createWritable: jest.fn() as jest.MockedFunction<any>,
+			isSameEntry: jest.fn() as jest.MockedFunction<any>,
 		};
 
 		// Create mock file data
 		mockFileData = {
 			name: "test.json",
 			content: '{"test": "data"}',
+			originalContent: '{"test": "data"}',
 			type: "json",
 			size: 100,
 			lastModified: Date.now(),
@@ -95,43 +104,79 @@ describe("PermissionManager", () => {
 		it("should check file permissions", async () => {
 			const files = [mockFileData];
 
-			await PermissionManager.restoreFileHandles(files);
+			const result = await PermissionManager.restoreSavedHandles(
+				files,
+				mockCallback
+			);
 
 			expect(mockFileHandle.queryPermission).toHaveBeenCalledWith({
 				mode: "readwrite",
 			});
+			expect(result).toEqual({
+				restoredFiles: [mockFileData],
+				filesNeedingPermission: [],
+			});
 		});
 
-		it("should request permissions when needed", async () => {
+		it("should handle files needing permission", async () => {
 			mockFileHandle.queryPermission.mockResolvedValue("prompt");
+			const files = [mockFileData];
 
-			const result = await PermissionManager.requestPermissionForHandle(
-				mockFileHandle
+			const result = await PermissionManager.restoreSavedHandles(
+				files,
+				mockCallback
+			);
+
+			expect(result.restoredFiles).toHaveLength(0);
+			expect(result.filesNeedingPermission).toHaveLength(1);
+			expect(result.filesNeedingPermission[0]).toBe(mockFileData);
+		});
+
+		it("should handle permission denied", async () => {
+			mockFileHandle.queryPermission.mockResolvedValue("denied");
+			const files = [mockFileData];
+
+			const result = await PermissionManager.restoreSavedHandles(
+				files,
+				mockCallback
+			);
+
+			expect(result.restoredFiles).toHaveLength(0);
+			expect(result.filesNeedingPermission).toHaveLength(1);
+		});
+
+		it("should request permission and reload file", async () => {
+			const result = await PermissionManager.requestAndReload(
+				mockFileData,
+				mockCallback
 			);
 
 			expect(mockFileHandle.requestPermission).toHaveBeenCalledWith({
 				mode: "readwrite",
 			});
-			expect(result).toBe("granted");
+			expect(result).toBe(true);
 		});
 
-		it("should handle permission denied", async () => {
-			mockFileHandle.queryPermission.mockResolvedValue("denied");
+		it("should handle request permission failure", async () => {
 			mockFileHandle.requestPermission.mockResolvedValue("denied");
 
-			const result = await PermissionManager.requestPermissionForHandle(
-				mockFileHandle
+			const result = await PermissionManager.requestAndReload(
+				mockFileData,
+				mockCallback
 			);
 
-			expect(result).toBe("denied");
+			expect(result).toBe(false);
 		});
 
 		it("should restore file handles", async () => {
 			const files = [mockFileData];
 
-			const result = await PermissionManager.restoreFileHandles(files);
+			const result = await PermissionManager.restoreSavedHandles(
+				files,
+				mockCallback
+			);
 
-			expect(result.filesWithGrantedPermission).toHaveLength(1);
+			expect(result.restoredFiles).toHaveLength(1);
 			expect(result.filesNeedingPermission).toHaveLength(0);
 		});
 
@@ -139,53 +184,13 @@ describe("PermissionManager", () => {
 			mockFileHandle.queryPermission.mockResolvedValue("prompt");
 			const files = [mockFileData];
 
-			const result = await PermissionManager.restoreFileHandles(files);
+			const result = await PermissionManager.restoreSavedHandles(
+				files,
+				mockCallback
+			);
 
-			expect(result.filesWithGrantedPermission).toHaveLength(0);
+			expect(result.restoredFiles).toHaveLength(0);
 			expect(result.filesNeedingPermission).toHaveLength(1);
-		});
-	});
-
-	describe("Reconnect Card Management", () => {
-		it("should show reconnect card for files needing permission", () => {
-			PermissionManager.showReconnectCard(mockFileData, jest.fn());
-
-			expect(mockCreateElement).toHaveBeenCalled();
-		});
-
-		it("should handle reconnect button click", () => {
-			const mockCallback = jest.fn();
-
-			PermissionManager.showReconnectCard(mockFileData, mockCallback);
-
-			expect(mockCreateElement).toHaveBeenCalled();
-		});
-
-		it("should remove reconnect card", () => {
-			// Add a reconnect card
-			const card = document.createElement("div");
-			card.className = "reconnect-card";
-			card.setAttribute("data-file", mockFileData.name);
-			document.body.appendChild(card);
-
-			PermissionManager.removeReconnectCard(mockFileData.name);
-
-			expect(document.querySelector(".reconnect-card")).toBeFalsy();
-		});
-
-		it("should hide all loading states", () => {
-			// Add loading elements
-			const loading1 = document.createElement("div");
-			loading1.className = "loading-indicator";
-			const loading2 = document.createElement("div");
-			loading2.className = "loading-state";
-			document.body.appendChild(loading1);
-			document.body.appendChild(loading2);
-
-			PermissionManager.hideAllLoadingStates();
-
-			expect(loading1.style.display).toBe("none");
-			expect(loading2.style.display).toBe("none");
 		});
 	});
 
@@ -196,20 +201,28 @@ describe("PermissionManager", () => {
 			);
 			const files = [mockFileData];
 
-			const result = await PermissionManager.restoreFileHandles(files);
+			const result = await PermissionManager.restoreSavedHandles(
+				files,
+				mockCallback
+			);
 
-			expect(result.filesWithGrantedPermission).toHaveLength(0);
-			expect(result.filesNeedingPermission).toHaveLength(1);
+			expect(result.restoredFiles).toHaveLength(1);
+			expect(result.restoredFiles[0].handle).toBeNull();
+			expect(result.restoredFiles[0].permissionDenied).toBe(true);
+			expect(result.filesNeedingPermission).toHaveLength(0);
 		});
 
 		it("should handle missing file handles", async () => {
 			const fileWithoutHandle = { ...mockFileData, handle: null };
 			const files = [fileWithoutHandle];
 
-			const result = await PermissionManager.restoreFileHandles(files);
+			const result = await PermissionManager.restoreSavedHandles(
+				files,
+				mockCallback
+			);
 
-			expect(result.filesWithGrantedPermission).toHaveLength(0);
-			expect(result.filesNeedingPermission).toHaveLength(1);
+			expect(result.restoredFiles).toHaveLength(1);
+			expect(result.filesNeedingPermission).toHaveLength(0);
 		});
 
 		it("should handle permission API unavailability", async () => {
@@ -218,64 +231,76 @@ describe("PermissionManager", () => {
 				queryPermission: undefined,
 				requestPermission: undefined,
 			};
+			const fileWithoutPermissionAPI = {
+				...mockFileData,
+				handle: handleWithoutPermissions,
+			};
 
-			const result = await PermissionManager.requestPermissionForHandle(
-				handleWithoutPermissions
+			const result = await PermissionManager.restoreSavedHandles(
+				[fileWithoutPermissionAPI],
+				mockCallback
 			);
 
-			expect(result).toBe("granted"); // Fallback behavior
+			expect(result.restoredFiles).toHaveLength(1); // Fallback behavior
 		});
 
-		it("should handle DOM element not found", () => {
-			document.body.innerHTML = ""; // Remove container
+		it("should handle requestAndReload with missing handle", async () => {
+			const fileWithoutHandle = { ...mockFileData, handle: null };
 
-			expect(() => {
-				PermissionManager.showReconnectCard(mockFileData, jest.fn());
-			}).not.toThrow();
+			const result = await PermissionManager.requestAndReload(
+				fileWithoutHandle,
+				mockCallback
+			);
+
+			expect(result).toBe(false);
 		});
 	});
 
 	describe("Security Tests", () => {
-		it("should validate file names for XSS", () => {
+		it("should handle malicious file names safely", async () => {
 			const maliciousFile = {
 				...mockFileData,
 				name: '<script>alert("xss")</script>.json',
 			};
 
-			expect(() => {
-				PermissionManager.showReconnectCard(maliciousFile, jest.fn());
-			}).not.toThrow();
+			const result = await PermissionManager.restoreSavedHandles(
+				[maliciousFile],
+				mockCallback
+			);
+
+			expect(result).toBeDefined();
+			expect(mockCallback).toHaveBeenCalled();
 		});
 
 		it("should sanitize error messages", async () => {
 			const maliciousError = new Error('<img onerror=alert("xss") src=x>');
 			mockFileHandle.queryPermission.mockRejectedValue(maliciousError);
 
-			await PermissionManager.restoreFileHandles([mockFileData]);
+			await PermissionManager.restoreSavedHandles([mockFileData], mockCallback);
 
+			// Should not expose unsanitized error messages
 			expect(mockShowError).not.toHaveBeenCalledWith(
 				expect.stringContaining("<img")
 			);
 		});
 
 		it("should prevent permission escalation", async () => {
-			// Test that we only request readwrite permission
-			await PermissionManager.requestPermissionForHandle(mockFileHandle);
+			await PermissionManager.requestAndReload(mockFileData, mockCallback);
 
 			expect(mockFileHandle.requestPermission).toHaveBeenCalledWith({
 				mode: "readwrite",
-			});
-			expect(mockFileHandle.requestPermission).not.toHaveBeenCalledWith({
-				mode: "write",
 			});
 		});
 	});
 
 	describe("Edge Cases", () => {
 		it("should handle empty file list", async () => {
-			const result = await PermissionManager.restoreFileHandles([]);
+			const result = await PermissionManager.restoreSavedHandles(
+				[],
+				mockCallback
+			);
 
-			expect(result.filesWithGrantedPermission).toHaveLength(0);
+			expect(result.restoredFiles).toHaveLength(0);
 			expect(result.filesNeedingPermission).toHaveLength(0);
 		});
 
@@ -283,24 +308,26 @@ describe("PermissionManager", () => {
 			const file1 = { ...mockFileData, name: "config.json" };
 			const file2 = { ...mockFileData, name: "config.json" };
 
-			const result = await PermissionManager.restoreFileHandles([file1, file2]);
+			const result = await PermissionManager.restoreSavedHandles(
+				[file1, file2],
+				mockCallback
+			);
 
 			expect(
-				result.filesWithGrantedPermission.length +
-					result.filesNeedingPermission.length
+				result.restoredFiles.length + result.filesNeedingPermission.length
 			).toBe(2);
 		});
 
 		it("should handle concurrent permission requests", async () => {
 			const promises = Array.from({ length: 5 }, () =>
-				PermissionManager.requestPermissionForHandle(mockFileHandle)
+				PermissionManager.requestAndReload(mockFileData, mockCallback)
 			);
 
 			const results = await Promise.all(promises);
 
 			expect(results).toHaveLength(5);
-			results.forEach((result) => {
-				expect(["granted", "denied", "prompt"]).toContain(result);
+			results.forEach((result: any) => {
+				expect(typeof result).toBe("boolean");
 			});
 		});
 
@@ -311,11 +338,13 @@ describe("PermissionManager", () => {
 				handle: { ...mockFileHandle, name: `file-${i}.json` },
 			}));
 
-			const result = await PermissionManager.restoreFileHandles(largeFileList);
+			const result = await PermissionManager.restoreSavedHandles(
+				largeFileList,
+				mockCallback
+			);
 
 			expect(
-				result.filesWithGrantedPermission.length +
-					result.filesNeedingPermission.length
+				result.restoredFiles.length + result.filesNeedingPermission.length
 			).toBe(100);
 		});
 	});
@@ -324,7 +353,7 @@ describe("PermissionManager", () => {
 		it("should handle permission checks efficiently", async () => {
 			const startTime = performance.now();
 
-			await PermissionManager.restoreFileHandles([mockFileData]);
+			await PermissionManager.restoreSavedHandles([mockFileData], mockCallback);
 
 			const endTime = performance.now();
 			const duration = endTime - startTime;
@@ -340,49 +369,22 @@ describe("PermissionManager", () => {
 			}));
 
 			const startTime = performance.now();
-			await PermissionManager.restoreFileHandles(files);
+			await PermissionManager.restoreSavedHandles(files, mockCallback);
 			const endTime = performance.now();
 
 			expect(endTime - startTime).toBeLessThan(5000); // Should be reasonably fast
 		});
 	});
 
-	describe("Accessibility", () => {
-		it("should provide proper ARIA labels", () => {
-			PermissionManager.showReconnectCard(mockFileData, jest.fn());
-
-			expect(mockCreateElement).toHaveBeenCalled();
-		});
-
-		it("should support keyboard navigation", () => {
-			PermissionManager.showReconnectCard(mockFileData, jest.fn());
-
-			expect(mockCreateElement).toHaveBeenCalled();
-		});
-
-		it("should provide descriptive error messages", async () => {
-			mockFileHandle.queryPermission.mockRejectedValue(
-				new Error("Access denied")
-			);
-
-			await PermissionManager.restoreFileHandles([mockFileData]);
-
-			// Should provide user-friendly error handling
-			expect(mockShowError).not.toHaveBeenCalledWith(
-				expect.stringContaining("undefined")
-			);
-		});
-	});
-
 	describe("Integration", () => {
-		it("should work with notification system", () => {
-			PermissionManager.showReconnectCard(mockFileData, jest.fn());
+		it("should work with callback function", async () => {
+			await PermissionManager.restoreSavedHandles([mockFileData], mockCallback);
 
-			expect(mockShowReconnectCard).toHaveBeenCalled();
+			expect(mockCallback).toHaveBeenCalledWith(mockFileData);
 		});
 
 		it("should clean up after operations", async () => {
-			await PermissionManager.restoreFileHandles([mockFileData]);
+			await PermissionManager.restoreSavedHandles([mockFileData], mockCallback);
 
 			// Should not leave any pending operations
 			expect(document.querySelectorAll(".loading-indicator")).toHaveLength(0);

@@ -16,10 +16,23 @@ import {
 import { FormEventHandlers } from "../../src/ui/event-handlers.js";
 
 // Mock DOM renderer module
-const mockRenderFormField = jest.fn() as jest.MockedFunction<(fieldData: FormFieldData) => HTMLElement>;
-const mockRenderFileHeader = jest.fn() as jest.MockedFunction<(fileName: string, fileType: string, filePath?: string, hasHandle?: boolean) => HTMLElement>;
-const mockRenderSaveContainer = jest.fn() as jest.MockedFunction<(fileName: string) => HTMLElement>;
-const mockRenderErrorNotification = jest.fn() as jest.MockedFunction<(message: string) => HTMLElement>;
+const mockRenderFormField = jest.fn() as jest.MockedFunction<
+	(fieldData: FormFieldData) => HTMLElement
+>;
+const mockRenderFileHeader = jest.fn() as jest.MockedFunction<
+	(
+		fileName: string,
+		fileType: string,
+		filePath?: string,
+		hasHandle?: boolean
+	) => HTMLElement
+>;
+const mockRenderSaveContainer = jest.fn() as jest.MockedFunction<
+	(fileName: string) => HTMLElement
+>;
+const mockRenderErrorNotification = jest.fn() as jest.MockedFunction<
+	(message: string) => HTMLElement
+>;
 
 jest.mock("../../src/ui/dom-renderer.js", () => ({
 	renderFormField: mockRenderFormField,
@@ -64,12 +77,14 @@ describe("DOM Renderer", () => {
 			return element;
 		});
 
-		mockRenderFileHeader.mockImplementation((filename: string, fileType: string) => {
-			const element = document.createElement("div");
-			element.className = "file-header";
-			element.textContent = `${filename} (${fileType})`;
-			return element;
-		});
+		mockRenderFileHeader.mockImplementation(
+			(filename: string, fileType: string) => {
+				const element = document.createElement("div");
+				element.className = "file-header";
+				element.textContent = `${filename} (${fileType})`;
+				return element;
+			}
+		);
 
 		mockRenderSaveContainer.mockImplementation((fileName: string) => {
 			const element = document.createElement("div");
@@ -151,14 +166,15 @@ describe("DOM Renderer", () => {
 			expect(mockRenderFormField).toHaveBeenCalledWith(fieldData);
 		});
 
-		it("should render an array field with items", () => {		const fieldData: ArrayFieldData = {
-			type: "array",
-			value: ["item1", "item2"],
-			path: "config.servers",
-			label: "Servers",
-			key: "config.servers",
-			jsonValue: JSON.stringify(["item1", "item2"]),
-		};
+		it("should render an array field with items", () => {
+			const fieldData: ArrayFieldData = {
+				type: "array",
+				value: ["item1", "item2"],
+				path: "config.servers",
+				label: "Servers",
+				key: "config.servers",
+				jsonValue: JSON.stringify(["item1", "item2"]),
+			};
 
 			renderFormField(fieldData);
 
@@ -192,7 +208,10 @@ describe("DOM Renderer", () => {
 
 			renderFileHeader(specialFilename, fileType);
 
-			expect(mockRenderFileHeader).toHaveBeenCalledWith(specialFilename, fileType);
+			expect(mockRenderFileHeader).toHaveBeenCalledWith(
+				specialFilename,
+				fileType
+			);
 		});
 	});
 
@@ -207,16 +226,14 @@ describe("DOM Renderer", () => {
 
 		it("should handle save button interaction", () => {
 			// Set up a real implementation for testing
-			mockRenderSaveContainer.mockImplementationOnce(
-				(fileName: string) => {
-					const container = document.createElement("div");
-					const button = document.createElement("button");
-					button.onclick = () => mockEventHandlers.onFileSave?.(fileName);
-					container.appendChild(button);
-					document.body.appendChild(container);
-					return container;
-				}
-			);
+			mockRenderSaveContainer.mockImplementationOnce((fileName: string) => {
+				const container = document.createElement("div");
+				const button = document.createElement("button");
+				button.onclick = () => mockEventHandlers.onFileSave?.(fileName);
+				container.appendChild(button);
+				document.body.appendChild(container);
+				return container;
+			});
 
 			const fileName = "config.json";
 			renderSaveContainer(fileName);
@@ -277,7 +294,10 @@ describe("DOM Renderer", () => {
 
 			renderFileHeader(maliciousFilename, fileType);
 
-			expect(mockRenderFileHeader).toHaveBeenCalledWith(maliciousFilename, fileType);
+			expect(mockRenderFileHeader).toHaveBeenCalledWith(
+				maliciousFilename,
+				fileType
+			);
 		});
 
 		it("should handle malicious error messages safely", () => {
