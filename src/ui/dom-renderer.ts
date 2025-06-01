@@ -46,9 +46,10 @@ export function renderFormField(
 		className: fieldClassName,
 	});
 
-	// Create label if needed
+	// Only show label for non-object/array fields
 	let label: HTMLElement | null = null;
-	if (showLabels) {
+	const suppressLabel = fieldData.type === "object" || fieldData.type === "array";
+	if (showLabels && !suppressLabel) {
 		label = createLabel({
 			tag: "label",
 			className: labelClassName,
