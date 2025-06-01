@@ -293,6 +293,38 @@ export class KonficuratorApp {
 				throw new Error(`File ${filename} not found`);
 			}
 
+			// Check if file has been modified on disk before saving
+			if (fileData.handle) {
+				const isModifiedOnDisk = await this.fileHandler.isFileModifiedOnDisk(
+					fileData
+				);
+
+				if (isModifiedOnDisk) {
+					// Import the ConfirmationDialog
+					const { ConfirmationDialog } = await import("./confirmation.js");
+
+					// Show file conflict dialog
+					const choice = await ConfirmationDialog.showFileConflictDialog(
+						filename
+					);
+
+					switch (choice) {
+						case "cancel":
+							// User cancelled, don't save
+							return;
+
+						case "refresh":
+							// Refresh the file content from disk
+							await this.handleFileRefresh(filename);
+							return;
+
+						case "overwrite":
+							// Continue with save operation (break out of this block)
+							break;
+					}
+				}
+			}
+
 			// Robust form element finding with retry logic for race conditions
 			const formElement = await this.findFormElementWithRetry(filename);
 			if (!formElement) {
@@ -300,6 +332,16 @@ export class KonficuratorApp {
 			}
 
 			await this.persistence.saveFile(fileData, formElement);
+
+			// Update file's lastModified timestamp after successful save
+			if (fileData.handle) {
+				try {
+					const file = await fileData.handle.getFile();
+					fileData.lastModified = file.lastModified;
+				} catch (error) {
+					console.warn(`Could not update lastModified for ${filename}:`, error);
+				}
+			}
 
 			// Update storage after successful save
 			await this.saveToStorage();

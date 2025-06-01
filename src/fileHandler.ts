@@ -139,9 +139,34 @@ export class FileHandler implements IFileHandler {
 	}
 
 	/**
+	 * Checks if the file on disk has been modified since it was loaded
+	 * @param fileData The file data to check
+	 * @returns Promise<boolean> - true if file on disk is newer
+	 */
+	async isFileModifiedOnDisk(fileData: FileData): Promise<boolean> {
+		if (!fileData.handle || !fileData.lastModified) {
+			return false; // Cannot check if no handle or no timestamp
+		}
+
+		try {
+			const file = await fileData.handle.getFile();
+			return file.lastModified > fileData.lastModified;
+		} catch (error) {
+			// If we can't read the file, assume it's not modified
+			console.warn(
+				`Cannot check modification status for ${fileData.name}:`,
+				error
+			);
+			return false;
+		}
+	}
+
+	/**
 	 * Determines file type based on extension
 	 */
-	private determineFileType(filename: string): "json" | "xml" | "config" | "env" {
+	private determineFileType(
+		filename: string
+	): "json" | "xml" | "config" | "env" {
 		const extension = filename.toLowerCase().split(".").pop();
 		if (extension === "xml") return "xml";
 		if (extension === "config") return "config";

@@ -899,6 +899,55 @@ footer {
 	background: #c0392b;
 }
 
+/* File Conflict Dialog Styles */
+.file-conflict-dialog {
+	max-width: 500px;
+}
+
+.file-conflict-dialog .warning-text {
+	color: #e67e22;
+	font-size: 14px;
+	background: #fef4e6;
+	padding: 8px 12px;
+	border-radius: 4px;
+	border-left: 3px solid #e67e22;
+	margin-bottom: 20px;
+}
+
+.file-conflict-dialog .confirmation-buttons {
+	gap: 8px;
+}
+
+.file-conflict-dialog .refresh-btn {
+	padding: 8px 16px;
+	border: 1px solid #3498db;
+	background: #3498db;
+	color: white;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 14px;
+	transition: background 0.2s ease;
+}
+
+.file-conflict-dialog .refresh-btn:hover {
+	background: #2980b9;
+}
+
+.file-conflict-dialog .overwrite-btn {
+	padding: 8px 16px;
+	border: none;
+	background: #e74c3c;
+	color: white;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 14px;
+	transition: background 0.2s ease;
+}
+
+.file-conflict-dialog .overwrite-btn:hover {
+	background: #c0392b;
+}
+
 /* Animations for confirmation dialog */
 @keyframes slideIn {
 	from {

@@ -31,6 +31,7 @@ export interface IFileHandler {
 	readFile(handle: FileSystemFileHandle): Promise<string>;
 	writeFile(handle: FileSystemFileHandle, content: string): Promise<void>;
 	refreshFile(fileData: FileData): Promise<FileData>;
+	isFileModifiedOnDisk(fileData: FileData): Promise<boolean>;
 }
 
 // Renderer interface for UI generation
