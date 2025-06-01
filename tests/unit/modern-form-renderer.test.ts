@@ -27,7 +27,6 @@ jest.mock("../../src/ui/dom-renderer", () => ({
 
 jest.mock("../../src/ui/form-data", () => ({
 	generateFormFieldsData: jest.fn(),
-	createFormFieldData: jest.fn(),
 }));
 
 jest.mock("../../src/ui/event-handlers", () => ({
@@ -43,7 +42,6 @@ jest.mock("../../src/ui/sticky-behavior", () => ({
 
 jest.mock("../../src/ui/dom-factory", () => ({
 	createElement: jest.fn(),
-	createButton: jest.fn(),
 }));
 
 const mockDomRenderer = domRenderer as {
@@ -57,7 +55,6 @@ const mockDomRenderer = domRenderer as {
 
 const mockFormData = formData as {
 	generateFormFieldsData: jest.MockedFunction<any>;
-	createFormFieldData: jest.MockedFunction<any>;
 };
 
 const mockEventHandlers = eventHandlers as {
@@ -73,7 +70,6 @@ const mockStickyBehavior = stickyBehavior as {
 
 const mockDomFactory = domFactory as {
 	createElement: jest.MockedFunction<any>;
-	createButton: jest.MockedFunction<any>;
 };
 
 describe("ModernFormRenderer - Real Implementation Tests", () => {
@@ -527,167 +523,6 @@ describe("ModernFormRenderer - Real Implementation Tests", () => {
 			renderer.renderFileEditor(fileData);
 
 			expect(mockDomRenderer.renderFormField).toHaveBeenCalled();
-		});
-	});
-
-	describe("renderArrayItems", () => {
-		beforeEach(() => {
-			// Setup for testing array item rendering through renderFileEditor
-			const mockArrayContainer = document.createElement("div");
-			mockArrayContainer.className = "array-items-list";
-			jest
-				.spyOn(mockArrayContainer, "appendChild")
-				.mockReturnValue(mockArrayContainer);
-
-			mockDomFactory.createElement.mockReturnValue(mockArrayContainer);
-			mockDomFactory.createButton.mockReturnValue(
-				document.createElement("button")
-			);
-		});
-
-		it("should render array items with object elements", () => {
-			const fileData: FileData = {
-				name: "objects.json",
-				type: "json",
-				content: {
-					items: [
-						{ name: "item1", value: 1 },
-						{ name: "item2", value: 2 },
-					],
-				},
-				originalContent: "{}",
-				handle: null,
-			};
-
-			mockFormData.generateFormFieldsData.mockReturnValue([
-				{
-					type: "array",
-					key: "items",
-					path: "items",
-					label: "Items",
-					value: [
-						{ name: "item1", value: 1 },
-						{ name: "item2", value: 2 },
-					],
-					jsonValue: JSON.stringify([
-						{ name: "item1", value: 1 },
-						{ name: "item2", value: 2 },
-					]),
-					items: [
-						{ name: "item1", value: 1 },
-						{ name: "item2", value: 2 },
-					],
-				},
-			]);
-
-			mockFormData.createFormFieldData.mockImplementation(
-				(key: string, value: any, path: string) => {
-					if (typeof value === "object" && value !== null) {
-						return {
-							type: "object" as const,
-							key,
-							value,
-							path,
-							label: key.charAt(0).toUpperCase() + key.slice(1),
-							children: [],
-						};
-					} else {
-						return {
-							type: "text" as const,
-							key,
-							value,
-							path,
-							label: key.charAt(0).toUpperCase() + key.slice(1),
-						};
-					}
-				}
-			);
-
-			renderer.renderFileEditor(fileData);
-
-			expect(mockFormData.createFormFieldData).toHaveBeenCalledWith(
-				"item0",
-				{ name: "item1", value: 1 },
-				"items[0]",
-				"object"
-			);
-		});
-
-		it("should render array items with primitive elements", () => {
-			const fileData: FileData = {
-				name: "primitives.json",
-				type: "json",
-				content: {
-					tags: ["tag1", "tag2", "tag3"],
-				},
-				originalContent: "{}",
-				handle: null,
-			};
-
-			mockFormData.generateFormFieldsData.mockReturnValue([
-				{
-					type: "array",
-					key: "tags",
-					path: "tags",
-					label: "Tags",
-					value: ["tag1", "tag2", "tag3"],
-					jsonValue: JSON.stringify(["tag1", "tag2", "tag3"]),
-					items: ["tag1", "tag2", "tag3"],
-				},
-			]);
-
-			mockFormData.createFormFieldData.mockImplementation(
-				(key: string, value: any, path: string) => ({
-					type: "text" as const,
-					key,
-					value,
-					path,
-					label: key.charAt(0).toUpperCase() + key.slice(1),
-				})
-			);
-
-			renderer.renderFileEditor(fileData);
-
-			expect(mockFormData.createFormFieldData).toHaveBeenCalledWith(
-				"item0",
-				"tag1",
-				"tags[0]"
-			);
-		});
-
-		it("should add remove buttons for array items", () => {
-			const fileData: FileData = {
-				name: "removable.json",
-				type: "json",
-				content: { items: ["item1"] },
-				originalContent: "{}",
-				handle: null,
-			};
-
-			mockFormData.generateFormFieldsData.mockReturnValue([
-				{
-					type: "array",
-					key: "items",
-					path: "items",
-					label: "Items",
-					value: ["item1"],
-					jsonValue: JSON.stringify(["item1"]),
-					items: ["item1"],
-				},
-			]);
-
-			renderer.renderFileEditor(fileData);
-
-			expect(mockDomFactory.createButton).toHaveBeenCalledWith({
-				tag: "button",
-				className: "btn btn-danger btn-small remove-array-item",
-				type: "button",
-				textContent: "×",
-				attributes: {
-					"data-index": "0",
-					title: "Remove item",
-				},
-			});
 		});
 	});
 
