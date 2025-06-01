@@ -36,6 +36,27 @@ const mockRestoreSavedHandles = jest.fn() as jest.MockedFunction<
 	) => Promise<{ restoredFiles: any[]; filesNeedingPermission: any[] }>
 >;
 
+jest.mock("../../src/ui/notifications", () => ({
+	FileNotifications: {
+		showFilesLoaded: jest.fn(),
+		showSaveSuccess: jest.fn(),
+		showRefreshSuccess: jest.fn(),
+		showFileRemoved: jest.fn(),
+		showNoFileHandle: jest.fn(),
+		showFileNotFound: jest.fn(),
+		showPermissionDenied: jest.fn(),
+	},
+	NotificationService: {
+		showLoading: jest.fn(),
+		hideLoading: jest.fn(),
+		showError: jest.fn(),
+		showInfo: jest.fn(),
+		showWarning: jest.fn(),
+		showErrorInContainer: jest.fn(),
+		showSuccess: jest.fn(),
+	},
+}));
+
 jest.mock("../../src/handleStorage", () => ({
 	StorageService: {
 		loadFiles: mockLoadFiles,
@@ -47,6 +68,11 @@ jest.mock("../../src/handleStorage", () => ({
 }));
 
 jest.mock("../../src/fileHandler", () => ({
+	FileHandler: jest.fn().mockImplementation(() => ({
+		selectFiles: jest.fn(),
+		refreshFile: jest.fn(),
+		// Add other methods as needed for your tests
+	})),
 	loadConfigurationFiles: mockLoadConfigurationFiles,
 	saveFileWithHandle: mockSaveFileWithHandle,
 }));
@@ -419,6 +445,118 @@ describe("Main Application Tests", () => {
 			expect(() => {
 				// Test fallback behavior
 			}).not.toThrow();
+		});
+	});
+
+	describe("KonficuratorApp Integration", () => {
+		let app: any;
+
+		beforeEach(async () => {
+			jest.resetModules();
+			// Mock DOM
+			const fileInfo = document.createElement("div");
+			fileInfo.id = "fileInfo";
+			document.body.appendChild(fileInfo);
+			const editorContainer = document.createElement("div");
+			editorContainer.id = "editorContainer";
+			document.body.appendChild(editorContainer);
+			const mod = await import("../../src/main");
+			app = new (mod as any).KonficuratorApp();
+		});
+
+		afterEach(() => {
+			document.body.innerHTML = "";
+			jest.clearAllMocks();
+		});
+
+		it("should add new files to loadedFiles and update UI on file selection", async () => {
+			const fileData = { name: "test.json", type: "json", content: "{}", isActive: undefined };
+			jest.spyOn(app.fileHandler, "selectFiles").mockResolvedValue([fileData]);
+			const processSpy = jest.spyOn(app, "processFile").mockResolvedValue(undefined);
+			const updateSpy = jest.spyOn(app, "updateFileInfo");
+			const renderSpy = jest.spyOn(app, "renderFileEditors");
+			const FileNotifications = (jest.requireMock("../../src/ui/notifications") as any).FileNotifications;
+			await app.handleFileSelection();
+			expect(app.loadedFiles.some((f: any) => f.name === "test.json")).toBe(true);
+			expect(processSpy).toHaveBeenCalledWith(fileData);
+			expect(updateSpy).toHaveBeenCalled();
+			expect(renderSpy).toHaveBeenCalled();
+			expect(FileNotifications.showFilesLoaded).toHaveBeenCalled();
+		});
+
+		it("should call persistence.saveFile and show success notification on file save", async () => {
+			const fileData = { name: "save.json", type: "json", content: "{}" };
+			app.loadedFiles = [fileData];
+			jest.spyOn(app.persistence, "saveFile").mockResolvedValue(undefined);
+			jest.spyOn(app, "saveToStorage").mockResolvedValue(undefined);
+			const editor = document.createElement("div");
+			editor.className = "file-editor";
+			editor.setAttribute("data-file", "save.json");
+			const form = document.createElement("form");
+			editor.appendChild(form);
+			document.body.appendChild(editor);
+			const spy = jest.spyOn(app.persistence, "saveFile");
+			const FileNotifications = (jest.requireMock("../../src/ui/notifications") as any).FileNotifications;
+			await app.handleFileSave("save.json");
+			expect(spy).toHaveBeenCalledWith(fileData, form);
+			expect(FileNotifications.showSaveSuccess).toHaveBeenCalledWith("save.json");
+		});
+
+		it("should handle file refresh errors and show appropriate notifications", async () => {
+			const fileData = { name: "refresh.json", type: "json", content: "{}" };
+			app.loadedFiles = [fileData];
+			jest.spyOn(app.fileHandler, "refreshFile").mockRejectedValue(new Error("Permission denied"));
+			const FileNotifications = (jest.requireMock("../../src/ui/notifications") as any).FileNotifications;
+			await app.handleFileRefresh("refresh.json");
+			expect(FileNotifications.showPermissionDenied).toHaveBeenCalledWith("refresh.json");
+		});
+
+		it("should remove file from loadedFiles and update UI on file removal", async () => {
+			const fileData = { name: "remove.json", type: "json", content: "{}" };
+			app.loadedFiles = [fileData];
+			jest.spyOn(app, "showRemoveConfirmation").mockResolvedValue(true);
+			const updateSpy = jest.spyOn(app, "updateFileInfo");
+			const renderSpy = jest.spyOn(app, "renderFileEditors");
+			const FileNotifications = (jest.requireMock("../../src/ui/notifications") as any).FileNotifications;
+			await app.handleFileRemove("remove.json");
+			expect(app.loadedFiles.length).toBe(0);
+			expect(updateSpy).toHaveBeenCalled();
+			expect(renderSpy).toHaveBeenCalled();
+			expect(FileNotifications.showFileRemoved).toHaveBeenCalledWith("remove.json");
+		});
+
+		it("should toggle file visibility and update UI", () => {
+			const fileData = { name: "toggle.json", type: "json", content: "{}", isActive: true };
+			app.loadedFiles = [fileData];
+			const updateSpy = jest.spyOn(app, "updateFileInfo");
+			const renderSpy = jest.spyOn(app, "renderFileEditors");
+			const NotificationService = (jest.requireMock("../../src/ui/notifications") as any).NotificationService;
+			app.toggleFileVisibility("toggle.json");
+			expect(app.loadedFiles[0].isActive).toBe(false);
+			expect(updateSpy).toHaveBeenCalled();
+			expect(renderSpy).toHaveBeenCalled();
+			expect(NotificationService.showInfo).toHaveBeenCalled();
+		});
+
+		it("should update file info DOM for active/inactive files", () => {
+			const fileData = { name: "info.json", type: "json", content: "{}", isActive: false };
+			app.loadedFiles = [fileData];
+			const fileInfo = document.getElementById("fileInfo");
+			app.updateFileInfo([fileData]);
+			const tag = fileInfo?.querySelector(".file-tag");
+			expect(tag?.classList.contains("inactive")).toBe(true);
+		});
+
+		it("should render file editors for active files only", () => {
+			const fileData1 = { name: "a.json", type: "json", content: "{}", isActive: true };
+			const fileData2 = { name: "b.json", type: "json", content: "{}", isActive: false };
+			app.loadedFiles = [fileData1, fileData2];
+			app.renderer.renderFileEditor = jest.fn(() => document.createElement("div"));
+			const container = document.getElementById("editorContainer");
+			app.renderFileEditors();
+			expect(app.renderer.renderFileEditor).toHaveBeenCalledWith(fileData1);
+			expect(app.renderer.renderFileEditor).not.toHaveBeenCalledWith(fileData2);
+			expect(container?.children.length).toBe(1);
 		});
 	});
 });

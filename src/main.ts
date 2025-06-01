@@ -13,7 +13,7 @@ import { createElement } from "./ui/dom-factory.js";
  * Main Application Controller
  * Orchestrates all modules following Dependency Inversion Principle
  */
-class KonficuratorApp {
+export class KonficuratorApp {
 	private fileHandler: FileHandler;
 	private renderer: ModernFormRenderer;
 	private persistence: FilePersistence;
@@ -706,9 +706,11 @@ class KonficuratorApp {
 }
 
 // Initialize the application when DOM is loaded
-document.addEventListener("DOMContentLoaded", () => {
-	new KonficuratorApp();
-});
+if (typeof window !== "undefined") {
+	document.addEventListener("DOMContentLoaded", () => {
+		new KonficuratorApp();
+	});
+}
 
 // Add global type declarations for File System Access API
 declare global {
