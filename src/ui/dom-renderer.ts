@@ -48,7 +48,8 @@ export function renderFormField(
 
 	// Only show label for non-object/array fields
 	let label: HTMLElement | null = null;
-	const suppressLabel = fieldData.type === "object" || fieldData.type === "array";
+	const suppressLabel =
+		fieldData.type === "object" || fieldData.type === "array";
 	if (showLabels && !suppressLabel) {
 		label = createLabel({
 			tag: "label",
@@ -216,6 +217,7 @@ function renderArrayField(
 		innerHTML: `<strong>${fieldData.label}</strong>`,
 	});
 
+	// Only one items container, no extra .array-items-list
 	const itemsContainer = createElement({
 		tag: "div",
 		className: "array-items",
@@ -228,6 +230,59 @@ function renderArrayField(
 		type: "button",
 		textContent: "+ Add Item",
 		data: { path: fieldData.path },
+	});
+
+	function renderItems(items: any[]) {
+		itemsContainer.innerHTML = "";
+		items.forEach((item, idx) => {
+			const itemContainer = createElement({
+				tag: "div",
+				className: "array-item-container",
+			});
+
+			const label = createElement({
+				tag: "div",
+				className: "array-item-label",
+				textContent: `Item${idx}`,
+			});
+
+			const input = createInput({
+				tag: "input",
+				className: "form-control array-item-input",
+				type: "text",
+				value: String(item),
+				data: { idx: String(idx) },
+			});
+			input.addEventListener("input", (e) => {
+				(fieldData as any).items[idx] = (e.target as HTMLInputElement).value;
+			});
+
+			const removeBtn = createButton({
+				tag: "button",
+				className: "btn btn-danger btn-small remove-array-item",
+				type: "button",
+				textContent: "×",
+				data: { idx: String(idx) },
+			});
+			removeBtn.addEventListener("click", () => {
+				(fieldData as any).items.splice(idx, 1);
+				renderItems((fieldData as any).items);
+			});
+
+			itemContainer.appendChild(label);
+			itemContainer.appendChild(input);
+			itemContainer.appendChild(removeBtn);
+			itemsContainer.appendChild(itemContainer);
+		});
+	}
+
+	// Initial render
+	if (!(fieldData as any).items) (fieldData as any).items = [];
+	renderItems((fieldData as any).items);
+
+	addButton.addEventListener("click", () => {
+		(fieldData as any).items.push("");
+		renderItems((fieldData as any).items);
 	});
 
 	container.appendChild(header);

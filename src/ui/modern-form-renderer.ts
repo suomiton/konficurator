@@ -4,7 +4,7 @@
  */
 
 import { IRenderer, FileData } from "../interfaces.js";
-import { generateFormFieldsData, createFormFieldData } from "./form-data.js";
+import { generateFormFieldsData } from "./form-data.js";
 import {
 	renderFormField,
 	renderFormContainer,
@@ -22,7 +22,7 @@ import {
 	FormEventHandlers,
 } from "./event-handlers.js";
 import { setupStickyBehavior } from "./sticky-behavior.js";
-import { createElement, createButton } from "./dom-factory.js";
+import { createElement } from "./dom-factory.js";
 
 export class ModernFormRenderer implements IRenderer {
 	private eventHandlers: FormEventHandlers;
@@ -155,93 +155,12 @@ export class ModernFormRenderer implements IRenderer {
 				"items" in fieldData &&
 				fieldData.items
 			) {
-				const arrayItems = this.renderArrayItems(
-					fieldData.items,
-					fieldData.path
-				);
-				const itemsContainer = fieldElement.querySelector(".array-items");
-				if (itemsContainer) {
-					itemsContainer.appendChild(arrayItems);
-				}
+				// Array items are now handled internally by renderArrayField
+				// No need to append additional items here
 			}
 
 			container.appendChild(fieldElement);
 		}
-
-		return container;
-	}
-
-	/**
-	 * Renders array items
-	 */
-	private renderArrayItems(items: any[], arrayPath: string): HTMLElement {
-		const container = createElement({
-			tag: "div",
-			className: "array-items-list",
-		});
-
-		items.forEach((item, index) => {
-			const itemPath = `${arrayPath}[${index}]`;
-			const itemContainer = createElement({
-				tag: "div",
-				className: "array-item",
-				attributes: { "data-index": String(index) },
-			});
-
-			if (typeof item === "object" && !Array.isArray(item)) {
-				// Render object item
-				const objectFieldData = createFormFieldData(
-					`item${index}`,
-					item,
-					itemPath,
-					"object"
-				);
-				const objectField = renderFormField(
-					objectFieldData,
-					this.renderOptions
-				);
-				setupFieldEventListeners(
-					objectField,
-					objectFieldData,
-					this.eventHandlers
-				);
-
-				if (
-					objectFieldData.type === "object" &&
-					"children" in objectFieldData &&
-					objectFieldData.children
-				) {
-					const nestedFields = this.renderFormFields(objectFieldData.children);
-					const fieldsContainer = objectField.querySelector(".object-fields");
-					if (fieldsContainer) {
-						fieldsContainer.appendChild(nestedFields);
-					}
-				}
-
-				itemContainer.appendChild(objectField);
-			} else {
-				// Render primitive item
-				const fieldData = createFormFieldData(`item${index}`, item, itemPath);
-				const fieldElement = renderFormField(fieldData, this.renderOptions);
-				setupFieldEventListeners(fieldElement, fieldData, this.eventHandlers);
-				itemContainer.appendChild(fieldElement);
-			}
-
-			// Add remove button
-			const removeButton = createButton({
-				tag: "button",
-				className: "btn btn-danger btn-small remove-array-item",
-				type: "button",
-				textContent: "×",
-				attributes: {
-					"data-index": String(index),
-					title: "Remove item",
-				},
-			});
-
-			itemContainer.appendChild(removeButton);
-			container.appendChild(itemContainer);
-		});
 
 		return container;
 	}
