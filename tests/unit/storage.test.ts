@@ -62,7 +62,7 @@ describe("StorageService - Real Implementation Tests", () => {
 			expect(typeof StorageService.loadFiles).toBe("function");
 			expect(typeof StorageService.removeFile).toBe("function");
 			expect(typeof StorageService.clearAll).toBe("function");
-			expect(typeof StorageService.autoRefresh).toBe("function");
+			expect(typeof StorageService.autoRefreshFiles).toBe("function");
 		});
 	});
 

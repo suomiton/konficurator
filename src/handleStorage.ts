@@ -161,40 +161,54 @@ export class StorageService {
 	}
 
 	/** Auto-refresh files that still have a valid handle. */
-	static async autoRefresh(files: FileData[]): Promise<FileData[]> {
+	static async autoRefreshFiles(files: FileData[]): Promise<FileData[]> {
 		const out: FileData[] = [];
 
 		for (const f of files) {
 			if (!f.handle) {
-				out.push({ ...f, autoRefreshed: false });
+				// No handle available, cannot refresh
+				out.push(f);
 				continue;
 			}
 
 			try {
-				const perm = await (f.handle as any).queryPermission?.({
-					mode: "readwrite",
-				});
-				if (perm === "denied") {
-					out.push({ ...f, permissionDenied: true, autoRefreshed: false });
-					continue;
-				}
-				const blob = await f.handle.getFile();
-				const text = await blob.text();
-				const changed = blob.lastModified !== f.lastModified;
-				out.push({
-					...f,
-					content: changed ? text : f.content,
-					originalContent: changed ? text : f.originalContent,
-					lastModified: blob.lastModified,
-					size: blob.size,
-					autoRefreshed: changed,
-					permissionDenied: false,
-				});
-			} catch {
-				out.push({ ...f, permissionDenied: true, autoRefreshed: false });
+				const refreshedFile = await this.autoRefreshFile(f);
+				out.push(refreshedFile);
+			} catch (error) {
+				console.warn(`Failed to refresh file ${f.name}:`, error);
+				out.push(f); // Keep original file if refresh fails
 			}
 		}
 
 		return out;
+	}
+
+	static async autoRefreshFile(file: FileData): Promise<FileData> {
+		if (!file.handle) {
+			return { ...file, autoRefreshed: false };
+		}
+
+		try {
+			const perm = await (file.handle as any).queryPermission?.({
+				mode: "readwrite",
+			});
+			if (perm === "denied") {
+				return { ...file, permissionDenied: true, autoRefreshed: false };
+			}
+			const blob = await file.handle.getFile();
+			const text = await blob.text();
+			const changed = blob.lastModified !== file.lastModified;
+			return {
+				...file,
+				content: changed ? text : file.content,
+				originalContent: changed ? text : file.originalContent,
+				lastModified: blob.lastModified,
+				size: blob.size,
+				autoRefreshed: changed,
+				permissionDenied: false,
+			};
+		} catch {
+			return { ...file, permissionDenied: true, autoRefreshed: false };
+		}
 	}
 }

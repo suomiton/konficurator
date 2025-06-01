@@ -470,14 +470,25 @@ describe("Main Application Tests", () => {
 		});
 
 		it("should add new files to loadedFiles and update UI on file selection", async () => {
-			const fileData = { name: "test.json", type: "json", content: "{}", isActive: undefined };
+			const fileData = {
+				name: "test.json",
+				type: "json",
+				content: "{}",
+				isActive: undefined,
+			};
 			jest.spyOn(app.fileHandler, "selectFiles").mockResolvedValue([fileData]);
-			const processSpy = jest.spyOn(app, "processFile").mockResolvedValue(undefined);
+			const processSpy = jest
+				.spyOn(app, "processFile")
+				.mockResolvedValue(undefined);
 			const updateSpy = jest.spyOn(app, "updateFileInfo");
 			const renderSpy = jest.spyOn(app, "renderFileEditors");
-			const FileNotifications = (jest.requireMock("../../src/ui/notifications") as any).FileNotifications;
+			const FileNotifications = (
+				jest.requireMock("../../src/ui/notifications") as any
+			).FileNotifications;
 			await app.handleFileSelection();
-			expect(app.loadedFiles.some((f: any) => f.name === "test.json")).toBe(true);
+			expect(app.loadedFiles.some((f: any) => f.name === "test.json")).toBe(
+				true
+			);
 			expect(processSpy).toHaveBeenCalledWith(fileData);
 			expect(updateSpy).toHaveBeenCalled();
 			expect(renderSpy).toHaveBeenCalled();
@@ -496,19 +507,29 @@ describe("Main Application Tests", () => {
 			editor.appendChild(form);
 			document.body.appendChild(editor);
 			const spy = jest.spyOn(app.persistence, "saveFile");
-			const FileNotifications = (jest.requireMock("../../src/ui/notifications") as any).FileNotifications;
+			const FileNotifications = (
+				jest.requireMock("../../src/ui/notifications") as any
+			).FileNotifications;
 			await app.handleFileSave("save.json");
 			expect(spy).toHaveBeenCalledWith(fileData, form);
-			expect(FileNotifications.showSaveSuccess).toHaveBeenCalledWith("save.json");
+			expect(FileNotifications.showSaveSuccess).toHaveBeenCalledWith(
+				"save.json"
+			);
 		});
 
 		it("should handle file refresh errors and show appropriate notifications", async () => {
 			const fileData = { name: "refresh.json", type: "json", content: "{}" };
 			app.loadedFiles = [fileData];
-			jest.spyOn(app.fileHandler, "refreshFile").mockRejectedValue(new Error("Permission denied"));
-			const FileNotifications = (jest.requireMock("../../src/ui/notifications") as any).FileNotifications;
+			jest
+				.spyOn(app.fileHandler, "refreshFile")
+				.mockRejectedValue(new Error("Permission denied"));
+			const FileNotifications = (
+				jest.requireMock("../../src/ui/notifications") as any
+			).FileNotifications;
 			await app.handleFileRefresh("refresh.json");
-			expect(FileNotifications.showPermissionDenied).toHaveBeenCalledWith("refresh.json");
+			expect(FileNotifications.showPermissionDenied).toHaveBeenCalledWith(
+				"refresh.json"
+			);
 		});
 
 		it("should remove file from loadedFiles and update UI on file removal", async () => {
@@ -517,20 +538,31 @@ describe("Main Application Tests", () => {
 			jest.spyOn(app, "showRemoveConfirmation").mockResolvedValue(true);
 			const updateSpy = jest.spyOn(app, "updateFileInfo");
 			const renderSpy = jest.spyOn(app, "renderFileEditors");
-			const FileNotifications = (jest.requireMock("../../src/ui/notifications") as any).FileNotifications;
+			const FileNotifications = (
+				jest.requireMock("../../src/ui/notifications") as any
+			).FileNotifications;
 			await app.handleFileRemove("remove.json");
 			expect(app.loadedFiles.length).toBe(0);
 			expect(updateSpy).toHaveBeenCalled();
 			expect(renderSpy).toHaveBeenCalled();
-			expect(FileNotifications.showFileRemoved).toHaveBeenCalledWith("remove.json");
+			expect(FileNotifications.showFileRemoved).toHaveBeenCalledWith(
+				"remove.json"
+			);
 		});
 
 		it("should toggle file visibility and update UI", () => {
-			const fileData = { name: "toggle.json", type: "json", content: "{}", isActive: true };
+			const fileData = {
+				name: "toggle.json",
+				type: "json",
+				content: "{}",
+				isActive: true,
+			};
 			app.loadedFiles = [fileData];
 			const updateSpy = jest.spyOn(app, "updateFileInfo");
 			const renderSpy = jest.spyOn(app, "renderFileEditors");
-			const NotificationService = (jest.requireMock("../../src/ui/notifications") as any).NotificationService;
+			const NotificationService = (
+				jest.requireMock("../../src/ui/notifications") as any
+			).NotificationService;
 			app.toggleFileVisibility("toggle.json");
 			expect(app.loadedFiles[0].isActive).toBe(false);
 			expect(updateSpy).toHaveBeenCalled();
@@ -539,7 +571,12 @@ describe("Main Application Tests", () => {
 		});
 
 		it("should update file info DOM for active/inactive files", () => {
-			const fileData = { name: "info.json", type: "json", content: "{}", isActive: false };
+			const fileData = {
+				name: "info.json",
+				type: "json",
+				content: "{}",
+				isActive: false,
+			};
 			app.loadedFiles = [fileData];
 			const fileInfo = document.getElementById("fileInfo");
 			app.updateFileInfo([fileData]);
@@ -548,10 +585,22 @@ describe("Main Application Tests", () => {
 		});
 
 		it("should render file editors for active files only", () => {
-			const fileData1 = { name: "a.json", type: "json", content: "{}", isActive: true };
-			const fileData2 = { name: "b.json", type: "json", content: "{}", isActive: false };
+			const fileData1 = {
+				name: "a.json",
+				type: "json",
+				content: "{}",
+				isActive: true,
+			};
+			const fileData2 = {
+				name: "b.json",
+				type: "json",
+				content: "{}",
+				isActive: false,
+			};
 			app.loadedFiles = [fileData1, fileData2];
-			app.renderer.renderFileEditor = jest.fn(() => document.createElement("div"));
+			app.renderer.renderFileEditor = jest.fn(() =>
+				document.createElement("div")
+			);
 			const container = document.getElementById("editorContainer");
 			app.renderFileEditors();
 			expect(app.renderer.renderFileEditor).toHaveBeenCalledWith(fileData1);

@@ -509,15 +509,12 @@ export class KonficuratorApp {
 
 				// Use PermissionManager to handle file restoration with proper permission management
 				const { restoredFiles: processedFiles, filesNeedingPermission } =
-					await PermissionManager.restoreSavedHandles(
-						restoredFiles,
-						async (file: FileData) => {
-							await this.processFile(file);
-						}
-					);
+					await PermissionManager.restoreSavedHandles(restoredFiles);
 
 				// Auto-refresh files that have valid handles and permissions
-				const refreshedFiles = await StorageService.autoRefresh(processedFiles);
+				const refreshedFiles = await StorageService.autoRefreshFiles(
+					processedFiles
+				);
 
 				let autoRefreshedCount = 0;
 				let permissionDeniedCount = 0;
@@ -525,6 +522,7 @@ export class KonficuratorApp {
 
 				// Process refreshed files and update UI
 				for (const fileData of refreshedFiles) {
+					await this.processFile(fileData);
 					// Ensure restored files are active by default if not explicitly set
 					if (fileData.isActive === undefined) {
 						fileData.isActive = true;

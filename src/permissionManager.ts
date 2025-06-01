@@ -15,7 +15,7 @@ export class PermissionManager {
 	 */
 	static async restoreSavedHandles(
 		files: FileData[],
-		onFileRestored: (file: FileData) => Promise<void>
+		onFileRestored: (file: FileData) => Promise<void> = () => Promise.resolve()
 	): Promise<{
 		restoredFiles: FileData[];
 		filesNeedingPermission: FileData[];

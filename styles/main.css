@@ -46,6 +46,11 @@ main {
 	padding: 2rem;
 	text-align: center;
 	border-bottom: 1px solid #eee;
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background-color: #fff;
+	box-shadow: 0 5px 5px -6px #333;
 }
 
 /* Buttons */
