@@ -67,10 +67,10 @@ export class XmlParser extends BaseParser {
 				throw new Error("Invalid XML format");
 			}
 
-			// Return object with root element name as key
+			// Process the XML document into a more editor-friendly format
 			const rootElement = xmlDoc.documentElement;
-			const result: ParsedData = {};
-			result[rootElement.tagName] = this.xmlToObject(rootElement);
+			const result = this.processXmlElement(rootElement);
+			
 			return result;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
@@ -80,7 +80,25 @@ export class XmlParser extends BaseParser {
 
 	serialize(data: ParsedData): string {
 		try {
-			// If data has a single root property, use that as the root element
+			// Check if the data is in the flattened key-value format
+			// This is when there's no @-prefixed keys and no nested structures
+			const hasInternalFormats = Object.keys(data).some(key => key.startsWith('@'));
+			const hasNestedObjects = Object.values(data).some(value => 
+				typeof value === 'object' && value !== null && !Array.isArray(value)
+			);
+			
+			if (!hasInternalFormats && !hasNestedObjects) {
+				// Handle flat key-value pairs as XML with add elements
+				let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<appSettings>\n`;
+				for (const [key, value] of Object.entries(data)) {
+					const escapedValue = this.escapeXml(String(value));
+					xml += `\t<add key="${key}" value="${escapedValue}" />\n`;
+				}
+				xml += '</appSettings>';
+				return xml;
+			}
+			
+			// Otherwise, use the standard XML serialization
 			const keys = Object.keys(data);
 			if (keys.length === 1) {
 				const rootName = keys[0];
@@ -99,6 +117,36 @@ export class XmlParser extends BaseParser {
 
 	getFileType(): string {
 		return "xml";
+	}
+
+	/**
+	 * Process XML element and convert to a more friendly format
+	 * Handles special cases like key-value pairs in attributes
+	 */
+	private processXmlElement(element: Element): ParsedData {
+		const result: ParsedData = {};
+		const rootName = element.tagName;
+		
+		// Check for key-value structured elements (like <add key="x" value="y" />)
+		const keyValueElements = Array.from(element.children).filter(child => 
+			child.hasAttribute("key") && child.hasAttribute("value")
+		);
+
+		// If we have key-value elements, extract them as direct properties
+		if (keyValueElements.length > 0) {
+			keyValueElements.forEach(elem => {
+				const key = elem.getAttribute("key");
+				const value = elem.getAttribute("value");
+				if (key) {
+					result[key] = this.parseValue(value || "");
+				}
+			});
+			return result;
+		}
+		
+		// Otherwise, use the standard XML to object conversion
+		result[rootName] = this.xmlToObject(element);
+		return result;
 	}
 
 	/**
