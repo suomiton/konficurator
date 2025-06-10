@@ -29,6 +29,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        
+      - name: Test WASM module
+        run: |
+          cd parser-wasm
+          cargo test
+          
       - name: Run tests
         run: npm test
         
@@ -51,6 +65,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        
+      - name: Build WASM module
+        run: |
+          cd parser-wasm
+          wasm-pack build --target web --release
+          
       - name: Build optimized production version
         run: npm run build:prod
         

@@ -1,0 +1,11 @@
+{
+	"name": "test-simple",
+	"version": "1.0.0",
+	"age": 25,
+	"active": true,
+	"skills": ["rust", "javascript", "wasm"],
+	"config": {
+		"debug": false,
+		"max_connections": 100
+	}
+}

@@ -62,3 +62,15 @@ debug*
 *final-*.sh
 *.tmp
 *.log
+
+# Rust/WASM specific
+# Rust build artifacts
+parser-wasm/target/
+# Generated WASM package (build artifact - regenerate in CI/CD)
+parser-wasm/pkg/
+
+# Node modules in parser-wasm
+parser-wasm/node_modules/
+
+# Debug files
+parser-wasm/debug_xml.rs
