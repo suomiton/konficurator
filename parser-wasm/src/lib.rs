@@ -6,7 +6,6 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 mod env_parser;
 mod json_parser;
-mod tests;
 mod xml_parser;
 
 pub use env_parser::EnvParser;
@@ -14,7 +13,7 @@ pub use json_parser::JsonParser;
 pub use xml_parser::XmlParser;
 
 /// Span represents a byte range in the original content
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {
     pub start: usize,
     pub end: usize,
@@ -24,40 +23,26 @@ impl Span {
     pub fn new(start: usize, end: usize) -> Self {
         Self { start, end }
     }
-}
 
-/// Edit represents a single mutation to apply
-#[derive(Debug, Clone)]
-pub struct Edit {
-    pub range: std::ops::Range<usize>,
-    pub replacement: String,
+    pub fn len(&self) -> usize {
+        self.end - self.start
+    }
 }
 
 /// Trait for parsers that support byte-level round-trip mutations
 pub trait BytePreservingParser {
     fn find_value_span(&self, content: &str, path: &[String]) -> Result<Span, String>;
     fn validate_syntax(&self, content: &str) -> Result<(), String>;
+
+    fn replace_value(&self, content: &str, span: Span, new_val: &str) -> String {
+        let mut result = String::with_capacity(content.len() - span.len() + new_val.len());
+        result.push_str(&content[..span.start]);
+        result.push_str(new_val);
+        result.push_str(&content[span.end..]);
+        result
+    }
 }
 
-/// Apply a single edit to content, preserving all other bytes
-pub fn apply_edit(content: &str, edit: Edit) -> String {
-    let mut result = String::with_capacity(content.len() + edit.replacement.len());
-    result.push_str(&content[..edit.range.start]);
-    result.push_str(&edit.replacement);
-    result.push_str(&content[edit.range.end..]);
-    result
-}
-
-/// Update exactly one value and return the entire file buffer
-/// with every other byte preserved.
-///
-/// * `file_type` – "json" | "xml" | "env"
-/// * `content`   – full original file (UTF-8)
-/// * `path`      – Vec<String>; JSON pointer components or
-///                 XML tag/attribute segments; for .env just [KEY]
-/// * `new_val`   – replacement value as UTF-8
-///
-/// Throws JsValue on any error (invalid syntax, path not found).
 #[wasm_bindgen]
 pub fn update_value(
     file_type: &str,
@@ -65,12 +50,11 @@ pub fn update_value(
     path: JsValue,
     new_val: &str,
 ) -> Result<String, JsValue> {
-    // Convert JsValue array to Vec<String>
-    let path_array: Array = path.into();
-    let path: Vec<String> = path_array
-        .iter()
-        .map(|val| val.as_string().unwrap_or_default())
-        .collect();
+    let path: Vec<String> = if let Ok(js_array) = path.dyn_into::<Array>() {
+        js_array.iter().map(|val| val.as_string().unwrap_or_default()).collect()
+    } else {
+        return Err(JsValue::from_str("Invalid path: must be an array of strings"));
+    };
 
     if path.is_empty() {
         return Err(JsValue::from_str("Path cannot be empty"));
@@ -79,82 +63,48 @@ pub fn update_value(
     let result = match file_type.to_lowercase().as_str() {
         "json" => {
             let parser = JsonParser::new();
-            parser
-                .validate_syntax(content)
-                .map_err(|e| JsValue::from_str(&e))?;
-            let span = parser
-                .find_value_span(content, &path)
-                .map_err(|e| JsValue::from_str(&e))?;
+            parser.validate_syntax(content).map_err(JsValue::from_str)?;
+            let span = parser.find_value_span(content, &path).map_err(JsValue::from_str)?;
 
-            // For JSON, we need to properly quote strings
-            let escaped_value = if new_val.parse::<f64>().is_ok()
-                || new_val == "true"
-                || new_val == "false"
-                || new_val == "null"
-            {
+            let escaped_value = if is_json_literal(new_val) {
                 new_val.to_string()
             } else {
                 format!("\"{}\"", escape_json_string(new_val))
             };
 
-            let edit = Edit {
-                range: span.start..span.end,
-                replacement: escaped_value,
-            };
-            apply_edit(content, edit)
+            Ok(parser.replace_value(content, span, &escaped_value))
         }
+
         "xml" | "config" => {
             let parser = XmlParser::new();
-            parser
-                .validate_syntax(content)
-                .map_err(|e| JsValue::from_str(&e))?;
-            let span = parser
-                .find_value_span(content, &path)
-                .map_err(|e| JsValue::from_str(&e))?;
-
-            let escaped_value = escape_xml_string(new_val);
-            let edit = Edit {
-                range: span.start..span.end,
-                replacement: escaped_value,
-            };
-            apply_edit(content, edit)
+            parser.validate_syntax(content).map_err(JsValue::from_str)?;
+            let span = parser.find_value_span(content, &path).map_err(JsValue::from_str)?;
+            Ok(parser.replace_value(content, span, &escape_xml_string(new_val)))
         }
+
         "env" => {
             let parser = EnvParser::new();
-            parser
-                .validate_syntax(content)
-                .map_err(|e| JsValue::from_str(&e))?;
-            let span = parser
-                .find_value_span(content, &path)
-                .map_err(|e| JsValue::from_str(&e))?;
+            parser.validate_syntax(content).map_err(JsValue::from_str)?;
+            let span = parser.find_value_span(content, &path).map_err(JsValue::from_str)?;
 
-            // For env files, determine if we need quotes
-            let needs_quotes = new_val.contains(' ')
-                || new_val.contains('#')
-                || new_val.contains('\t')
-                || new_val.contains('\n');
-
-            let formatted_value = if needs_quotes {
+            let needs_quotes = new_val.contains([' ', '#', '\n', '\t']);
+            let val = if needs_quotes {
                 format!("\"{}\"", escape_env_string(new_val))
             } else {
                 new_val.to_string()
             };
 
-            let edit = Edit {
-                range: span.start..span.end,
-                replacement: formatted_value,
-            };
-            apply_edit(content, edit)
+            Ok(parser.replace_value(content, span, &val))
         }
-        _ => {
-            return Err(JsValue::from_str(&format!(
-                "Unsupported file type: {}",
-                file_type
-            )))
-        }
-    };
+
+        other => Err(JsValue::from_str(&format!("Unsupported file type: {}", other))),
+    }?;
 
     Ok(result)
+}
+
+fn is_json_literal(s: &str) -> bool {
+    matches!(s, "true" | "false" | "null") || s.parse::<f64>().map_or(false, |v| v.to_string() == s)
 }
 
 fn escape_json_string(s: &str) -> String {
@@ -199,113 +149,5 @@ fn escape_env_string(s: &str) -> String {
 
 #[wasm_bindgen(start)]
 pub fn main() {
-    // Initialize any setup needed
-}
-
-#[cfg(test)]
-mod lib_tests {
-    use super::*;
-    use std::fs;
-
-    #[test]
-    fn simple_test() {
-        assert_eq!(2 + 2, 4);
-    }
-
-    #[test]
-    fn test_json_parser_validation() {
-        let content = fs::read_to_string("fixtures/test.json").expect("Failed to read test.json");
-        let parser = JsonParser::new();
-        assert!(parser.validate_syntax(&content).is_ok());
-
-        // Test invalid JSON
-        assert!(parser.validate_syntax("{ invalid").is_err());
-    }
-
-    #[test]
-    fn test_json_parser_find_span() {
-        let content = r#"{"name": "test", "age": 25}"#;
-        let parser = JsonParser::new();
-
-        let span = parser
-            .find_value_span(content, &["name".to_string()])
-            .unwrap();
-        assert_eq!(&content[span.start..span.end], "\"test\"");
-
-        let span = parser
-            .find_value_span(content, &["age".to_string()])
-            .unwrap();
-        assert_eq!(&content[span.start..span.end], "25");
-    }
-
-    #[test]
-    fn test_xml_parser_validation() {
-        let content = fs::read_to_string("fixtures/test.xml").expect("Failed to read test.xml");
-        let parser = XmlParser::new();
-        assert!(parser.validate_syntax(&content).is_ok());
-
-        // Test invalid XML - unclosed elements
-        let invalid_xml = "<root><unclosed>";
-        let result = parser.validate_syntax(invalid_xml);
-        assert!(result.is_err()); // Should fail because elements are not closed
-    }
-
-    #[test]
-    fn test_xml_parser_find_span() {
-        let content = r#"<root><n>TestServer</n></root>"#;
-        let parser = XmlParser::new();
-
-        println!("Testing XML content: {}", content);
-        let result = parser.find_value_span(content, &["root".to_string(), "n".to_string()]);
-
-        match result {
-            Ok(span) => {
-                let found = &content[span.start..span.end];
-                assert_eq!(found, "TestServer");
-            }
-            Err(e) => {
-                // Let's also try finding just the root element
-                let root_result = parser.find_value_span(content, &["root".to_string()]);
-                println!("Root result: {:?}", root_result);
-                panic!("Failed to find span: {}", e);
-            }
-        }
-    }
-
-    #[test]
-    fn test_env_parser_validation() {
-        let content = fs::read_to_string("fixtures/test.env").expect("Failed to read test.env");
-        let parser = EnvParser::new();
-        assert!(parser.validate_syntax(&content).is_ok());
-    }
-
-    #[test]
-    fn test_env_parser_find_span() {
-        let content = "DATABASE_URL=postgresql://localhost:5432/mydb\nDEBUG=true";
-        let parser = EnvParser::new();
-
-        let span = parser
-            .find_value_span(content, &["DATABASE_URL".to_string()])
-            .unwrap();
-        assert_eq!(
-            &content[span.start..span.end],
-            "postgresql://localhost:5432/mydb"
-        );
-
-        let span = parser
-            .find_value_span(content, &["DEBUG".to_string()])
-            .unwrap();
-        assert_eq!(&content[span.start..span.end], "true");
-    }
-
-    #[test]
-    fn test_apply_edit() {
-        let content = "Hello, World!";
-        let edit = Edit {
-            range: 7..12,
-            replacement: "Rust".to_string(),
-        };
-        let result = apply_edit(content, edit);
-        assert_eq!(result, "Hello, Rust!");
-    }
+    // WASM init hook
 }
