@@ -27,6 +27,19 @@ docker build -f Dockerfile.prod -t konficurator:prod .
 docker run -p 8080:8080 konficurator:prod
 ```
 
+### WASM Development
+
+```bash
+# Rebuild WASM module during development
+docker-compose exec konficurator ./dev-tools/build-wasm.sh
+
+# Run Rust tests
+docker-compose exec konficurator sh -c "cd parser-wasm && cargo test"
+
+# Build WASM module manually
+docker-compose exec konficurator sh -c "cd parser-wasm && wasm-pack build --target web --dev"
+```
+
 ## 📁 File Structure
 
 - **`Dockerfile`** → Development (default)

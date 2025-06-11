@@ -11,11 +11,17 @@ services:
       - ./styles:/app/styles
       - ./samples:/app/samples
       - ./index.html:/app/index.html
-      # Preserve node_modules in container
+      - ./dev-tools:/app/dev-tools
+      # Mount WASM parser source for development
+      - ./parser-wasm/src:/app/parser-wasm/src
+      - ./parser-wasm/Cargo.toml:/app/parser-wasm/Cargo.toml
+      - ./parser-wasm/fixtures:/app/parser-wasm/fixtures
+      # Preserve node_modules and cargo target in container
       - /app/node_modules
+      - /app/parser-wasm/target
     environment:
       - NODE_ENV=development
-    command: npm run dev
+    command: sh -c "cd parser-wasm && wasm-pack build --target web --dev && cd .. && npm run dev"
     restart: unless-stopped
 
   # Alternative development service using explicit dev dockerfile
@@ -31,11 +37,17 @@ services:
       - ./styles:/app/styles
       - ./samples:/app/samples
       - ./index.html:/app/index.html
-      # Preserve node_modules in container
+      - ./dev-tools:/app/dev-tools
+      # Mount WASM parser source for development
+      - ./parser-wasm/src:/app/parser-wasm/src
+      - ./parser-wasm/Cargo.toml:/app/parser-wasm/Cargo.toml
+      - ./parser-wasm/fixtures:/app/parser-wasm/fixtures
+      # Preserve node_modules and cargo target in container
       - /app/node_modules
+      - /app/parser-wasm/target
     environment:
       - NODE_ENV=development
-    command: npm run dev
+    command: sh -c "cd parser-wasm && wasm-pack build --target web --dev && cd .. && npm run dev"
     restart: unless-stopped
     profiles:
       - dev

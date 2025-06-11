@@ -1,6 +1,14 @@
 # Development Dockerfile for Konficurator
 FROM node:20-alpine
 
+# Install Rust and required tools for WASM development
+RUN apk add --no-cache curl build-base
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add wasm32-unknown-unknown
+RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+RUN cargo install wasm-bindgen-cli
+
 # Set working directory
 WORKDIR /app
 
@@ -12,6 +20,9 @@ RUN npm ci
 
 # Copy source code
 COPY . .
+
+# Build WASM module for development
+RUN cd parser-wasm && wasm-pack build --target web --dev
 
 # Build TypeScript for development
 RUN npm run build

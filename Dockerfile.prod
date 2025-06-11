@@ -4,6 +4,16 @@
 # Build stage
 FROM node:20-alpine AS build
 
+# Install Rust and required tools
+RUN apk add --no-cache curl build-base
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add wasm32-unknown-unknown
+
+# Install wasm-pack and wasm-bindgen CLI
+RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+RUN cargo install wasm-bindgen-cli
+
 WORKDIR /app
 
 # Copy package files and install all dependencies (including devDependencies for build)
@@ -12,6 +22,9 @@ RUN npm ci
 
 # Copy source code and build tools
 COPY . .
+
+# Build WASM module first
+RUN cd parser-wasm && wasm-pack build --target web --release
 
 # Build optimized production bundle
 RUN npm run build:prod
