@@ -2,47 +2,83 @@ import { IPersistence, FileData } from "./interfaces.js";
 import { ParserFactory } from "./parsers.js";
 import { NotificationService } from "./ui/notifications.js";
 
+// Import WASM parser for non-destructive updates
+import init, { update_value } from "../parser-wasm/pkg/parser_core.js";
+
 /**
  * Persistence Module
- * Handles saving form data back to files
+ * Handles saving form data back to files using WASM non-destructive updates
  * Follows Single Responsibility Principle and Dependency Inversion Principle
  */
 export class FilePersistence implements IPersistence {
+	private wasmInitialized = false;
+
 	/**
-	 * Saves file with updated form data
+	 * Initialize WASM module if not already done
+	 */
+	private async ensureWasmInitialized(): Promise<void> {
+		if (!this.wasmInitialized) {
+			await init();
+			this.wasmInitialized = true;
+		}
+	}
+
+	/**
+	 * Saves file with updated form data using WASM non-destructive updates
 	 */
 	async saveFile(
 		fileData: FileData,
 		formElement: HTMLFormElement
 	): Promise<void> {
 		try {
-			// Extract form data
-			const updatedData = this.extractFormData(formElement, fileData.content);
+			// Ensure WASM module is initialized
+			await this.ensureWasmInitialized();
 
-			// Get appropriate parser for serialization
-			const parser = ParserFactory.createParser(fileData.type);
+			// Get original file content as baseline
+			let updatedContent = fileData.originalContent || "";
 
-			// Serialize data to string
-			const serializedContent = parser.serialize(updatedData);
+			// Extract form changes and apply them using WASM updates
+			const fieldChanges = this.extractFieldChanges(
+				formElement,
+				fileData.content
+			);
+
+			// Apply each change using WASM update_value for non-destructive editing
+			for (const change of fieldChanges) {
+				try {
+					updatedContent = update_value(
+						fileData.type,
+						updatedContent,
+						change.path,
+						change.newValue
+					);
+				} catch (error) {
+					const message =
+						error instanceof Error ? error.message : "Unknown error";
+					throw new Error(
+						`Failed to update field "${change.path.join(".")}" with value "${
+							change.newValue
+						}": ${message}`
+					);
+				}
+			}
+
 			// Write to file
 			if (fileData.handle) {
 				// Use existing handle if available
 				const fileHandler = await import("./fileHandler.js");
 				const handler = new fileHandler.FileHandler();
-				await handler.writeFile(fileData.handle, serializedContent);
+				await handler.writeFile(fileData.handle, updatedContent);
 			} else {
 				// For restored files without handles, prompt user to save
-				await this.saveAsNewFile(
-					fileData.name,
-					serializedContent,
-					fileData.type
-				);
+				await this.saveAsNewFile(fileData.name, updatedContent, fileData.type);
 			}
 
-			// Update in-memory content
-			fileData.content = updatedData;
-			// Note: originalContent should only be updated when content is reloaded from disk,
-			// not when saving changes. The serializedContent here is for file output only.
+			// Update in-memory content - re-parse to maintain data structure consistency
+			const parser = ParserFactory.createParser(fileData.type);
+			fileData.content = parser.parse(updatedContent);
+			// Update originalContent to the new file content for future edits
+			fileData.originalContent = updatedContent;
 
 			NotificationService.showSuccess(`Successfully saved ${fileData.name}`);
 		} catch (error) {
@@ -55,27 +91,44 @@ export class FilePersistence implements IPersistence {
 	}
 
 	/**
-	 * Extracts data from form and builds object structure
+	 * Extracts field changes from form compared to original data
 	 */
-	private extractFormData(
+	private extractFieldChanges(
 		formElement: HTMLFormElement,
 		originalData: any
-	): any {
+	): Array<{ path: string[]; newValue: string }> {
+		const changes: Array<{ path: string[]; newValue: string }> = [];
 		const formData = new FormData(formElement);
-		const result = this.deepClone(originalData);
 
 		// Process each form field
-		for (const [path, value] of formData.entries()) {
-			this.setNestedValue(result, path, value);
+		for (const [fieldPath, value] of formData.entries()) {
+			const path = fieldPath.split(".");
+			const currentValue = this.getNestedValue(originalData, path);
+			const newValue = this.convertFormValueToString(value, currentValue);
+
+			if (this.hasValueChanged(currentValue, newValue)) {
+				changes.push({
+					path,
+					newValue,
+				});
+			}
 		}
 
 		// Handle checkboxes (unchecked boxes don't appear in FormData)
 		const checkboxes = formElement.querySelectorAll('input[type="checkbox"]');
 		checkboxes.forEach((element) => {
 			const checkbox = element as HTMLInputElement;
-			const path = checkbox.name;
-			const isChecked = checkbox.checked;
-			this.setNestedValue(result, path, isChecked);
+			const fieldPath = checkbox.name;
+			const path = fieldPath.split(".");
+			const currentValue = this.getNestedValue(originalData, path);
+			const newValue = checkbox.checked ? "true" : "false";
+
+			if (this.hasValueChanged(currentValue, newValue)) {
+				changes.push({
+					path,
+					newValue,
+				});
+			}
 		});
 
 		// Handle arrays (textareas with data-type="array")
@@ -84,85 +137,82 @@ export class FilePersistence implements IPersistence {
 		);
 		arrayFields.forEach((element) => {
 			const textarea = element as HTMLTextAreaElement;
-			const path = textarea.name;
+			const fieldPath = textarea.name;
+			const path = fieldPath.split(".");
+			const currentValue = this.getNestedValue(originalData, path);
+
 			try {
+				// For arrays, we need to serialize the entire array as JSON
 				const arrayValue = JSON.parse(textarea.value);
-				this.setNestedValue(result, path, arrayValue);
+				const newValue = JSON.stringify(arrayValue);
+
+				if (this.hasValueChanged(currentValue, arrayValue)) {
+					changes.push({
+						path,
+						newValue,
+					});
+				}
 			} catch (error) {
 				const message =
 					error instanceof Error ? error.message : "Unknown error";
-				throw new Error(`Invalid array format in field "${path}": ${message}`);
+				throw new Error(
+					`Invalid array format in field "${fieldPath}": ${message}`
+				);
 			}
 		});
 
-		return result;
+		return changes;
 	}
 
 	/**
-	 * Sets a nested value in an object using dot notation path
+	 * Gets a nested value from an object using dot notation path
 	 */
-	private setNestedValue(obj: any, path: string, value: any): void {
-		const keys = path.split(".");
+	private getNestedValue(obj: any, path: string[]): any {
 		let current = obj;
-
-		// Navigate to the parent object
-		for (let i = 0; i < keys.length - 1; i++) {
-			const key = keys[i];
-			if (!(key in current) || typeof current[key] !== "object") {
-				current[key] = {};
+		for (const key of path) {
+			if (current == null || typeof current !== "object") {
+				return undefined;
 			}
 			current = current[key];
 		}
-
-		// Set the final value with type conversion
-		const finalKey = keys[keys.length - 1];
-		current[finalKey] = this.convertValue(value, current[finalKey]);
+		return current;
 	}
 
 	/**
-	 * Converts form value to appropriate type based on original value
+	 * Converts form value to string representation for WASM
 	 */
-	private convertValue(formValue: any, originalValue: any): any {
-		// If it's a FormData value (string), convert it appropriately
+	private convertFormValueToString(formValue: any, originalValue: any): string {
+		// If it's already a string from form, use it directly
 		if (typeof formValue === "string") {
-			// Check original type to determine conversion
+			// Convert based on original type
 			if (typeof originalValue === "number") {
 				const numValue = Number(formValue);
-				return isNaN(numValue) ? formValue : numValue;
+				return isNaN(numValue) ? formValue : numValue.toString();
 			}
 
 			if (typeof originalValue === "boolean") {
-				return formValue === "true" || formValue === "on";
+				return formValue === "true" || formValue === "on" ? "true" : "false";
 			}
 
-			// String values
 			return formValue;
 		}
 
-		// For non-string values (like boolean from checkbox), return as-is
-		return formValue;
+		// For non-string values, convert to string
+		return String(formValue);
 	}
 
 	/**
-	 * Deep clones an object to avoid mutating original data
+	 * Checks if a value has changed compared to original
 	 */
-	private deepClone(obj: any): any {
-		if (obj === null || typeof obj !== "object") {
-			return obj;
-		}
+	private hasValueChanged(originalValue: any, newValue: any): boolean {
+		// Convert both to strings for comparison
+		const originalStr =
+			originalValue === null || originalValue === undefined
+				? ""
+				: String(originalValue);
+		const newStr = String(newValue);
 
-		if (Array.isArray(obj)) {
-			return obj.map((item) => this.deepClone(item));
-		}
-
-		const cloned: any = {};
-		for (const key in obj) {
-			if (obj.hasOwnProperty(key)) {
-				cloned[key] = this.deepClone(obj[key]);
-			}
-		}
-
-		return cloned;
+		return originalStr !== newStr;
 	}
 
 	/**
