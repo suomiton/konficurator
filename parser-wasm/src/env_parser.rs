@@ -1,17 +1,20 @@
 //---------------------------------------------------------
 // env_parser.rs  (no external crates, browser–WASM ready)
 //---------------------------------------------------------
-use std::ops::Range;
 
 /// Byte-range inside the *original* UTF-8 buffer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {
     pub start: usize,
-    pub end:   usize,
+    pub end: usize,
 }
 impl Span {
-    pub fn new(start: usize, end: usize) -> Self { Self { start, end } }
-    pub fn len(&self) -> usize { self.end - self.start }
+    pub fn new(start: usize, end: usize) -> Self {
+        Self { start, end }
+    }
+    pub fn len(&self) -> usize {
+        self.end - self.start
+    }
 }
 
 /// API expected by upper-level tooling.
@@ -30,60 +33,85 @@ pub trait BytePreservingParser {
     }
 }
 
+// Move Quote definition above mod lexer so it's visible to the whole file
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Quote {
+    Single,
+    Double,
+}
+impl Quote {
+    pub fn as_byte(self) -> u8 {
+        match self {
+            Quote::Single => b'\'',
+            Quote::Double => b'"',
+        }
+    }
+}
+
+// Make struct Line<'a> public so it can be used in mod lexer
+pub struct Line<'a> {
+    pub bytes: &'a [u8],
+    pub eol_len: usize, // 0, 1 or 2
+}
+
 // ───────────────────────── 1. LEXER ─────────────────────────
 mod lexer {
-    use super::{Span, Quote};
-    /// One physical line including its EOL marker (or empty if EOF).
-    struct Line<'a> {
-        bytes: &'a [u8],
-        eol_len: usize, // 0, 1 or 2
-    }
 
-    /// Quoting style of a value (used to keep quotes on replacement).
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub enum Quote { Single, Double }
+    use super::Line;
+    use super::{Quote, Span};
 
     /// Parsed line → (optional) key/value spans + quote info.
     #[derive(Debug)]
     pub struct EntryRaw {
-        pub key_span:   Span,
+        pub key_span: Span,
         pub value_span: Span,
-        pub quote:      Option<Quote>,
+        pub quote: Option<Quote>,
     }
 
     /// Split buffer into `Line`s *without* allocating.
     fn iter_lines(buf: &str) -> impl Iterator<Item = Line<'_>> {
-        let bytes = buf.as_bytes();
+        let mut bytes = buf.as_bytes();
         std::iter::from_fn(move || {
-            if bytes.is_empty() { return None; }
+            if bytes.is_empty() {
+                return None;
+            }
             let mut idx = 0;
-            while idx < bytes.len() && bytes[idx] != b'\n' && bytes[idx] != b'\r' { idx += 1; }
+            while idx < bytes.len() && bytes[idx] != b'\n' && bytes[idx] != b'\r' {
+                idx += 1;
+            }
 
-            let (line, rest) = bytes.split_at(idx);
+            let (_, rest) = bytes.split_at(idx);
             let mut eol_len = 0;
             // handle \r\n or \n  /  \r
-            if rest.first() == Some(&b'\r') && rest.get(1) == Some(&b'\n') { eol_len = 2; }
-            else if rest.first().is_some() { eol_len = 1; }
+            if rest.first() == Some(&b'\r') && rest.get(1) == Some(&b'\n') {
+                eol_len = 2;
+            } else if rest.first().is_some() {
+                eol_len = 1;
+            }
 
-            // advance global slice
+            // advance local slice
             let consumed = idx + eol_len;
-            let (this, remainder) = bytes.split_at(consumed);
-            *unsafe { &mut *( &bytes as *const _ as *mut &[u8] ) } = remainder;
+            let (line_bytes, remainder) = bytes.split_at(consumed);
+            bytes = remainder;
 
-            Some(Line { bytes: this, eol_len })
+            Some(Line {
+                bytes: line_bytes,
+                eol_len,
+            })
         })
     }
 
     /// Core tokenisation logic – returns Vec of raw entries; ignores comments/blank lines.
     pub fn lex(buf: &str) -> Result<Vec<EntryRaw>, String> {
-        let mut offset = 0;                      // running byte offset in the original buffer
-        let mut out    = Vec::<EntryRaw>::new();
+        let mut offset = 0; // running byte offset in the original buffer
+        let mut out = Vec::<EntryRaw>::new();
 
         for line in iter_lines(buf) {
-            let slice = line.bytes;              // still contains EOL
+            let slice = line.bytes; // still contains EOL
             let trimmed = trim_ws(slice);
 
-            if trimmed.is_empty() || trimmed[0] == b'#' { // blank / comment
+            if trimmed.is_empty() || trimmed[0] == b'#' {
+                // blank / comment
                 offset += slice.len();
                 continue;
             }
@@ -97,7 +125,8 @@ mod lexer {
 
             // parse key
             let key_start = idx;
-            while idx < trimmed.len() && !trimmed[idx].is_ascii_whitespace() && trimmed[idx] != b'=' {
+            while idx < trimmed.len() && !trimmed[idx].is_ascii_whitespace() && trimmed[idx] != b'='
+            {
                 idx += 1;
             }
             let key_end = idx;
@@ -108,23 +137,24 @@ mod lexer {
                 return Err("missing '=' separator".into());
             }
             idx += 1; // past '='
-            let after_eq = idx;
+            let _after_eq = idx;
             // capture value (leading spaces allowed)
             skip_spaces(&trimmed, &mut idx);
-            let val_start = idx;
 
             // determine quoting
             let (quote, val_body_start) = match trimmed.get(idx) {
-                Some(b'"') => (Some(Quote::Double), idx + 1),
-                Some(b'\'') => (Some(Quote::Single), idx + 1),
+                Some(b'"') => (Some(super::Quote::Double), idx + 1),
+                Some(b'\'') => (Some(super::Quote::Single), idx + 1),
                 _ => (None, idx),
             };
 
             // locate end of value (before in-line comment / EOL)
-            let mut val_end = trimmed.len();
+            let mut val_end;
             // strip trailing spaces / in-line comment
             let mut j = trimmed.len();
-            while j > val_body_start && is_space(trimmed[j - 1]) { j -= 1; }
+            while j > val_body_start && is_space(trimmed[j - 1]) {
+                j -= 1;
+            }
             if let Some(pos) = memchr::memchr(b'#', &trimmed[val_body_start..j]) {
                 val_end = val_body_start + pos;
             } else {
@@ -141,12 +171,20 @@ mod lexer {
                 val_end -= 1;
             }
 
-            let key_global   = Span::new(offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + key_start,
-                                         offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + key_end);
-            let val_global   = Span::new(offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + val_body_start,
-                                         offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + val_end);
+            let key_global = Span::new(
+                offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + key_start,
+                offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + key_end,
+            );
+            let val_global = Span::new(
+                offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + val_body_start,
+                offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + val_end,
+            );
 
-            out.push(EntryRaw { key_span: key_global, value_span: val_global, quote });
+            out.push(EntryRaw {
+                key_span: key_global,
+                value_span: val_global,
+                quote,
+            });
 
             offset += slice.len();
         }
@@ -154,30 +192,42 @@ mod lexer {
     }
 
     // ───── helpers ─────
-    #[inline] fn is_space(b: u8) -> bool { b == b' ' || b == b'\t' }
-    #[inline] fn trim_ws(mut s: &[u8]) -> &[u8] {
-        while !s.is_empty() && is_space(s[0]) { s = &s[1..]; }
-        while !s.is_empty() && is_space(s[s.len()-1]) { s = &s[..s.len()-1]; }
+    #[inline]
+    fn is_space(b: u8) -> bool {
+        b == b' ' || b == b'\t'
+    }
+    #[inline]
+    fn trim_ws(mut s: &[u8]) -> &[u8] {
+        while !s.is_empty() && is_space(s[0]) {
+            s = &s[1..];
+        }
+        while !s.is_empty() && is_space(s[s.len() - 1]) {
+            s = &s[..s.len() - 1];
+        }
         s
     }
-    #[inline] fn skip_spaces(buf: &[u8], idx: &mut usize) {
-        while *idx < buf.len() && is_space(buf[*idx]) { *idx += 1; }
+    #[inline]
+    fn skip_spaces(buf: &[u8], idx: &mut usize) {
+        while *idx < buf.len() && is_space(buf[*idx]) {
+            *idx += 1;
+        }
     }
-    #[inline] fn starts_with_kw(buf: &[u8], kw: &[u8]) -> bool {
-        buf.len() >= kw.len() && &buf[..kw.len()] == kw
+    #[inline]
+    fn starts_with_kw(buf: &[u8], kw: &[u8]) -> bool {
+        buf.len() >= kw.len()
+            && &buf[..kw.len()] == kw
             && (buf.get(kw.len()).map_or(true, |c| is_space(*c)))
     }
-    impl Quote { pub fn as_byte(self) -> u8 { match self { Quote::Single => b'\'', Quote::Double => b'"' } } }
 }
-use lexer::{Quote, lex, EntryRaw};
+use lexer::lex;
 
 // ───────────────────────── 2. MODEL ─────────────────────────
 #[derive(Debug)]
 struct Entry {
-    key:        String,
-    key_span:   Span,
+    key: String,
+    _key_span: Span,
     value_span: Span,
-    quote:      Option<Quote>,
+    _quote: Option<Quote>,
 }
 
 #[derive(Debug)]
@@ -199,9 +249,9 @@ impl EnvDocument {
             }
             entries.push(Entry {
                 key: key_str,
-                key_span: r.key_span,
+                _key_span: r.key_span,
                 value_span: r.value_span,
-                quote: r.quote,
+                _quote: r.quote,
             });
         }
         Ok(Self { entries })
@@ -214,7 +264,11 @@ impl EnvDocument {
 
 // ───────────────────────── 3. PUBLIC PARSER ─────────────────────────
 pub struct EnvParser;
-impl EnvParser { pub fn new() -> Self { Self } }
+impl EnvParser {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
 impl BytePreservingParser for EnvParser {
     fn validate_syntax(&self, content: &str) -> Result<(), String> {

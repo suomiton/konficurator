@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::*;
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 mod env_parser;
+mod json_lexer;
 mod json_parser;
 mod xml_parser;
 
@@ -29,20 +30,6 @@ impl Span {
     }
 }
 
-/// Trait for parsers that support byte-level round-trip mutations
-pub trait BytePreservingParser {
-    fn find_value_span(&self, content: &str, path: &[String]) -> Result<Span, String>;
-    fn validate_syntax(&self, content: &str) -> Result<(), String>;
-
-    fn replace_value(&self, content: &str, span: Span, new_val: &str) -> String {
-        let mut result = String::with_capacity(content.len() - span.len() + new_val.len());
-        result.push_str(&content[..span.start]);
-        result.push_str(new_val);
-        result.push_str(&content[span.end..]);
-        result
-    }
-}
-
 #[wasm_bindgen]
 pub fn update_value(
     file_type: &str,
@@ -51,9 +38,14 @@ pub fn update_value(
     new_val: &str,
 ) -> Result<String, JsValue> {
     let path: Vec<String> = if let Ok(js_array) = path.dyn_into::<Array>() {
-        js_array.iter().map(|val| val.as_string().unwrap_or_default()).collect()
+        js_array
+            .iter()
+            .map(|val| val.as_string().unwrap_or_default())
+            .collect()
     } else {
-        return Err(JsValue::from_str("Invalid path: must be an array of strings"));
+        return Err(JsValue::from_str(
+            "Invalid path: must be an array of strings",
+        ));
     };
 
     if path.is_empty() {
@@ -63,8 +55,12 @@ pub fn update_value(
     let result = match file_type.to_lowercase().as_str() {
         "json" => {
             let parser = JsonParser::new();
-            parser.validate_syntax(content).map_err(JsValue::from_str)?;
-            let span = parser.find_value_span(content, &path).map_err(JsValue::from_str)?;
+            parser
+                .validate_syntax(content)
+                .map_err(|e| JsValue::from_str(&e))?;
+            let span = parser
+                .find_value_span(content, &path)
+                .map_err(|e| JsValue::from_str(&e))?;
 
             let escaped_value = if is_json_literal(new_val) {
                 new_val.to_string()
@@ -77,15 +73,23 @@ pub fn update_value(
 
         "xml" | "config" => {
             let parser = XmlParser::new();
-            parser.validate_syntax(content).map_err(JsValue::from_str)?;
-            let span = parser.find_value_span(content, &path).map_err(JsValue::from_str)?;
+            parser
+                .validate_syntax(content)
+                .map_err(|e| JsValue::from_str(&e))?;
+            let span = parser
+                .find_value_span(content, &path)
+                .map_err(|e| JsValue::from_str(&e))?;
             Ok(parser.replace_value(content, span, &escape_xml_string(new_val)))
         }
 
         "env" => {
             let parser = EnvParser::new();
-            parser.validate_syntax(content).map_err(JsValue::from_str)?;
-            let span = parser.find_value_span(content, &path).map_err(JsValue::from_str)?;
+            parser
+                .validate_syntax(content)
+                .map_err(|e| JsValue::from_str(&e))?;
+            let span = parser
+                .find_value_span(content, &path)
+                .map_err(|e| JsValue::from_str(&e))?;
 
             let needs_quotes = new_val.contains([' ', '#', '\n', '\t']);
             let val = if needs_quotes {
@@ -97,7 +101,10 @@ pub fn update_value(
             Ok(parser.replace_value(content, span, &val))
         }
 
-        other => Err(JsValue::from_str(&format!("Unsupported file type: {}", other))),
+        other => Err(JsValue::from_str(&format!(
+            "Unsupported file type: {}",
+            other
+        ))),
     }?;
 
     Ok(result)
@@ -151,3 +158,6 @@ fn escape_env_string(s: &str) -> String {
 pub fn main() {
     // WASM init hook
 }
+
+// Ensure the trait is imported at the top of the file so methods are in scope
+use crate::env_parser::BytePreservingParser;

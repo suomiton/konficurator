@@ -2,7 +2,7 @@
 // Uses: xmlparser = "0.13"
 
 use crate::{BytePreservingParser, Span};
-use xmlparser::{Tokenizer, Token, ElementEnd, StrSpan};
+use xmlparser::{ElementEnd, Token, Tokenizer};
 
 pub struct XmlParser;
 impl XmlParser {
@@ -23,9 +23,15 @@ impl XmlPath {
         if path.last().map_or(false, |s| s.starts_with('@')) {
             let attr = path.last().unwrap().trim_start_matches('@').to_string();
             let elems = path[..path.len() - 1].to_vec();
-            Self { elements: elems, attribute: Some(attr) }
+            Self {
+                elements: elems,
+                attribute: Some(attr),
+            }
         } else {
-            Self { elements: path.to_vec(), attribute: None }
+            Self {
+                elements: path.to_vec(),
+                attribute: None,
+            }
         }
     }
 }
@@ -40,7 +46,9 @@ impl BytePreservingParser for XmlParser {
                 Ok(Token::ElementStart { local, .. }) => stack.push(local.to_string()),
                 Ok(Token::ElementEnd { end, .. }) => match end {
                     ElementEnd::Open => {} // no-op
-                    ElementEnd::Close(_) | ElementEnd::Empty => { stack.pop(); }
+                    ElementEnd::Close(..) | ElementEnd::Empty => {
+                        stack.pop();
+                    }
                 },
                 Err(e) => return Err(format!("XML parsing error: {e}")),
                 _ => {}
@@ -52,7 +60,7 @@ impl BytePreservingParser for XmlParser {
         Ok(())
     }
 
-    fn find_value_span(&self, content: &str, path: &[String]) -> Result<Span, String> {
+    fn find_value_span(&self, content: &str, path: &[String]) -> Result<crate::env_parser::Span, String> {
         let path = XmlPath::from(path);
         let mut stack: Vec<String> = Vec::new();
         let mut in_target = false;
@@ -67,13 +75,15 @@ impl BytePreservingParser for XmlParser {
                         if let Some(attr) = &path.attribute {
                             // Inline attribute scan
                             let mut attr_tok = Tokenizer::from(&content[span.start()..]);
-                            while let Some(Ok(Token::Attribute { local, value, .. })) = attr_tok.next() {
+                            while let Some(Ok(Token::Attribute { local, value, .. })) =
+                                attr_tok.next()
+                            {
                                 if local.as_str() == attr {
                                     let val_span = Span::new(
                                         span.start() + value.start(),
                                         span.start() + value.end(),
                                     );
-                                    return Ok(val_span);
+                                    return Ok(crate::env_parser::Span::new(val_span.start, val_span.end));
                                 }
                             }
                             return Err(format!("Attribute '{}' not found", attr));
@@ -82,7 +92,7 @@ impl BytePreservingParser for XmlParser {
                 }
 
                 Ok(Token::ElementEnd { end, .. }) => {
-                    if matches!(end, ElementEnd::Close(_) | ElementEnd::Empty) {
+                    if matches!(end, ElementEnd::Close(..) | ElementEnd::Empty) {
                         stack.pop();
                         in_target = false;
                     }
@@ -90,7 +100,7 @@ impl BytePreservingParser for XmlParser {
 
                 Ok(Token::Text { text }) => {
                     if in_target && path.attribute.is_none() {
-                        return Ok(Span::new(text.start(), text.end()));
+                        return Ok(crate::env_parser::Span::new(text.start(), text.end()));
                     }
                 }
 
@@ -99,10 +109,17 @@ impl BytePreservingParser for XmlParser {
             }
         }
 
-        Err(format!("Path not found: {}", path.elements.join("/") + &path.attribute.as_ref().map_or(String::new(), |a| format!("/@{a}"))))
+        Err(format!(
+            "Path not found: {}",
+            path.elements.join("/")
+                + &path
+                    .attribute
+                    .as_ref()
+                    .map_or(String::new(), |a| format!("/@{a}"))
+        ))
     }
 
-    fn replace_value(&self, content: &str, span: Span, new_val: &str) -> String {
+    fn replace_value(&self, content: &str, span: crate::env_parser::Span, new_val: &str) -> String {
         let mut out = String::with_capacity(content.len() - span.len() + new_val.len());
         out.push_str(&content[..span.start]);
         out.push_str(new_val);
