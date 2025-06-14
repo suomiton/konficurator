@@ -1,8 +1,7 @@
 //! JSON‑parseri, joka käyttää omaa minitokenisoijaa span‑hakuihin.
 
 use crate::json_lexer::{lex, validate, Kind};
-use crate::{BytePreservingParser};
-use crate::env_parser::Span as EnvSpan;
+use crate::{BytePreservingParser, Span};
 
 pub struct JsonParser;
 impl JsonParser {
@@ -38,7 +37,7 @@ impl BytePreservingParser for JsonParser {
         validate(&tokens)
     }
 
-    fn find_value_span(&self, content: &str, path: &[String]) -> Result<EnvSpan, String> {
+    fn find_value_span(&self, content: &str, path: &[String]) -> Result<Span, String> {
         let tokens = lex(content)?;
         // Stack to track where we are
         let mut path_stack = Vec::<Seg>::new();
@@ -74,7 +73,7 @@ impl BytePreservingParser for JsonParser {
                     } else {
                         // string value
                         if path_matches(&path_stack, path) {
-                            return Ok(crate::env_parser::Span::new(tokens[i].span.start, tokens[i].span.end));
+                            return Ok(crate::Span::new(tokens[i].span.start, tokens[i].span.end));
                         }
                         // jos viimeinen oli key, palaa stackissa askel
                         if matches!(path_stack.last(), Some(Seg::Key(_))) {
@@ -85,7 +84,7 @@ impl BytePreservingParser for JsonParser {
                 }
                 Kind::NumberLit | Kind::True | Kind::False | Kind::Null => {
                     if path_matches(&path_stack, path) {
-                        return Ok(crate::env_parser::Span::new(tokens[i].span.start, tokens[i].span.end));
+                        return Ok(crate::Span::new(tokens[i].span.start, tokens[i].span.end));
                     }
                     if matches!(path_stack.last(), Some(Seg::Key(_))) {
                         path_stack.pop();

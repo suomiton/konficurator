@@ -60,7 +60,7 @@ impl BytePreservingParser for XmlParser {
         Ok(())
     }
 
-    fn find_value_span(&self, content: &str, path: &[String]) -> Result<crate::env_parser::Span, String> {
+    fn find_value_span(&self, content: &str, path: &[String]) -> Result<crate::Span, String> {
         let path = XmlPath::from(path);
         let mut stack: Vec<String> = Vec::new();
         let mut in_target = false;
@@ -83,7 +83,7 @@ impl BytePreservingParser for XmlParser {
                                         span.start() + value.start(),
                                         span.start() + value.end(),
                                     );
-                                    return Ok(crate::env_parser::Span::new(val_span.start, val_span.end));
+                                    return Ok(crate::Span::new(val_span.start, val_span.end));
                                 }
                             }
                             return Err(format!("Attribute '{}' not found", attr));
@@ -100,7 +100,7 @@ impl BytePreservingParser for XmlParser {
 
                 Ok(Token::Text { text }) => {
                     if in_target && path.attribute.is_none() {
-                        return Ok(crate::env_parser::Span::new(text.start(), text.end()));
+                        return Ok(crate::Span::new(text.start(), text.end()));
                     }
                 }
 
@@ -119,7 +119,7 @@ impl BytePreservingParser for XmlParser {
         ))
     }
 
-    fn replace_value(&self, content: &str, span: crate::env_parser::Span, new_val: &str) -> String {
+    fn replace_value(&self, content: &str, span: crate::Span, new_val: &str) -> String {
         let mut out = String::with_capacity(content.len() - span.len() + new_val.len());
         out.push_str(&content[..span.start]);
         out.push_str(new_val);

@@ -2,20 +2,7 @@
 // env_parser.rs  (no external crates, browser–WASM ready)
 //---------------------------------------------------------
 
-/// Byte-range inside the *original* UTF-8 buffer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Span {
-    pub start: usize,
-    pub end: usize,
-}
-impl Span {
-    pub fn new(start: usize, end: usize) -> Self {
-        Self { start, end }
-    }
-    pub fn len(&self) -> usize {
-        self.end - self.start
-    }
-}
+use crate::Span;
 
 /// API expected by upper-level tooling.
 pub trait BytePreservingParser {

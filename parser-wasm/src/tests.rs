@@ -1,4 +1,4 @@
-use crate::{BytePreservingParser, EnvParser, JsonParser, XmlParser, Span};
+use crate::{BytePreservingParser, EnvParser, JsonParser, Span, XmlParser};
 
 // ───── JSON ─────
 
@@ -34,7 +34,9 @@ fn json_nested_path_and_array() {
     let src = r#"{ "profile": { "skills": ["Rust", "C#", "TS"] } }"#;
     let parser = JsonParser::new();
 
-    let span = parser.find_value_span(src, &["profile".into(), "skills".into(), "1".into()]).unwrap();
+    let span = parser
+        .find_value_span(src, &["profile".into(), "skills".into(), "1".into()])
+        .unwrap();
     assert_eq!(&src[span.start..span.end], r#""C#""#);
 }
 
@@ -46,7 +48,9 @@ fn xml_text_node_span() {
     let parser = XmlParser::new();
     parser.validate_syntax(src).unwrap();
 
-    let span = parser.find_value_span(src, &["settings".into(), "host".into()]).unwrap();
+    let span = parser
+        .find_value_span(src, &["settings".into(), "host".into()])
+        .unwrap();
     assert_eq!(&src[span.start..span.end], "localhost");
 }
 
@@ -55,7 +59,9 @@ fn xml_attribute_span() {
     let src = r#"<connection host="127.0.0.1" port="8080"/>"#;
     let parser = XmlParser::new();
 
-    let span = parser.find_value_span(src, &["connection".into(), "@host".into()]).unwrap();
+    let span = parser
+        .find_value_span(src, &["connection".into(), "@host".into()])
+        .unwrap();
     assert_eq!(&src[span.start..span.end], r#""127.0.0.1""#);
 }
 
@@ -64,7 +70,9 @@ fn xml_nested_structure() {
     let src = r#"<a><b><c><d>deep</d></c></b></a>"#;
     let parser = XmlParser::new();
 
-    let span = parser.find_value_span(src, &["a".into(), "b".into(), "c".into(), "d".into()]).unwrap();
+    let span = parser
+        .find_value_span(src, &["a".into(), "b".into(), "c".into(), "d".into()])
+        .unwrap();
     assert_eq!(&src[span.start..span.end], "deep");
 }
 
@@ -80,8 +88,13 @@ DEBUG=true
     let parser = EnvParser::new();
     parser.validate_syntax(src).unwrap();
 
-    let span = parser.find_value_span(src, &["DATABASE_URL".into()]).unwrap();
-    assert_eq!(&src[span.start..span.end], "postgres://user:pass@localhost/db");
+    let span = parser
+        .find_value_span(src, &["DATABASE_URL".into()])
+        .unwrap();
+    assert_eq!(
+        &src[span.start..span.end],
+        "postgres://user:pass@localhost/db"
+    );
 
     let span2 = parser.find_value_span(src, &["DEBUG".into()]).unwrap();
     assert_eq!(&src[span2.start..span2.end], "true");

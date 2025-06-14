@@ -9,6 +9,9 @@ mod json_lexer;
 mod json_parser;
 mod xml_parser;
 
+#[cfg(test)]
+mod tests;
+
 pub use env_parser::EnvParser;
 pub use json_parser::JsonParser;
 pub use xml_parser::XmlParser;
@@ -154,7 +157,7 @@ fn escape_env_string(s: &str) -> String {
         .collect()
 }
 
-#[wasm_bindgen(start)]
+#[cfg_attr(not(test), wasm_bindgen(start))]
 pub fn main() {
     // WASM init hook
 }
