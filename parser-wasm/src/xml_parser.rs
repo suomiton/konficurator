@@ -1,7 +1,7 @@
 // xml_parser.rs
 // Uses: xmlparser = "0.13"
 
-use crate::{BytePreservingParser, Span};
+use crate::BytePreservingParser;
 use xmlparser::{ElementEnd, Token, Tokenizer};
 
 pub struct XmlParser;
@@ -67,25 +67,51 @@ impl BytePreservingParser for XmlParser {
 
         for token in Tokenizer::from(content) {
             match token {
-                Ok(Token::ElementStart { local, span, .. }) => {
+                Ok(Token::ElementStart { local, .. }) => {
                     stack.push(local.to_string());
                     in_target = stack == path.elements;
 
                     if in_target {
                         if let Some(attr) = &path.attribute {
-                            // Inline attribute scan
-                            let mut attr_tok = Tokenizer::from(&content[span.start()..]);
-                            while let Some(Ok(Token::Attribute { local, value, .. })) =
-                                attr_tok.next()
-                            {
-                                if local.as_str() == attr {
-                                    let val_span = Span::new(
-                                        span.start() + value.start(),
-                                        span.start() + value.end(),
-                                    );
-                                    return Ok(crate::Span::new(val_span.start, val_span.end));
+                            // Instead of using the element name span, we need to find the attributes
+                            // in the current position of the tokenizer. Continue tokenizing to find attributes.
+                            let mut element_tokenizer = Tokenizer::from(content);
+
+                            // Skip to the current position
+                            while let Some(Ok(token)) = element_tokenizer.next() {
+                                match token {
+                                    Token::ElementStart {
+                                        local: el_local, ..
+                                    } if el_local == local => {
+                                        // Found our element, now look for attributes
+                                        while let Some(Ok(attr_token)) = element_tokenizer.next() {
+                                            match attr_token {
+                                                Token::Attribute {
+                                                    local: attr_local,
+                                                    value,
+                                                    ..
+                                                } => {
+                                                    if attr_local.as_str() == attr {
+                                                        // Include quotes in the span by expanding it by 1 character on each side
+                                                        let quoted_start =
+                                                            value.start().saturating_sub(1);
+                                                        let quoted_end = value.end() + 1;
+                                                        return Ok(crate::Span::new(
+                                                            quoted_start,
+                                                            quoted_end,
+                                                        ));
+                                                    }
+                                                }
+                                                Token::ElementEnd { .. } => break, // End of element, stop looking
+                                                _ => {} // Continue looking for attributes
+                                            }
+                                        }
+                                        break;
+                                    }
+                                    _ => {}
                                 }
                             }
+
                             return Err(format!("Attribute '{}' not found", attr));
                         }
                     }

@@ -80,8 +80,7 @@ fn xml_nested_structure() {
 
 #[test]
 fn env_basic_and_comment() {
-    let src = r#"
-# DB settings
+    let src = r#"# DB settings
 DATABASE_URL=postgres://user:pass@localhost/db
 DEBUG=true
 "#;

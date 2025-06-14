@@ -36,6 +36,7 @@ impl Quote {
 }
 
 // Make struct Line<'a> public so it can be used in mod lexer
+#[allow(dead_code)]
 pub struct Line<'a> {
     pub bytes: &'a [u8],
     pub eol_len: usize, // 0, 1 or 2
@@ -136,35 +137,45 @@ mod lexer {
             };
 
             // locate end of value (before in-line comment / EOL)
-            let mut val_end;
-            // strip trailing spaces / in-line comment
-            let mut j = trimmed.len();
-            while j > val_body_start && is_space(trimmed[j - 1]) {
-                j -= 1;
-            }
-            if let Some(pos) = memchr::memchr(b'#', &trimmed[val_body_start..j]) {
-                val_end = val_body_start + pos;
-            } else {
-                val_end = j;
-            }
-            // if quoted, shrink by one to exclude closing quote
+            let val_end;
+
+            // For quoted values, find the closing quote first
             if let Some(q) = quote {
-                if val_end == val_body_start {
+                // For quoted values, find the matching closing quote
+                let mut j = val_body_start;
+                while j < trimmed.len() && trimmed[j] != q.as_byte() {
+                    j += 1;
+                }
+                if j >= trimmed.len() {
                     return Err("unterminated quoted value".into());
                 }
-                if trimmed[val_end - 1] != q.as_byte() {
-                    return Err("unterminated quoted value".into());
+                val_end = j + 1; // include the closing quote
+            } else {
+                // For unquoted values, find end considering comments
+                let mut j = trimmed.len();
+                if let Some(pos) = memchr::memchr(b'#', &trimmed[val_body_start..]) {
+                    j = val_body_start + pos;
                 }
-                val_end -= 1;
+                // Strip trailing spaces before comment
+                while j > val_body_start && is_space(trimmed[j - 1]) {
+                    j -= 1;
+                }
+                val_end = j;
             }
 
             let key_global = Span::new(
                 offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + key_start,
                 offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + key_end,
             );
+            // For quoted values, include the quotes in the span
+            let (val_span_start, val_span_end) = if quote.is_some() {
+                (val_body_start - 1, val_end) // include opening and closing quotes
+            } else {
+                (val_body_start, val_end)
+            };
             let val_global = Span::new(
-                offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + val_body_start,
-                offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + val_end,
+                offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + val_span_start,
+                offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + val_span_end,
             );
 
             out.push(EntryRaw {
@@ -188,7 +199,9 @@ mod lexer {
         while !s.is_empty() && is_space(s[0]) {
             s = &s[1..];
         }
-        while !s.is_empty() && is_space(s[s.len() - 1]) {
+        while !s.is_empty()
+            && (is_space(s[s.len() - 1]) || s[s.len() - 1] == b'\n' || s[s.len() - 1] == b'\r')
+        {
             s = &s[..s.len() - 1];
         }
         s
