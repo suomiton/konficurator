@@ -133,45 +133,22 @@ export function determineInputType(value: any): string {
 /**
  * Pure function to convert parsed data to form field data structure
  */
+// Patch: filter out @type, @value, @attributes from XML children and use tag names as labels
 export function createFormFieldData(
 	key: string,
 	value: any,
-	path: string,
-	forceType?: FieldType
+	path: string
 ): AnyFormFieldData {
-	const fieldType = forceType || determineFieldType(value);
-	const label = formatLabel(key);
-
-	const baseData: FormFieldData = {
+	const baseData: Partial<FormFieldData> = {
 		key,
 		value,
 		path,
-		type: fieldType,
-		label,
+		label: formatLabel(key.startsWith("@") ? key.replace(/^@/, "") : key),
 	};
 
-	switch (fieldType) {
-		case "text":
-			return {
-				...baseData,
-				type: "text",
-				inputType: determineInputType(value) as any,
-			} as TextFieldData;
+	const type = determineFieldType(value);
 
-		case "number":
-			return {
-				...baseData,
-				type: "number",
-				step: Number.isInteger(value) ? 1 : 0.01,
-			} as NumberFieldData;
-
-		case "boolean":
-			return {
-				...baseData,
-				type: "boolean",
-				checked: Boolean(value),
-			} as BooleanFieldData;
-
+	switch (type) {
 		case "array":
 			return {
 				...baseData,
@@ -213,7 +190,7 @@ export function createFormFieldData(
 			return {
 				...baseData,
 				type: "xml-value",
-				textValue: String(value["@value"] || ""),
+				textValue: String(value["@value"] ?? value ?? ""),
 				attributes: value["@attributes"],
 			} as XmlValueFieldData;
 
@@ -227,7 +204,8 @@ export function createFormFieldData(
 		default:
 			return {
 				...baseData,
-				type: "text",
+				type: typeof value === "number" ? "number" : typeof value === "boolean" ? "boolean" : "text",
+				value: value,
 			} as TextFieldData;
 	}
 }

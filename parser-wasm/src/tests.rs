@@ -76,6 +76,45 @@ fn xml_nested_structure() {
     assert_eq!(&src[span.start..span.end], "deep");
 }
 
+#[test]
+fn xml_deeply_nested_realworld() {
+    let src = r#"
+    <config>
+        <app>
+            <name>My Application 7</name>
+            <version>1.0.0</version>
+            <debug>true</debug>
+            <port>3000</port>
+        </app>
+        <database>
+            <host>localhost</host>
+            <port>5432</port>
+            <name>myapp_db</name>
+            <ssl>false</ssl>
+            <connectionPool>
+                <min>2</min>
+                <max>10</max>
+                <timeout>30000</timeout>
+            </connectionPool>
+        </database>
+        <features>
+            <enableLogging>true</enableLogging>
+            <enableMetrics>true</enableMetrics>
+            <enableCache>true</enableCache>
+        </features>
+        <allowedOrigins>
+            <origin>http://localhost:3000</origin>
+            <origin>https://example.com</origin>
+        </allowedOrigins>
+    </config>
+    "#;
+    let parser = XmlParser::new();
+    let span = parser
+        .find_value_span(src, &["config".into(), "app".into(), "port".into()])
+        .unwrap();
+    assert_eq!(&src[span.start..span.end], "3000");
+}
+
 // ───── ENV ─────
 
 #[test]

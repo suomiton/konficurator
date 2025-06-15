@@ -296,22 +296,37 @@ function renderArrayField(
  * Renders XML heading field
  */
 function renderXmlHeadingField(
-	fieldData: FormFieldData,
+	fieldData: any, // Should be XmlHeadingFieldData
 	className: string
 ): HTMLElement {
-	return createElement({
+	const container = createElement({
 		tag: "div",
 		className: `${className} xml-heading`,
-		innerHTML: `<h4 class="xml-tag-name">&lt;${fieldData.key}&gt;</h4>`,
-		data: { path: fieldData.path, type: "xml-heading" },
 	});
+
+	// Heading label
+	const heading = createElement({
+		tag: "h4",
+		className: "xml-tag-name",
+		innerHTML: `&lt;${fieldData.key}&gt;`,
+	});
+	container.appendChild(heading);
+
+	// Render children recursively
+	if (Array.isArray(fieldData.children)) {
+		fieldData.children.forEach((child: any) => {
+			container.appendChild(renderFormField(child));
+		});
+	}
+
+	return container;
 }
 
 /**
  * Renders XML value field (textarea for XML content)
  */
 function renderXmlValueField(
-	fieldData: FormFieldData,
+	fieldData: any, // Should be XmlValueFieldData
 	className: string
 ): HTMLElement {
 	return createTextarea({
@@ -319,7 +334,7 @@ function renderXmlValueField(
 		className: `${className} xml-value`,
 		name: fieldData.path,
 		id: fieldData.path,
-		textContent: String(fieldData.value || ""),
+		textContent: String(fieldData.textValue || ""), // Use textValue, not value
 		attributes: { rows: "3" },
 		data: { path: fieldData.path, type: "xml-value" },
 	});

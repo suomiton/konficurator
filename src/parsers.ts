@@ -125,20 +125,11 @@ export class XmlParser extends BaseParser {
 	private xmlToObject(element: Element): ParsedData {
 		const result: ParsedData = {};
 		const children = Array.from(element.children);
-		const textContent = element.textContent?.trim() || "";
 		const hasAttributes = element.attributes.length > 0;
 		const hasChildren = children.length > 0;
+		const textContent = element.textContent?.trim() || "";
 		const hasTextContent = textContent !== "";
-		const types: string[] = [];
-		if (hasAttributes) types.push("attributes");
-		if (hasChildren) types.push("heading");
-		if (hasTextContent) types.push("value");
-		if (types.length === 0) {
-			result["@type"] = "value";
-			result["@value"] = "";
-		} else {
-			result["@type"] = types.join("+");
-		}
+
 		if (hasAttributes) {
 			result["@attributes"] = {};
 			for (let i = 0; i < element.attributes.length; i++) {
@@ -146,10 +137,9 @@ export class XmlParser extends BaseParser {
 				result["@attributes"][attr.name] = this.parseValue(attr.value);
 			}
 		}
-		if (hasTextContent) {
-			result["@value"] = this.parseValue(textContent);
-		}
+
 		if (hasChildren) {
+			// Only add children, do not set @value for parent nodes
 			children.forEach((child) => {
 				const childName = child.tagName;
 				const childValue = this.xmlToObject(child);
@@ -162,6 +152,16 @@ export class XmlParser extends BaseParser {
 					result[childName] = childValue;
 				}
 			});
+			result["@type"] = "heading";
+		} else if (hasTextContent) {
+			// Only set @value for leaf nodes
+			result["@type"] = "value";
+			result["@value"] = this.parseValue(textContent);
+		} else if (hasAttributes) {
+			result["@type"] = "attributes";
+		} else {
+			result["@type"] = "value";
+			result["@value"] = "";
 		}
 		return result;
 	}
