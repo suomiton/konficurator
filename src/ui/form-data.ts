@@ -204,7 +204,12 @@ export function createFormFieldData(
 		default:
 			return {
 				...baseData,
-				type: typeof value === "number" ? "number" : typeof value === "boolean" ? "boolean" : "text",
+				type:
+					typeof value === "number"
+						? "number"
+						: typeof value === "boolean"
+						? "boolean"
+						: "text",
 				value: value,
 			} as TextFieldData;
 	}
