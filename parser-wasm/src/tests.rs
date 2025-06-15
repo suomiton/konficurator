@@ -135,3 +135,22 @@ fn replace_helper_works() {
 
     assert_eq!(replaced, "The quick lazy fox");
 }
+
+#[test]
+fn json_deeply_nested_key() {
+    let src = r#"
+    {
+      "app": {
+        "name": "My Application 7",
+        "version": "1.0.0",
+        "debug": true,
+        "port": 3000
+      }
+    }
+    "#;
+    let parser = JsonParser::new();
+    let span = parser
+        .find_value_span(src, &["app".into(), "port".into()])
+        .unwrap();
+    assert_eq!(&src[span.start..span.end], "3000");
+}

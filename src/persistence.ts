@@ -43,6 +43,12 @@ export class FilePersistence implements IPersistence {
 				fileData.content
 			);
 
+			// Debug: log field changes and content before WASM update
+			console.debug("[FilePersistence] fieldChanges:", fieldChanges);
+			console.debug(
+				"[FilePersistence] originalContent before update:",
+				updatedContent
+			);
 			// Apply each change using WASM update_value for non-destructive editing
 			for (const change of fieldChanges) {
 				try {
@@ -53,8 +59,18 @@ export class FilePersistence implements IPersistence {
 						change.newValue
 					);
 				} catch (error) {
+					// Surface the actual error message from WASM, if available
 					const message =
-						error instanceof Error ? error.message : "Unknown error";
+						error instanceof Error
+							? error.message
+							: typeof error === "string"
+							? error
+							: JSON.stringify(error);
+					NotificationService.showError(
+						`Failed to update field "${change.path.join(".")}" with value "${
+							change.newValue
+						}": ${message}`
+					);
 					throw new Error(
 						`Failed to update field "${change.path.join(".")}" with value "${
 							change.newValue
