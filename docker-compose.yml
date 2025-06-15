@@ -19,6 +19,7 @@ services:
       # Preserve node_modules and cargo target in container
       - /app/node_modules
       - /app/parser-wasm/target
+      - /app/parser-wasm/pkg
     environment:
       - NODE_ENV=development
     command: sh -c "cd parser-wasm && wasm-pack build --target web --dev && cd .. && npm run dev"
@@ -45,6 +46,7 @@ services:
       # Preserve node_modules and cargo target in container
       - /app/node_modules
       - /app/parser-wasm/target
+      - /app/parser-wasm/pkg
     environment:
       - NODE_ENV=development
     command: sh -c "cd parser-wasm && wasm-pack build --target web --dev && cd .. && npm run dev"

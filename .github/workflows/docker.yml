@@ -14,6 +14,37 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
+      - name: Verify package files
+        run: |
+          echo "Checking package.json and package-lock.json integrity..."
+          if [ -f "package.json" ] && [ -f "package-lock.json" ]; then
+            echo "✅ package.json and package-lock.json exist"
+            echo "package.json content (first 10 lines):"
+            head -10 package.json
+            echo "package-lock.json size:"
+            ls -la package-lock.json
+            
+            # Check parser-wasm files
+            echo "Checking parser-wasm files..."
+            if [ -f "parser-wasm/package.json" ]; then
+              echo "✅ parser-wasm/package.json exists"
+            else
+              echo "❌ parser-wasm/package.json is missing"
+              exit 1
+            fi
+            
+            if [ -f "parser-wasm/Cargo.toml" ]; then
+              echo "✅ parser-wasm/Cargo.toml exists"
+            else
+              echo "❌ parser-wasm/Cargo.toml is missing"
+              exit 1
+            fi
+          else
+            echo "❌ package.json or package-lock.json is missing"
+            ls -la
+            exit 1
+          fi
+        
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         
@@ -27,6 +58,12 @@ jobs:
           tags: konficurator:dev
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=development
+          # Add verbose output for debugging
+          provenance: false
+          secrets: |
+            GIT_AUTH_TOKEN=${{ github.token }}
         
       - name: Build production Docker image
         uses: docker/build-push-action@v5

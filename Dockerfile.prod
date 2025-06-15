@@ -5,7 +5,7 @@
 FROM node:20-alpine AS build
 
 # Install Rust and required tools
-RUN apk add --no-cache curl build-base
+RUN apk add --no-cache curl build-base git
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup target add wasm32-unknown-unknown
@@ -18,7 +18,13 @@ WORKDIR /app
 
 # Copy package files and install all dependencies (including devDependencies for build)
 COPY package*.json ./
-RUN npm ci
+COPY parser-wasm/package*.json ./parser-wasm/
+COPY parser-wasm/Cargo.toml ./parser-wasm/
+
+# Create empty Cargo.lock to avoid issues with wasm-pack
+RUN touch ./parser-wasm/Cargo.lock
+
+RUN npm ci --no-optional
 
 # Copy source code and build tools
 COPY . .
