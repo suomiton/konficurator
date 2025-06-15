@@ -20,6 +20,13 @@ module.exports = {
 	moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 	testTimeout: 10000,
 	moduleNameMapper: {
-		'^(\\.{1,2}/.*)\\.js$': '$1'
-	}
+		'^(\\.{1,2}/.*)\\.js$': '$1',
+		'../parser-wasm/pkg/parser_core.js': '<rootDir>/tests/__mocks__/parser_core.js',
+		'./persistence.js': '<rootDir>/tests/__mocks__/persistence.js',
+		'../persistence.js': '<rootDir>/tests/__mocks__/persistence.js'
+	},
+	transformIgnorePatterns: [
+		'/node_modules/',
+		'!parser-wasm/pkg/'
+	]
 };

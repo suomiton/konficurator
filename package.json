@@ -24,11 +24,11 @@
 		"serve": "python3 -m http.server 8080",
 		"dev": "npm run build && python3 -m http.server 8080",
 		"clean": "rm -rf dist build parser-wasm/pkg",
-		"test": "jest",
-		"test:watch": "jest --watch",
-		"test:coverage": "jest --coverage",
-		"test:unit": "jest tests/unit",
-		"test:integration": "jest tests/integration"
+		"test": "TS_NODE_COMPILER_OPTIONS='{\"noUnusedParameters\":false,\"noUnusedLocals\":false}' jest",
+		"test:watch": "TS_NODE_COMPILER_OPTIONS='{\"noUnusedParameters\":false,\"noUnusedLocals\":false}' jest --watch",
+		"test:coverage": "TS_NODE_COMPILER_OPTIONS='{\"noUnusedParameters\":false,\"noUnusedLocals\":false}' jest --coverage",
+		"test:unit": "TS_NODE_COMPILER_OPTIONS='{\"noUnusedParameters\":false,\"noUnusedLocals\":false}' jest tests/unit",
+		"test:integration": "TS_NODE_COMPILER_OPTIONS='{\"noUnusedParameters\":false,\"noUnusedLocals\":false}' jest tests/integration"
 	},
 	"keywords": [
 		"configuration",
