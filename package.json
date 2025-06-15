@@ -13,15 +13,17 @@
 		"url": "https://github.com/suomiton/konficurator/issues"
 	},
 	"scripts": {
-		"build": "tsc",
-		"build:prod": "npm run clean && npm run build:ts && npm run build:optimize && npm run build:gzip",
+		"build": "npm run build:wasm && tsc",
+		"build:prod": "npm run clean && npm run build:wasm:prod && npm run build:ts && npm run build:optimize && npm run build:gzip",
 		"build:ts": "tsc",
+		"build:wasm": "cd parser-wasm && wasm-pack build --target web --dev",
+		"build:wasm:prod": "cd parser-wasm && wasm-pack build --target web --release",
 		"build:optimize": "node build-tools/optimize.cjs",
 		"build:gzip": "node build-tools/gzip.cjs",
 		"watch": "tsc --watch",
 		"serve": "python3 -m http.server 8080",
 		"dev": "npm run build && python3 -m http.server 8080",
-		"clean": "rm -rf dist build",
+		"clean": "rm -rf dist build parser-wasm/pkg",
 		"test": "jest",
 		"test:watch": "jest --watch",
 		"test:coverage": "jest --coverage",
@@ -50,7 +52,8 @@
 		"jsdom": "^26.1.0",
 		"terser": "^5.36.0",
 		"ts-jest": "^29.3.4",
-		"typescript": "^5.0.0"
+		"typescript": "^5.0.0",
+		"wasm-pack": "^0.12.1"
 	},
 	"engines": {
 		"node": ">=16.0.0"

@@ -6,6 +6,10 @@
 set -e
 
 case "${1:-help}" in
+    "wasm")
+        echo "🦀 Building WASM module..."
+        ./dev-tools/build-wasm.sh
+        ;;
     "build")
         echo "🔨 Building TypeScript..."
         npm run build
@@ -41,7 +45,8 @@ case "${1:-help}" in
         echo "🔧 Konficurator Development Script"
         echo ""
         echo "Available commands:"
-        echo "  build   - Build TypeScript to JavaScript"
+        echo "  wasm    - Build WASM module only"
+        echo "  build   - Build WASM + TypeScript to JavaScript"
         echo "  watch   - Watch TypeScript files for changes"
         echo "  serve   - Start HTTP server on port 8080"
         echo "  dev     - Build and serve (development mode)"
