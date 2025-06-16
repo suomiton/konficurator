@@ -123,8 +123,8 @@ describe("Form Data", () => {
 			// We need to extend the returned object to include the step property
 			const fieldData = {
 				...createFormFieldData("count", 42, "config.count"),
-				type: "number", 
-				step: 1
+				type: "number",
+				step: 1,
 			} as NumberFieldData;
 
 			expect(fieldData.type).toBe("number");
@@ -137,7 +137,7 @@ describe("Form Data", () => {
 			const fieldData = {
 				...createFormFieldData("enabled", true, "config.enabled"),
 				type: "boolean",
-				checked: true
+				checked: true,
 			} as BooleanFieldData;
 
 			expect(fieldData.type).toBe("boolean");
@@ -174,9 +174,9 @@ describe("Form Data", () => {
 
 		it("should force field type when specified", () => {
 			// Manual cast to test type assignment - should handle different types
-			const fieldData = { 
+			const fieldData = {
 				...createFormFieldData("field", 123, "path"),
-				type: "text"
+				type: "text",
 			} as TextFieldData;
 
 			expect(fieldData.type).toBe("text");
