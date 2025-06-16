@@ -96,29 +96,14 @@ jobs:
       - name: Test production container
         run: |
           echo "Starting production container test..."
-          docker run -d --name konficurator-prod -p 8080:8080 konficurator:prod
-          sleep 30
+          docker run -d --name konficurator-prod -p 8081:8080 konficurator:prod
+          sleep 15
           echo "Testing production container endpoint..."
-          # Retry up to 5 times with 5s delay
-          for i in {1..5}; do
-            if curl -f http://localhost:8080/; then
-              echo "Production endpoint is up!" && break
-            else
-              echo "Attempt $i failed, retrying in 5s..."
-              sleep 5
-            fi
-            if [ $i -eq 5 ]; then
-              echo "Failed to connect after 5 attempts. Printing logs:"
-              docker logs konficurator-prod || true
-              docker stop konficurator-prod || true
-              docker rm konficurator-prod || true
-              exit 1
-            fi
-          done
+          curl -f http://localhost:8081/ || exit 1
           echo "Testing gzip compression support..."
-          curl -H "Accept-Encoding: gzip" -f http://localhost:8080/ || (docker logs konficurator-prod && exit 1)
+          curl -H "Accept-Encoding: gzip" -f http://localhost:8081/ || exit 1
           echo "Testing brotli compression support..."
-          curl -H "Accept-Encoding: br" -f http://localhost:8080/ || (docker logs konficurator-prod && exit 1)
+          curl -H "Accept-Encoding: br" -f http://localhost:8081/ || exit 1
           echo "Production container test successful!"
           docker logs konficurator-prod
           docker stop konficurator-prod
@@ -149,7 +134,7 @@ jobs:
         run: |
           docker-compose up -d konficurator
           sleep 15
-          curl -f http://localhost:8085/ || exit 1
+          curl -f http://localhost:8080/ || exit 1
           docker-compose logs konficurator
           docker-compose down
         
