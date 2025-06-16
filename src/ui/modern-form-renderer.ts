@@ -21,7 +21,6 @@ import {
 	setupFormEventListeners,
 	FormEventHandlers,
 } from "./event-handlers.js";
-import { setupStickyBehavior } from "./sticky-behavior.js";
 import { createElement } from "./dom-factory.js";
 
 export class ModernFormRenderer implements IRenderer {
@@ -106,11 +105,6 @@ export class ModernFormRenderer implements IRenderer {
 		const saveContainer = renderSaveContainer(fileData.name);
 		setupSaveEventListeners(saveContainer, fileData.name, this.eventHandlers);
 		container.appendChild(saveContainer);
-
-		// Setup sticky behavior after DOM is built
-		setTimeout(() => {
-			setupStickyBehavior(saveContainer, fileData.name);
-		}, 0);
 
 		return container;
 	}

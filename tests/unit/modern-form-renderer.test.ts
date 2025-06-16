@@ -12,7 +12,6 @@ import { AnyFormFieldData } from "../../src/ui/form-data";
 import * as domRenderer from "../../src/ui/dom-renderer";
 import * as formData from "../../src/ui/form-data";
 import * as eventHandlers from "../../src/ui/event-handlers";
-import * as stickyBehavior from "../../src/ui/sticky-behavior";
 import * as domFactory from "../../src/ui/dom-factory";
 
 // Mock all dependency modules
@@ -34,10 +33,6 @@ jest.mock("../../src/ui/event-handlers", () => ({
 	setupFormEventListeners: jest.fn(),
 	setupSaveEventListeners: jest.fn(),
 	setupFieldEventListeners: jest.fn(),
-}));
-
-jest.mock("../../src/ui/sticky-behavior", () => ({
-	setupStickyBehavior: jest.fn(),
 }));
 
 jest.mock("../../src/ui/dom-factory", () => ({
@@ -62,10 +57,6 @@ const mockEventHandlers = eventHandlers as {
 	setupFormEventListeners: jest.MockedFunction<any>;
 	setupSaveEventListeners: jest.MockedFunction<any>;
 	setupFieldEventListeners: jest.MockedFunction<any>;
-};
-
-const mockStickyBehavior = stickyBehavior as {
-	setupStickyBehavior: jest.MockedFunction<any>;
 };
 
 const mockDomFactory = domFactory as {
@@ -111,30 +102,10 @@ describe("ModernFormRenderer - Real Implementation Tests", () => {
 		mockEventHandlers.setupSaveEventListeners.mockReturnValue(undefined);
 		mockEventHandlers.setupFieldEventListeners.mockReturnValue(undefined);
 
-		// Setup sticky behavior mock
-		mockStickyBehavior.setupStickyBehavior.mockReturnValue({
-			isSticky: false,
-			originalPosition: 0,
-			element: mockSaveContainer,
-			container: mockContainer,
-			options: {
-				threshold: 100,
-				className: "save-container",
-				activeClassName: "sticky-active",
-				offset: 20,
-			},
-		});
-
 		// Mock DOM manipulation methods
 		jest.spyOn(mockContainer, "appendChild").mockReturnValue(mockContainer);
 		jest.spyOn(mockForm, "appendChild").mockReturnValue(mockForm);
 		jest.spyOn(mockForm, "querySelector").mockReturnValue(null);
-
-		// Mock setTimeout for sticky behavior
-		jest.spyOn(global, "setTimeout").mockImplementation((callback: any) => {
-			callback();
-			return 1 as any;
-		});
 
 		renderer = new ModernFormRenderer();
 	});
@@ -223,12 +194,6 @@ describe("ModernFormRenderer - Real Implementation Tests", () => {
 				mockSaveContainer,
 				"config.json",
 				{}
-			);
-
-			// Verify sticky behavior setup
-			expect(mockStickyBehavior.setupStickyBehavior).toHaveBeenCalledWith(
-				mockSaveContainer,
-				"config.json"
 			);
 
 			expect(result).toBe(mockContainer);
@@ -706,12 +671,6 @@ describe("ModernFormRenderer - Real Implementation Tests", () => {
 			};
 
 			renderer.renderFileEditor(fileData);
-
-			expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 0);
-			expect(mockStickyBehavior.setupStickyBehavior).toHaveBeenCalledWith(
-				mockSaveContainer,
-				"sticky-test.json"
-			);
 		});
 	});
 
@@ -851,7 +810,6 @@ describe("ModernFormRenderer - Real Implementation Tests", () => {
 			expect(
 				mockEventHandlers.setupFileActionEventListeners
 			).toHaveBeenCalledTimes(10);
-			expect(mockStickyBehavior.setupStickyBehavior).toHaveBeenCalledTimes(10);
 		});
 
 		it("should handle rapid successive renders", () => {

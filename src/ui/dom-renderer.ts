@@ -511,12 +511,6 @@ export function renderSaveContainer(fileName: string): HTMLElement {
 		attributes: { "data-file": fileName },
 	});
 
-	const fileIndicator = createElement({
-		tag: "span",
-		className: "save-file-indicator",
-		textContent: fileName,
-	});
-
 	const saveButton = createButton({
 		tag: "button",
 		className: "btn btn-success btn-small",
@@ -525,7 +519,6 @@ export function renderSaveContainer(fileName: string): HTMLElement {
 		attributes: { "data-file": fileName },
 	});
 
-	container.appendChild(fileIndicator);
 	container.appendChild(saveButton);
 
 	return container;

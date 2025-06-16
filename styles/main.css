@@ -595,73 +595,7 @@ footer {
 	opacity: 0.8;
 }
 
-/* Sticky save button styles */
-.save-sticky-sentinel {
-	height: 1px;
-	width: 1px;
-	visibility: hidden;
-	pointer-events: none;
-}
 
-.save-file-indicator {
-	display: none;
-	margin-right: 8px;
-	padding: 4px 8px;
-	background: rgba(0, 0, 0, 0.7);
-	color: white;
-	border-radius: 4px;
-	font-size: 0.8rem;
-}
-
-.save-sticky .save-file-indicator {
-	display: inline-block;
-}
-
-/* Sticky behavior styles */
-.sticky-save-container {
-	position: fixed !important;
-	bottom: 20px !important;
-	right: 20px !important;
-	z-index: 1000 !important;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-}
-
-.save-container-sticky {
-	position: sticky !important;
-	bottom: 10px !important;
-	z-index: 100 !important;
-	background: rgba(255, 255, 255, 0.95) !important;
-	border: 2px solid #667eea !important;
-	border-radius: 8px !important;
-	padding: 0.75rem 1rem !important;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-	backdrop-filter: blur(5px) !important;
-	animation: 0.3s ease-out stickySlideIn !important;
-}
-
-@keyframes stickySlideIn {
-	from {
-		opacity: 0;
-		transform: translateY(20px);
-	}
-
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-/* Sentinel styles for intersection observer */
-.scroll-sentinel {
-	height: 1px !important;
-	width: 100% !important;
-	pointer-events: none !important;
-}
-
-/* File editor positioning */
-.file-editor-positioned {
-	position: relative !important;
-}
 
 /* XML-specific field styles */
 .xml-heading {
