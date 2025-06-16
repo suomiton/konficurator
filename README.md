@@ -8,13 +8,14 @@
 
 🌐 **[Live Demo](https://suomiton.github.io/konficurator/)** | 📚 **[Documentation](https://github.com/suomiton/konficurator/blob/main/README.md)** | 🐛 **[Issues](https://github.com/suomiton/konficurator/issues)**
 
-A lightweight, browser-only configuration file manager for JSON and XML files. Built with vanilla TypeScript and modern web APIs.
+A high-performance, browser-only configuration file manager for JSON, XML, and environment files. Built with vanilla TypeScript, modern web APIs, and a WebAssembly-powered parser core for optimal performance.
 
 ## 🎉 What's New (v2.0)
 
 ### ✨ **Major Enhancements**
-- **📍 Enhanced File Display**: Real file paths with storage indicators 
-- **📌 Sticky Save Buttons**: Always-accessible save functionality with smooth animations
+
+- **� WebAssembly Parser Core**: High-performance Rust-based parser compiled to WASM for near-native speed
+- **�📍 Enhanced File Display**: Real file paths with storage indicators
 - **🔄 Smart File Refresh**: Reload from disk with conflict detection and resolution
 - **🛡️ Robust Error Handling**: Comprehensive notifications with recovery options
 - **⚡ Production Optimization**: 73% size reduction with minification and compression
@@ -22,8 +23,11 @@ A lightweight, browser-only configuration file manager for JSON and XML files. B
 - **🧪 Comprehensive Testing**: Full test suite with CI/CD integration
 
 ### 🚀 **Performance Improvements**
+
+- **WebAssembly Parser**: Near-native parsing speed with Rust-compiled WASM core
+- **Memory Optimization**: Efficient span-based editing with minimal allocations
 - **JavaScript Uglification**: 50-60% size reduction with Terser
-- **CSS Minification**: 25% optimization with CleanCSS  
+- **CSS Minification**: 25% optimization with CleanCSS
 - **HTML Compression**: 26% reduction with advanced minification
 - **Gzip/Brotli Support**: Additional 40-77% compression
 - **Pre-compressed Serving**: Automatic optimization for web servers
@@ -31,14 +35,14 @@ A lightweight, browser-only configuration file manager for JSON and XML files. B
 ## ✨ Features
 
 - **📁 Multi-file Support**: Select and edit multiple configuration files simultaneously
-- **🧩 Multiple File Formats**: Support for JSON, XML, .config, and .env files
-- **🔄 Smart Form Generation**: Automatically generates appropriate form inputs based on data types  
+- **🧩 Multiple File Formats**: Support for JSON, XML, .config, and .env files with WASM-powered parsing
+- **� High-Performance Parsing**: WebAssembly-based parser core for near-native speed and efficiency
+- **�🔄 Smart Form Generation**: Automatically generates appropriate form inputs based on data types
 - **📍 Enhanced File Display**: Shows actual file paths and storage indicators
-- **📌 Sticky Save Buttons**: Always-accessible save functionality that appears when scrolling
 - **💾 Intelligent Storage**: Persistent storage with automatic restoration and permission management
 - **🔄 File Refresh**: Reload files from disk with conflict detection and resolution
 - **🛡️ Robust Error Handling**: Comprehensive error notifications with recovery options
-- **🌐 Browser-only**: No backend required - uses File System Access API
+- **🌐 Browser-only**: No backend required - uses File System Access API with WASM acceleration
 - **📱 Responsive Design**: Works on desktop and mobile browsers with touch-friendly interface
 - **🎯 Type-safe**: Built with TypeScript for better reliability
 - **⚡ Production Optimized**: 73% size reduction with minification and compression
@@ -59,7 +63,15 @@ A lightweight, browser-only configuration file manager for JSON and XML files. B
    npm install
    ```
 
-2. **Serve the application**:
+2. **Build WebAssembly parser** (required for development):
+
+   ```bash
+   cd parser-wasm
+   npm run build
+   cd ..
+   ```
+
+3. **Serve the application**:
 
    ```bash
    npm run serve
@@ -67,29 +79,32 @@ A lightweight, browser-only configuration file manager for JSON and XML files. B
 
    Or simply open `index.html` in a modern browser that supports the File System Access API.
 
-3. **Select files**: Click "Select Configuration Files" and choose your JSON/XML files
+4. **Select files**: Click "Select Configuration Files" and choose your JSON/XML/ENV files
 
-4. **Edit values**: Modify values in the generated forms
+5. **Edit values**: Modify values in the generated forms
 
-5. **Save changes**: Click the "Save Changes" button for each file you want to update
+6. **Save changes**: Click the "Save Changes" button for each file you want to update
 
 ## Browser Support
 
-Requires browsers with File System Access API support:
+Requires browsers with File System Access API and WebAssembly support:
 
-- Chrome 86+
-- Edge 86+
-- Opera 72+
+- Chrome 86+ (File System Access API + WASM)
+- Edge 86+ (File System Access API + WASM)
+- Opera 72+ (File System Access API + WASM)
+
+**Note**: WebAssembly is supported in all modern browsers, but the File System Access API is the limiting factor for full functionality.
 
 ## Architecture
 
-The application follows SOLID principles with clear separation of concerns:
+The application follows SOLID principles with clear separation of concerns and a high-performance WebAssembly parser core:
 
 ### Core Modules
 
+- **Parser WASM** (`parser-wasm/`): High-performance Rust-based parser compiled to WebAssembly for JSON, XML, and ENV files
 - **FileHandler** (`src/fileHandler.ts`): Advanced file operations with File System Access API and permission management
-- **Parsers** (`src/parsers.ts`): JSON, XML, and ENV file parsing with extensible parser factory
-- **Renderer** (`src/renderer.ts`): Dynamic form generation with sticky save buttons and enhanced UI
+- **Parsers** (`src/parsers.ts`): TypeScript integration layer for the WASM parser with extensible factory patterns
+- **Renderer** (`src/renderer.ts`): Dynamic form generation and enhanced UI
 - **Persistence** (`src/persistence.ts`): Intelligent file saving with conflict detection and resolution
 - **Storage** (`src/handleStorage.ts`): Enhanced persistent storage with metadata and restoration capabilities
 - **Permission Manager** (`src/permissionManager.ts`): Robust permission handling and validation
@@ -104,28 +119,59 @@ The application follows SOLID principles with clear separation of concerns:
 - **Interface Segregation**: Small, focused interfaces
 - **Dependency Inversion**: High-level modules depend on abstractions
 
+### 🚀 WebAssembly Parser Core
+
+The heart of Konficurator's performance is its Rust-based WebAssembly parser located in `parser-wasm/`:
+
+#### **Key Features**
+
+- **Near-Native Performance**: Rust compiled to WASM for optimal parsing speed
+- **Memory Efficient**: Uses `wee_alloc` and span-based editing for minimal memory footprint
+- **Byte-Preserving**: Maintains original file formatting, comments, and whitespace
+- **Multi-Format Support**: Unified interface for JSON, XML, and environment files
+- **Zero-Copy Operations**: Efficient span-based value location and replacement
+
+#### **Technical Highlights**
+
+- **Custom Tokenizers**: Hand-optimized lexers for each file format
+- **Path-Based Navigation**: Intuitive array-based path syntax for nested structures
+- **Robust Error Handling**: Comprehensive validation with detailed error messages
+- **Browser Integration**: Seamless JavaScript interop via `wasm-bindgen`
+- **Production Optimized**: Aggressive size optimization with LTO and panic=abort
+
+#### **Supported Operations**
+
+```javascript
+// Update nested JSON values
+update_value("json", content, ["app", "database", "port"], "5432");
+
+// Modify XML attributes
+update_value("xml", content, ["config", "@version"], "2.0");
+
+// Update environment variables
+update_value("env", content, ["DATABASE_URL"], "postgres://localhost/db");
+```
+
+For detailed technical documentation, see [`parser-wasm/README.md`](parser-wasm/README.md).
+
 ## 🎯 Key Features in Detail
 
 ### 📍 Enhanced File Path Display
+
 - Shows actual filesystem paths: `📁 samples/app-config.json`
 - Storage indicators for restored files: `💾 config.json (from storage)`
 - Smart fallbacks for different file sources
 - Persistent across browser sessions
 
-### 📌 Sticky Save Buttons  
-- Appears automatically when scrolling past file tiles
-- Glass morphism design with smooth animations
-- Individual save buttons for each modified file
-- Touch-friendly mobile interface
-- Dynamic updates as files are saved
+### Intelligent File Refresh
 
-### 🔄 Intelligent File Refresh
 - **Reload from Disk**: Refresh files while preserving unsaved changes
 - **Conflict Detection**: Identifies when disk files have been modified
 - **Smart Resolution**: Choose to keep changes, reload from disk, or merge
 - **Permission Recovery**: Automatic permission restoration for saved files
 
 ### 🛡️ Robust Error Handling
+
 - **Comprehensive Notifications**: Clear error messages with context
 - **Recovery Options**: Actionable buttons to resolve issues
 - **Permission Management**: Automatic re-permission flow for file access
@@ -149,6 +195,9 @@ The application automatically determines input types:
 # Install dependencies
 npm install
 
+# Build WebAssembly parser (required for development)
+cd parser-wasm && npm run build && cd ..
+
 # Development builds
 npm run build          # Standard TypeScript compilation
 npm run watch          # Watch for changes during development
@@ -164,6 +213,23 @@ npm run serve          # Serve locally on port 8080
 npm run clean          # Clean build directories
 ```
 
+### WASM Development
+
+For WebAssembly parser development:
+
+```bash
+# Navigate to parser-wasm directory
+cd parser-wasm
+
+# Install Rust dependencies and build
+npm run build          # Build WASM module with wasm-pack
+npm test              # Run Rust tests
+
+# Development workflow
+cargo test            # Run tests during development
+wasm-pack build --target web --out-dir pkg  # Manual build
+```
+
 ### Project Structure
 
 ```
@@ -174,7 +240,7 @@ konficurator/
 ├── src/
 │   ├── interfaces.ts       # TypeScript interfaces
 │   ├── fileHandler.ts      # Advanced file operations
-│   ├── parsers.ts          # JSON/XML parsing
+│   ├── parsers.ts          # WASM parser integration layer
 │   ├── renderer.ts         # Enhanced form generation
 │   ├── persistence.ts      # Intelligent save operations
 │   ├── handleStorage.ts    # Enhanced storage management
@@ -182,6 +248,17 @@ konficurator/
 │   ├── confirmation.ts     # User confirmation dialogs
 │   ├── ui/                 # Reusable UI components
 │   └── main.ts            # Main application orchestration
+├── parser-wasm/           # High-performance WASM parser core
+│   ├── src/               # Rust source code
+│   │   ├── lib.rs         # Main WASM interface
+│   │   ├── json_parser.rs # JSON parsing implementation
+│   │   ├── xml_parser.rs  # XML parsing implementation
+│   │   ├── env_parser.rs  # Environment file parsing
+│   │   └── tests.rs       # Comprehensive test suite
+│   ├── pkg/               # Generated WASM bindings (generated)
+│   ├── Cargo.toml         # Rust dependencies and configuration
+│   ├── package.json       # WASM build configuration
+│   └── README.md          # WASM parser documentation
 ├── samples/               # Sample config files
 ├── manual-tests/          # Comprehensive test suite
 ├── docs/                  # Detailed documentation
@@ -237,6 +314,8 @@ docker-compose --profile production up konficurator-prod
 The production build includes:
 
 - **73% size reduction** through minification and compression
+- **WebAssembly acceleration** with Rust-compiled parser core
+- **Memory optimization** using `wee_alloc` and span-based editing
 - **JavaScript uglification** with Terser (50-60% smaller files)
 - **CSS minification** with CleanCSS (25% reduction)
 - **HTML minification** (26% reduction)
@@ -244,6 +323,7 @@ The production build includes:
 - **Brotli compression** (additional 60-77% reduction)
 - **Pre-compressed file serving** with nginx/Apache configuration
 - **Optimized caching headers** for static assets
+- **WASM size optimization** with LTO and panic=abort
 
 ### 🌐 Server Configuration
 
@@ -258,6 +338,7 @@ See [PRODUCTION_OPTIMIZATION.md](docs/PRODUCTION_OPTIMIZATION.md) for detailed o
 ## 🧪 Testing & Quality Assurance
 
 ### Comprehensive Test Suite
+
 - **Manual Tests**: Interactive testing pages in `manual-tests/`
 - **Unit Tests**: Jest-based test suite with TypeScript support
 - **Integration Tests**: End-to-end functionality validation
@@ -265,22 +346,29 @@ See [PRODUCTION_OPTIMIZATION.md](docs/PRODUCTION_OPTIMIZATION.md) for detailed o
 - **Coverage Reports**: Detailed code coverage analysis
 
 ### Test Categories
+
 - **File Operations**: File loading, saving, and permission handling
-- **Storage Management**: Persistence, restoration, and metadata handling  
+- **WASM Parser Tests**: Rust-based parser validation, span detection, and value replacement
+- **Storage Management**: Persistence, restoration, and metadata handling
 - **UI Components**: Form generation, sticky behaviors, and responsiveness
 - **Error Handling**: Error scenarios and recovery flows
-- **Performance**: Build optimization and compression validation
+- **Performance**: Build optimization, compression validation, and WASM efficiency
+- **Integration**: End-to-end workflows with WASM parser integration
 
 ### Development Testing
+
 ```bash
-# Run test suite
+# Run TypeScript test suite
 npm test
 
 # Watch mode for development
-npm run test:watch  
+npm run test:watch
 
 # Coverage report
 npm run test:coverage
+
+# WASM parser tests
+cd parser-wasm && npm test && cd ..
 
 # Manual testing pages
 npm run serve
@@ -290,12 +378,14 @@ npm run serve
 ## 📊 CI/CD Pipeline
 
 ### Automated Workflows
+
 - **Continuous Integration**: Tests, TypeScript compilation, and build verification
 - **Build Verification**: Performance metrics and optimization validation
-- **Docker Testing**: Container build and deployment verification  
+- **Docker Testing**: Container build and deployment verification
 - **Automated Deployment**: Optimized builds deployed to GitHub Pages
 
 ### Quality Gates
+
 - **Test Coverage**: Maintains comprehensive test coverage
 - **TypeScript Compilation**: Zero compilation errors required
 - **Build Optimization**: Minimum 50% size reduction enforced
@@ -333,6 +423,8 @@ npm run serve
 
 ### Adding New File Types
 
+#### Option 1: TypeScript Parser (for simpler formats)
+
 1. **Create a new parser**:
 
 ```typescript
@@ -357,6 +449,46 @@ export class YamlParser extends BaseParser {
 ParserFactory.registerParser("yaml", () => new YamlParser());
 ```
 
+#### Option 2: WASM Parser (for performance-critical formats)
+
+For high-performance parsing, extend the Rust WASM core:
+
+1. **Add new parser in `parser-wasm/src/`**:
+
+```rust
+// parser-wasm/src/yaml_parser.rs
+pub struct YamlParser;
+
+impl BytePreservingParser for YamlParser {
+    fn validate_syntax(&self, content: &str) -> Result<(), String> {
+        // YAML validation logic
+    }
+
+    fn find_value_span(&self, content: &str, path: &[String]) -> Result<Span, String> {
+        // YAML path navigation
+    }
+}
+```
+
+2. **Update the main WASM interface**:
+
+```rust
+// parser-wasm/src/lib.rs
+match file_type.to_lowercase().as_str() {
+    "yaml" | "yml" => {
+        let parser = YamlParser::new();
+        // Implementation...
+    }
+    // ...existing cases
+}
+```
+
+3. **Rebuild WASM module**:
+
+```bash
+cd parser-wasm && npm run build && cd ..
+```
+
 ### Adding New Input Types
 
 Extend the `FormRenderer` class to handle new data types:
@@ -372,8 +504,9 @@ private createCustomField(key: string, value: any, path: string): HTMLElement {
 The `samples/` directory contains example configuration files:
 
 - `app-config.json` - Application configuration example with nested objects
-- `server-config.xml` - Server configuration example with XML structure  
+- `server-config.xml` - Server configuration example with XML structure
 - `test-config.json` - Testing configuration with various data types
+- `app.env` - Environment variables example with quoted and unquoted values
 - `broken-config.json` - Example for testing error handling
 
 ## 📚 Documentation
@@ -420,20 +553,24 @@ We welcome contributions! Here's how to get started:
 
 - **Architecture**: Follow SOLID principles and established patterns
 - **Type Safety**: Use TypeScript with strict mode enabled
+- **WASM Integration**: When adding parsing features, consider whether they belong in the WASM core or TypeScript layer
 - **Error Handling**: Implement comprehensive error boundaries and user feedback
 - **Testing**: Add unit tests for new functionality and integration tests for workflows
-- **Documentation**: Update relevant docs in the `docs/` directory
-- **Performance**: Maintain optimization targets and build efficiency
+- **Documentation**: Update relevant docs in the `docs/` directory and WASM module README
+- **Performance**: Maintain optimization targets and build efficiency, especially for WASM modules
 - **Accessibility**: Ensure responsive design and mobile compatibility
 - **Security**: Follow client-side security best practices
 
 ### Code Quality Standards
+
 - Follow the existing code style and architecture patterns
-- Add JSDoc comments for new public methods and interfaces  
+- Add JSDoc comments for new public methods and interfaces
 - Ensure TypeScript compilation passes without errors or warnings
-- Test with both JSON and XML files of varying complexity
+- For WASM development, follow Rust best practices and add comprehensive tests
+- Test with both JSON, XML, and environment files of varying complexity
 - Verify responsiveness on different screen sizes and devices
 - Validate error handling scenarios and recovery flows
+- Ensure WASM modules build successfully and integrate properly with TypeScript
 
 ### Reporting Issues
 
@@ -453,9 +590,10 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Acknowledgments
 
 - **Modern Web Standards**: Built with cutting-edge TypeScript and Web APIs
+- **WebAssembly & Rust**: Leveraging Rust's performance and safety for core parsing operations
 - **File System Access API**: Leveraging browser-native file operations for seamless UX
 - **Community Driven**: Inspired by developer needs for simple, client-side configuration management
-- **Performance Focused**: Enterprise-level optimization with 73% size reduction
+- **Performance Focused**: Enterprise-level optimization with 73% size reduction and WASM acceleration
 - **Accessibility First**: Responsive design with comprehensive mobile support
 - **Open Source**: MIT licensed for maximum flexibility and community contribution
 
@@ -464,12 +602,12 @@ MIT License - see [LICENSE](LICENSE) file for details.
 Ready to manage your configuration files more efficiently?
 
 1. **[Try the Live Demo](https://suomiton.github.io/konficurator/)** - No installation required
-2. **[Star the Repository](https://github.com/suomiton/konficurator)** - Show your support  
+2. **[Star the Repository](https://github.com/suomiton/konficurator)** - Show your support
 3. **[Report Issues](https://github.com/suomiton/konficurator/issues)** - Help improve the project
 4. **[Contribute](https://github.com/suomiton/konficurator/blob/main/README.md#contributing)** - Join the development
 
 ---
 
-**⚠️ Browser Compatibility**: This application requires modern browser support for the File System Access API. For a compatibility matrix, see [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API#browser_compatibility).
+**⚠️ Browser Compatibility**: This application requires modern browser support for the File System Access API and WebAssembly. WebAssembly is universally supported in modern browsers, but the File System Access API determines full functionality. For a compatibility matrix, see [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API#browser_compatibility).
 
 **🚀 [Try Konficurator Now](https://suomiton.github.io/konficurator/)** | **⭐ [Star on GitHub](https://github.com/suomiton/konficurator)**

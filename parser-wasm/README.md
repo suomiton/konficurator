@@ -20,24 +20,28 @@ The parser-wasm module is a core component of the Konficurator project that enab
 ### Core Components
 
 #### 1. **Main Library (`lib.rs`)**
+
 - Exports the main `update_value` function to JavaScript
 - Coordinates between different parsers based on file type
 - Handles value escaping and formatting for each format
 - Provides unified error handling across all parsers
 
 #### 2. **JSON Parser (`json_parser.rs` + `json_lexer.rs`)**
+
 - Custom tokenizer for precise JSON parsing
 - Supports nested objects and arrays
 - Path-based navigation (e.g., `["app", "database", "port"]`)
 - Handles all JSON value types: strings, numbers, booleans, null
 
 #### 3. **XML Parser (`xml_parser.rs`)**
+
 - Built on the `xmlparser` crate for robust XML parsing
 - Supports both element text content and attributes
 - XPath-like navigation with `@attribute` syntax
 - Handles nested XML structures with validation
 
 #### 4. **Environment Parser (`env_parser.rs`)**
+
 - Pure Rust implementation for `.env` file parsing
 - Supports quoted and unquoted values
 - Preserves comments and formatting
@@ -46,6 +50,7 @@ The parser-wasm module is a core component of the Konficurator project that enab
 ### Key Concepts
 
 #### **Span-based Editing**
+
 The library uses `Span` structs to represent byte ranges in the original content:
 
 ```rust
@@ -58,6 +63,7 @@ pub struct Span {
 This allows for precise, non-destructive editing that preserves the original file structure.
 
 #### **BytePreservingParser Trait**
+
 All parsers implement a common interface:
 
 ```rust
@@ -71,6 +77,7 @@ pub trait BytePreservingParser {
 ## 📦 Dependencies
 
 ### Rust Crates
+
 - **`wasm-bindgen`** (0.2): JavaScript/WebAssembly interop
 - **`js-sys`** (0.3): JavaScript API bindings
 - **`web-sys`** (0.3): Web API bindings
@@ -83,11 +90,13 @@ pub trait BytePreservingParser {
 - **`json-event-parser`** (0.2.2): Streaming JSON parser
 
 ### Build Tools
+
 - **`wasm-pack`** (0.12.1): Rust-to-WebAssembly compiler and packager
 
 ## 🛠️ Building
 
 ### Prerequisites
+
 - Rust (latest stable)
 - `wasm-pack` installed globally
 
@@ -121,53 +130,41 @@ panic = "abort"     # Smaller panic handling
 ### JavaScript Integration
 
 ```javascript
-import init, { update_value } from './pkg/parser_core.js';
+import init, { update_value } from "./pkg/parser_core.js";
 
 // Initialize the WASM module
 await init();
 
 // Update a JSON value
 const jsonContent = '{"app": {"name": "MyApp", "port": 3000}}';
-const updatedJson = update_value(
-    "json", 
-    jsonContent, 
-    ["app", "port"], 
-    "8080"
-);
+const updatedJson = update_value("json", jsonContent, ["app", "port"], "8080");
 // Result: '{"app": {"name": "MyApp", "port": 8080}}'
 
 // Update XML attribute
 const xmlContent = '<config host="localhost" port="3000"/>';
-const updatedXml = update_value(
-    "xml", 
-    xmlContent, 
-    ["config", "@port"], 
-    "8080"
-);
+const updatedXml = update_value("xml", xmlContent, ["config", "@port"], "8080");
 // Result: '<config host="localhost" port="8080"/>'
 
 // Update environment variable
-const envContent = 'DATABASE_URL=postgres://localhost/db\nDEBUG=true';
-const updatedEnv = update_value(
-    "env", 
-    envContent, 
-    ["DEBUG"], 
-    "false"
-);
+const envContent = "DATABASE_URL=postgres://localhost/db\nDEBUG=true";
+const updatedEnv = update_value("env", envContent, ["DEBUG"], "false");
 // Result: 'DATABASE_URL=postgres://localhost/db\nDEBUG=false'
 ```
 
 ### Path Formats
 
 #### JSON Paths
+
 - Object keys: `["app", "database", "host"]`
 - Array indices: `["users", "0", "name"]`
 
 #### XML Paths
+
 - Elements: `["config", "database", "host"]`
 - Attributes: `["config", "@version"]`
 
 #### Environment Paths
+
 - Variable names: `["DATABASE_URL"]`
 
 ## 🧪 Testing
@@ -179,6 +176,7 @@ cargo test
 ```
 
 Test coverage includes:
+
 - Basic value updates for all formats
 - Nested structure navigation
 - Edge cases (quotes, escaping, special characters)
@@ -188,16 +186,19 @@ Test coverage includes:
 ## 🔧 Performance Optimizations
 
 ### Memory Management
+
 - **`wee_alloc`**: Reduces WASM binary size by ~75KB
 - **Zero-copy parsing**: Operates on string slices without allocation
 - **Minimal dependencies**: Only essential crates included
 
 ### Build Optimizations
+
 - **Size optimization**: `opt-level = "z"` for smallest binary
 - **Link-time optimization**: Aggressive dead code elimination
 - **Panic handling**: Abort-on-panic reduces binary size
 
 ### Parser Optimizations
+
 - **Custom tokenizers**: Hand-optimized for each format
 - **Span-based editing**: Minimal memory allocation during updates
 - **Lazy evaluation**: Parse only what's needed for the target path
@@ -215,6 +216,7 @@ This WASM parser integrates seamlessly with the main Konficurator application:
 ## 🚦 Error Handling
 
 The parser provides detailed error messages for:
+
 - **Syntax errors**: Invalid JSON/XML/ENV syntax
 - **Path errors**: Non-existent paths or invalid navigation
 - **Type errors**: Incompatible value types
