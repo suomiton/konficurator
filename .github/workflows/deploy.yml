@@ -38,6 +38,11 @@ jobs:
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
         
+      - name: Build WASM module
+        run: |
+          cd parser-wasm
+          wasm-pack build --target web --release
+          
       - name: Test WASM module
         run: |
           cd parser-wasm
