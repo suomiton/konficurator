@@ -209,6 +209,10 @@ function renderArrayField(
 		tag: "div",
 		className: `${className} array-field`,
 		data: { path: fieldData.path, type: "array" },
+		attributes: {
+			name: fieldData.path,
+			"data-original-value": JSON.stringify((fieldData as any).value || []),
+		},
 	});
 
 	const header = createElement({

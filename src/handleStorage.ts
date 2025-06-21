@@ -108,9 +108,26 @@ export class StorageService {
 		const result: FileData[] = [];
 
 		for (const r of records) {
+			// Re-evaluate file type for config files that might contain JSON/XML
+			let actualType = r.type;
+			if (r.type === "config" && r.content) {
+				// Check if config file actually contains JSON
+				try {
+					JSON.parse(r.content.trim());
+					actualType = "json";
+				} catch {
+					// Check if it's XML
+					const trimmed = r.content.trim();
+					if (trimmed.startsWith("<?xml") || trimmed.startsWith("<")) {
+						actualType = "xml";
+					}
+					// Otherwise keep as "config"
+				}
+			}
+
 			const fd: FileData = {
 				name: r.name,
-				type: r.type,
+				type: actualType, // Use re-evaluated type
 				content: r.content,
 				originalContent: r.content,
 				lastModified: r.lastModified,

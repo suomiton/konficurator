@@ -10,6 +10,48 @@ impl JsonParser {
     }
 }
 
+// ────────── HELPER FUNCTIONS ──────────
+
+fn find_matching_brace(
+    tokens: &[crate::json_lexer::Token],
+    start_idx: usize,
+) -> Result<usize, String> {
+    let mut depth = 0;
+    for i in start_idx..tokens.len() {
+        match tokens[i].kind {
+            Kind::LBrace => depth += 1,
+            Kind::RBrace => {
+                depth -= 1;
+                if depth == 0 {
+                    return Ok(tokens[i].span.end);
+                }
+            }
+            _ => {}
+        }
+    }
+    Err("Unmatched opening brace".to_string())
+}
+
+fn find_matching_bracket(
+    tokens: &[crate::json_lexer::Token],
+    start_idx: usize,
+) -> Result<usize, String> {
+    let mut depth = 0;
+    for i in start_idx..tokens.len() {
+        match tokens[i].kind {
+            Kind::LBrack => depth += 1,
+            Kind::RBrack => {
+                depth -= 1;
+                if depth == 0 {
+                    return Ok(tokens[i].span.end);
+                }
+            }
+            _ => {}
+        }
+    }
+    Err("Unmatched opening bracket".to_string())
+}
+
 // ────────── PATH‑TRACKER ──────────
 #[derive(Debug, Clone)]
 enum Seg {
@@ -49,6 +91,13 @@ impl BytePreservingParser for JsonParser {
                 Kind::LBrace => {
                     if let Some(key) = expect_key.take() {
                         path_stack.push(Seg::Key(key));
+                        // Check if this object is what we're looking for
+                        if path_matches(&path_stack, path) {
+                            // Find the matching closing brace
+                            let start_pos = tokens[i].span.start;
+                            let end_pos = find_matching_brace(&tokens, i)?;
+                            return Ok(crate::Span::new(start_pos, end_pos));
+                        }
                     }
                     i += 1;
                 }
@@ -61,6 +110,13 @@ impl BytePreservingParser for JsonParser {
                 Kind::LBrack => {
                     if let Some(key) = expect_key.take() {
                         path_stack.push(Seg::Key(key));
+                        // Check if this array is what we're looking for
+                        if path_matches(&path_stack, path) {
+                            // Find the matching closing bracket
+                            let start_pos = tokens[i].span.start;
+                            let end_pos = find_matching_bracket(&tokens, i)?;
+                            return Ok(crate::Span::new(start_pos, end_pos));
+                        }
                     }
                     arr_idx_stack.push(0);
                     path_stack.push(Seg::Idx(0));
@@ -68,7 +124,14 @@ impl BytePreservingParser for JsonParser {
                 }
                 Kind::RBrack => {
                     arr_idx_stack.pop();
-                    path_stack.pop();
+                    // Pop the array index
+                    if let Some(Seg::Idx(_)) = path_stack.last() {
+                        path_stack.pop();
+                    }
+                    // Pop the array key as well
+                    if let Some(Seg::Key(_)) = path_stack.last() {
+                        path_stack.pop();
+                    }
                     i += 1;
                 }
                 Kind::StringLit => {
@@ -113,6 +176,8 @@ impl BytePreservingParser for JsonParser {
                             *n = *last;
                         }
                     }
+                    // For objects, we don't need to do anything special -
+                    // the next iteration will handle the next key
                     i += 1;
                 }
                 Kind::Colon => {

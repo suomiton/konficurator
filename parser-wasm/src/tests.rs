@@ -40,6 +40,69 @@ fn json_nested_path_and_array() {
     assert_eq!(&src[span.start..span.end], r#""C#""#);
 }
 
+#[test]
+fn json_security_session_timeout_case() {
+    let src = r#"{
+  "application": {
+    "name": "Sample Application 1234",
+    "version": "2.1.0",
+    "environment": "production",
+    "debug": false
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "maxConnections": 1000,
+    "timeout": 30000,
+    "ssl": {
+      "enabled": true,
+      "certificatePath": "/etc/ssl/cert.pem",
+      "keyPath": "/etc/ssl/key.pem"
+    }
+  },
+  "features": {
+    "authentication": true,
+    "authorization": true,
+    "metrics": true,
+    "healthCheck": true,
+    "rateLimiting": {
+      "enabled": true,
+      "requestsPerMinute": 100,
+      "burstSize": 10
+    }
+  },
+  "security": {
+    "corsOrigins": [
+      "https://app.example.com",
+      "https://admin.example.com"
+    ],
+    "sessionTimeout": 1800,
+    "csrfProtection": true,
+    "contentSecurityPolicy": "default-src 'self'; script-src 'self' 'unsafe-inline'"
+  }
+}"#;
+    let parser = JsonParser::new();
+
+    // Test finding the sessionTimeout value
+    let span = parser
+        .find_value_span(src, &["security".into(), "sessionTimeout".into()])
+        .unwrap();
+    assert_eq!(&src[span.start..span.end], "1800");
+
+    // Test finding rateLimiting.requestsPerMinute value
+    let span2 = parser
+        .find_value_span(
+            src,
+            &[
+                "features".into(),
+                "rateLimiting".into(),
+                "requestsPerMinute".into(),
+            ],
+        )
+        .unwrap();
+    assert_eq!(&src[span2.start..span2.end], "100");
+}
+
 // ───── XML ─────
 
 #[test]
@@ -192,4 +255,57 @@ fn json_deeply_nested_key() {
         .find_value_span(src, &["app".into(), "port".into()])
         .unwrap();
     assert_eq!(&src[span.start..span.end], "3000");
+}
+
+#[test]
+fn json_array_replacement() {
+    let src = r#"{
+  "users": ["alice", "bob"],
+  "config": {
+    "features": ["auth", "logging"]
+  }
+}"#;
+    let parser = JsonParser::new();
+
+    // Test finding the entire users array
+    let span = parser.find_value_span(src, &["users".into()]).unwrap();
+    assert_eq!(&src[span.start..span.end], r#"["alice", "bob"]"#);
+
+    // Test replacing entire array
+    let updated = parser.replace_value(src, span, r#"["alice", "bob", "charlie"]"#);
+    assert!(updated.contains(r#""users": ["alice", "bob", "charlie"]"#));
+
+    // Test nested array replacement
+    let span2 = parser
+        .find_value_span(src, &["config".into(), "features".into()])
+        .unwrap();
+    assert_eq!(&src[span2.start..span2.end], r#"["auth", "logging"]"#);
+
+    let updated2 = parser.replace_value(src, span2, r#"["auth", "logging", "metrics"]"#);
+    assert!(updated2.contains(r#""features": ["auth", "logging", "metrics"]"#));
+}
+
+#[test]
+fn json_literal_detection() {
+    // Test basic literals
+    assert!(crate::is_json_literal("true"));
+    assert!(crate::is_json_literal("false"));
+    assert!(crate::is_json_literal("null"));
+    assert!(crate::is_json_literal("42"));
+    assert!(crate::is_json_literal("3.14"));
+
+    // Test JSON arrays
+    assert!(crate::is_json_literal(r#"["alice", "bob"]"#));
+    assert!(crate::is_json_literal(r#"["auth", "logging", "metrics"]"#));
+    assert!(crate::is_json_literal(r#"[]"#));
+    assert!(crate::is_json_literal(r#"[1, 2, 3]"#));
+
+    // Test JSON objects
+    assert!(crate::is_json_literal(r#"{"name": "test"}"#));
+    assert!(crate::is_json_literal(r#"{}"#));
+
+    // Test invalid JSON (should not be considered literals)
+    assert!(!crate::is_json_literal("not json"));
+    assert!(!crate::is_json_literal("[invalid"));
+    assert!(!crate::is_json_literal("{'single': quotes}"));
 }

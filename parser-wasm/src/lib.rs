@@ -113,8 +113,26 @@ pub fn update_value(
     Ok(result)
 }
 
-fn is_json_literal(s: &str) -> bool {
-    matches!(s, "true" | "false" | "null") || s.parse::<f64>().map_or(false, |v| v.to_string() == s)
+pub fn is_json_literal(s: &str) -> bool {
+    // Check for basic JSON literals
+    if matches!(s, "true" | "false" | "null") {
+        return true;
+    }
+    
+    // Check for numbers
+    if s.parse::<f64>().map_or(false, |v| v.to_string() == s) {
+        return true;
+    }
+    
+    // Check for JSON arrays and objects by trying to parse them
+    if (s.starts_with('[') && s.ends_with(']')) || (s.starts_with('{') && s.ends_with('}')) {
+        // Try to parse as JSON to validate it's valid JSON
+        if let Ok(_) = serde_json::from_str::<serde_json::Value>(s) {
+            return true;
+        }
+    }
+    
+    false
 }
 
 fn escape_json_string(s: &str) -> String {
