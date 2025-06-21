@@ -166,7 +166,10 @@ export class KonficuratorApp {
 	 */
 	private async processFile(fileData: FileData): Promise<void> {
 		try {
-			const parser = ParserFactory.createParser(fileData.type);
+			const parser = ParserFactory.createParser(
+				fileData.type,
+				fileData.content
+			);
 			const parsedContent = parser.parse(fileData.content);
 
 			// Update file data with parsed content

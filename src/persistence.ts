@@ -91,7 +91,7 @@ export class FilePersistence implements IPersistence {
 			}
 
 			// Update in-memory content - re-parse to maintain data structure consistency
-			const parser = ParserFactory.createParser(fileData.type);
+			const parser = ParserFactory.createParser(fileData.type, updatedContent);
 			fileData.content = parser.parse(updatedContent);
 			// Update originalContent to the new file content for future edits
 			fileData.originalContent = updatedContent;

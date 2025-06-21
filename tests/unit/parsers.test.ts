@@ -335,6 +335,35 @@ describe("Parser Implementations - Real Tests", () => {
 				expect(parser.getFileType()).toBe("xml");
 			});
 
+			it("should auto-detect JSON for config files with JSON content", () => {
+				const jsonContent = '{"key": "value"}';
+				const parser = ParserFactory.createParser("config", jsonContent);
+				expect(parser).toBeInstanceOf(JsonParser);
+				expect(parser.getFileType()).toBe("json");
+			});
+
+			it("should auto-detect XML for config files with XML content", () => {
+				const xmlContent = '<?xml version="1.0"?><root><key>value</key></root>';
+				const parser = ParserFactory.createParser("config", xmlContent);
+				expect(parser).toBeInstanceOf(XmlParser);
+				expect(parser.getFileType()).toBe("xml");
+			});
+
+			it("should auto-detect ENV for config files with ENV content", () => {
+				const envContent = "KEY1=value1\nKEY2=value2\nKEY3=value3";
+				const parser = ParserFactory.createParser("config", envContent);
+				expect(parser).toBeInstanceOf(EnvParser);
+				expect(parser.getFileType()).toBe("env");
+			});
+
+			it("should fallback to XML parser for config files with unrecognized content", () => {
+				const unknownContent =
+					"some random content that is not JSON, XML, or ENV";
+				const parser = ParserFactory.createParser("config", unknownContent);
+				expect(parser).toBeInstanceOf(XmlParser);
+				expect(parser.getFileType()).toBe("xml");
+			});
+
 			it("should create EnvParser for env file type", () => {
 				const parser = ParserFactory.createParser("env");
 				expect(parser).toBeInstanceOf(EnvParser);
