@@ -1,6 +1,7 @@
 import { IPersistence, FileData } from "./interfaces.js";
 import { ParserFactory } from "./parsers.js";
 import { NotificationService } from "./ui/notifications.js";
+import { SupportedFileType, getMimeTypeForFileType, getExtensionsForFileType } from "./utils/fileTypeUtils.js";
 
 // Import WASM parser for non-destructive updates
 import init, { update_value } from "../parser-wasm/pkg/parser_core.js";
@@ -43,75 +44,9 @@ export class FilePersistence implements IPersistence {
 				fileData.content
 			);
 
-			// Debug: log field changes and content before WASM update
-			console.debug("[FilePersistence] File info:", {
-				name: fileData.name,
-				type: fileData.type,
-				hasHandle: !!fileData.handle,
-			});
-			console.debug("[FilePersistence] fieldChanges:", fieldChanges);
-			console.debug(
-				"[FilePersistence] originalContent type:",
-				typeof updatedContent
-			);
-			console.debug(
-				"[FilePersistence] originalContent preview:",
-				updatedContent.substring(0, 200) + "..."
-			);
-			console.debug(
-				"[FilePersistence] parsed content structure:",
-				fileData.content
-			);
-			console.debug(
-				"[FilePersistence] Original data keys:",
-				Object.keys(fileData.content || {})
-			);
 			// Apply each change using WASM update_value for non-destructive editing
 			for (const change of fieldChanges) {
 				try {
-					console.debug("[FilePersistence] WASM call:", {
-						fileType: fileData.type,
-						path: change.path,
-						newValue: change.newValue,
-						contentPreview: updatedContent.substring(0, 100) + "...",
-						contentLength: updatedContent.length,
-					});
-
-					// Validate JSON before passing to WASM
-					try {
-						JSON.parse(updatedContent);
-						console.debug("[FilePersistence] JSON validation: VALID");
-					} catch (e) {
-						console.error("[FilePersistence] JSON validation: INVALID", e);
-					}
-
-					// Check if the path exists in the parsed JSON
-					try {
-						const parsed = JSON.parse(updatedContent);
-						let current = parsed;
-						let pathSoFar = [];
-						for (const key of change.path) {
-							pathSoFar.push(key);
-							if (current && typeof current === "object" && key in current) {
-								current = current[key];
-								console.debug(
-									`[FilePersistence] Path ${pathSoFar.join(
-										"."
-									)} exists, value:`,
-									current
-								);
-							} else {
-								console.error(
-									`[FilePersistence] Path ${pathSoFar.join(".")} NOT FOUND in`,
-									current
-								);
-								break;
-							}
-						}
-					} catch (e) {
-						console.error("[FilePersistence] Error validating path:", e);
-					}
-
 					updatedContent = update_value(
 						fileData.type,
 						updatedContent,
@@ -165,7 +100,6 @@ export class FilePersistence implements IPersistence {
 			throw error;
 		}
 	}
-
 	/**
 	 * Extracts field changes from form compared to original data
 	 */
@@ -176,46 +110,11 @@ export class FilePersistence implements IPersistence {
 		const changes: Array<{ path: string[]; newValue: string }> = [];
 		const formData = new FormData(formElement);
 
-		// Debug: Log the form structure
-		console.debug("[FilePersistence] Form element:", formElement);
-		console.debug(
-			"[FilePersistence] Form innerHTML preview:",
-			formElement.innerHTML.substring(0, 500)
-		);
-
-		const allArrayElements = formElement.querySelectorAll(".array-field");
-		console.debug(
-			"[FilePersistence] All elements with class 'array-field':",
-			allArrayElements.length
-		);
-		allArrayElements.forEach((el, idx) => {
-			const element = el as HTMLElement;
-			console.debug(`[FilePersistence] Array element ${idx}:`, {
-				className: element.className,
-				dataType: element.getAttribute("data-type"),
-				dataPath: element.getAttribute("data-path"),
-				hasArrayInputs: element.querySelectorAll(".array-item-input").length,
-			});
-		});
-
-		console.debug(
-			"[FilePersistence] All elements with data-type attribute:",
-			formElement.querySelectorAll("[data-type]")
-		);
-
 		// Process each form field
 		for (const [fieldPath, value] of formData.entries()) {
 			const path = fieldPath.split(".");
 			const currentValue = this.getNestedValue(originalData, path);
 			const newValue = this.convertFormValueToString(value, currentValue);
-
-			console.debug("[FilePersistence] Processing field:", {
-				fieldPath,
-				path,
-				currentValue,
-				newValue,
-				hasChanged: this.hasValueChanged(currentValue, newValue),
-			});
 
 			if (this.hasValueChanged(currentValue, newValue)) {
 				changes.push({
@@ -274,21 +173,6 @@ export class FilePersistence implements IPersistence {
 
 		// Handle modern array fields (individual input fields within .array-field containers)
 		const allArrayFields = formElement.querySelectorAll(".array-field");
-		console.debug(
-			"[FilePersistence] Checking all .array-field elements:",
-			allArrayFields.length
-		);
-		allArrayFields.forEach((element, index) => {
-			const el = element as HTMLElement;
-			console.debug(`[FilePersistence] Array field ${index}:`, {
-				className: el.className,
-				dataType: el.getAttribute("data-type"),
-				dataPath: el.getAttribute("data-path"),
-				innerHTML: el.innerHTML.substring(0, 200),
-			});
-		});
-
-		// Process all array fields, not just those with specific data-type
 		allArrayFields.forEach((arrayContainer) => {
 			const element = arrayContainer as HTMLElement;
 			const fieldPath = element.getAttribute("data-path");
@@ -304,10 +188,6 @@ export class FilePersistence implements IPersistence {
 				try {
 					originalArrayValue = JSON.parse(originalValueAttr);
 				} catch (e) {
-					console.warn(
-						"[FilePersistence] Failed to parse original array value:",
-						originalValueAttr
-					);
 					originalArrayValue = Array.isArray(currentValue) ? currentValue : [];
 				}
 			} else {
@@ -322,37 +202,6 @@ export class FilePersistence implements IPersistence {
 				const inputElement = input as HTMLInputElement;
 				newArrayValue.push(inputElement.value);
 			});
-
-			console.debug("[FilePersistence] Processing array field:", {
-				fieldPath,
-				path,
-				currentValue,
-				currentValueType: typeof currentValue,
-				currentValueIsArray: Array.isArray(currentValue),
-				originalArrayValue,
-				newArrayValue,
-				newArrayValueType: typeof newArrayValue,
-				arrayItemInputsCount: arrayItemInputs.length,
-				hasChanged: this.hasArrayChanged(originalArrayValue, newArrayValue),
-			});
-
-			// Detailed comparison logging
-			if (Array.isArray(originalArrayValue)) {
-				console.debug("[FilePersistence] Array comparison details:", {
-					originalLength: originalArrayValue.length,
-					newLength: newArrayValue.length,
-					originalItems: originalArrayValue,
-					newItems: newArrayValue,
-					itemComparisons: originalArrayValue.map((item, i) => ({
-						index: i,
-						original: item,
-						new: newArrayValue[i],
-						originalStr: String(item),
-						newStr: String(newArrayValue[i]),
-						equal: String(item) === String(newArrayValue[i]),
-					})),
-				});
-			}
 
 			if (this.hasArrayChanged(originalArrayValue, newArrayValue)) {
 				changes.push({
@@ -444,7 +293,7 @@ export class FilePersistence implements IPersistence {
 	private async saveAsNewFile(
 		originalName: string,
 		content: string,
-		fileType: "json" | "xml" | "config" | "env"
+		fileType: SupportedFileType
 	): Promise<void> {
 		try {
 			// Use showSaveFilePicker to let user choose save location
@@ -453,14 +302,9 @@ export class FilePersistence implements IPersistence {
 				types: [
 					{
 						description: `${fileType.toUpperCase()} files`,
-						accept:
-							fileType === "xml"
-								? { "application/xml": [".xml"] }
-								: fileType === "config"
-								? { "text/plain": [".config"] }
-								: fileType === "env"
-								? { "text/plain": [".env"] }
-								: { "application/json": [".json"] },
+						accept: {
+							[getMimeTypeForFileType(fileType)]: getExtensionsForFileType(fileType)
+						},
 					},
 				],
 			});

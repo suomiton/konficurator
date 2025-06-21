@@ -1,4 +1,5 @@
 import { IFileHandler, FileData } from "./interfaces.js";
+import { determineFileType } from "./utils/fileTypeUtils.js";
 
 /**
  * File Handling Module
@@ -37,7 +38,7 @@ export class FileHandler implements IFileHandler {
 				async (handle): Promise<FileData> => {
 					const file = await handle.getFile();
 					const content = await file.text();
-					const fileType = this.determineFileType(handle.name, content);
+					const fileType = determineFileType(handle.name, content);
 
 					return {
 						name: handle.name,
@@ -109,7 +110,7 @@ export class FileHandler implements IFileHandler {
 			// Verify file handle is still valid by attempting to get file
 			const file = await fileData.handle.getFile();
 			const content = await file.text();
-			const fileType = this.determineFileType(fileData.name, content);
+			const fileType = determineFileType(fileData.name, content);
 
 			// Return updated file data with fresh content
 			return {
@@ -161,40 +162,5 @@ export class FileHandler implements IFileHandler {
 			);
 			return false;
 		}
-	}
-
-	/**
-	 * Determines file type based on extension and content
-	 */
-	private determineFileType(
-		filename: string,
-		content?: string
-	): "json" | "xml" | "config" | "env" {
-		const extension = filename.toLowerCase().split(".").pop();
-
-		// For .config files, detect format based on content
-		if (extension === "config" && content) {
-			// Try to detect JSON content
-			try {
-				JSON.parse(content);
-				return "json"; // It's JSON content in a .config file
-			} catch {
-				// Try to detect XML content
-				if (
-					content.trim().startsWith("<?xml") ||
-					content.trim().startsWith("<")
-				) {
-					return "xml"; // It's XML content in a .config file
-				}
-				// Default to config format for .config files with non-JSON/XML content
-				return "config";
-			}
-		}
-
-		// Standard extension-based detection
-		if (extension === "xml") return "xml";
-		if (extension === "config") return "config";
-		if (extension === "env") return "env";
-		return "json";
 	}
 }

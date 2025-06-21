@@ -1,4 +1,5 @@
 import { IParser, ParsedData } from "./interfaces.js";
+import { determineFileType } from "./utils/fileTypeUtils.js";
 
 /**
  * Abstract base parser implementing common functionality
@@ -344,55 +345,17 @@ export class ParserFactory {
 	]);
 
 	static createParser(fileType: string, content?: string): IParser {
-		// For .config files, try to detect the actual format from content
+		// For .config files, determine the actual format from content
+		let actualFileType = fileType;
 		if (fileType.toLowerCase() === "config" && content) {
-			const trimmedContent = content.trim();
-
-			// Check if it's JSON
-			if (trimmedContent.startsWith("{") || trimmedContent.startsWith("[")) {
-				try {
-					JSON.parse(trimmedContent);
-					return new JsonParser();
-				} catch {
-					// Not valid JSON, continue with other checks
-				}
-			}
-
-			// Check if it's XML
-			if (
-				trimmedContent.startsWith("<?xml") ||
-				trimmedContent.startsWith("<")
-			) {
-				return new XmlParser();
-			}
-
-			// Check if it's ENV format (key=value pairs)
-			if (this.looksLikeEnvFormat(trimmedContent)) {
-				return new EnvParser();
-			}
+			actualFileType = determineFileType("dummy.config", content);
 		}
 
-		const parserFactory = this.parsers.get(fileType.toLowerCase());
+		const parserFactory = this.parsers.get(actualFileType.toLowerCase());
 		if (!parserFactory) {
 			throw new Error(`Unsupported file type: ${fileType}`);
 		}
 		return parserFactory();
-	}
-
-	/**
-	 * Helper method to detect ENV format
-	 */
-	private static looksLikeEnvFormat(content: string): boolean {
-		const lines = content
-			.split("\n")
-			.filter((line) => line.trim() && !line.trim().startsWith("#"));
-		if (lines.length === 0) return false;
-
-		// Check if most lines follow key=value pattern
-		const envLikeLines = lines.filter((line) =>
-			/^[A-Za-z_][A-Za-z0-9_]*\s*=/.test(line.trim())
-		);
-		return envLikeLines.length / lines.length > 0.5; // More than 50% of lines look like ENV format
 	}
 
 	/**
