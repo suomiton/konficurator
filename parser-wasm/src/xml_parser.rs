@@ -62,70 +62,49 @@ impl BytePreservingParser for XmlParser {
 
     fn find_value_span(&self, content: &str, path: &[String]) -> Result<crate::Span, String> {
         let path = XmlPath::from(path);
+        let attr_name = path.attribute.clone();
         let mut stack: Vec<String> = Vec::new();
-        let mut in_target = false;
+        let mut awaiting_attribute = false;
 
         for token in Tokenizer::from(content) {
             match token {
                 Ok(Token::ElementStart { local, .. }) => {
                     stack.push(local.to_string());
-                    in_target = stack == path.elements;
+                    if stack == path.elements {
+                        if attr_name.is_some() {
+                            awaiting_attribute = true;
+                        }
+                    }
+                }
 
-                    if in_target {
-                        if let Some(attr) = &path.attribute {
-                            // Instead of using the element name span, we need to find the attributes
-                            // in the current position of the tokenizer. Continue tokenizing to find attributes.
-                            let mut element_tokenizer = Tokenizer::from(content);
-
-                            // Skip to the current position
-                            while let Some(Ok(token)) = element_tokenizer.next() {
-                                match token {
-                                    Token::ElementStart {
-                                        local: el_local, ..
-                                    } if el_local == local => {
-                                        // Found our element, now look for attributes
-                                        while let Some(Ok(attr_token)) = element_tokenizer.next() {
-                                            match attr_token {
-                                                Token::Attribute {
-                                                    local: attr_local,
-                                                    value,
-                                                    ..
-                                                } => {
-                                                    if attr_local.as_str() == attr {
-                                                        // Include quotes in the span by expanding it by 1 character on each side
-                                                        let quoted_start =
-                                                            value.start().saturating_sub(1);
-                                                        let quoted_end = value.end() + 1;
-                                                        return Ok(crate::Span::new(
-                                                            quoted_start,
-                                                            quoted_end,
-                                                        ));
-                                                    }
-                                                }
-                                                Token::ElementEnd { .. } => break, // End of element, stop looking
-                                                _ => {} // Continue looking for attributes
-                                            }
-                                        }
-                                        break;
-                                    }
-                                    _ => {}
-                                }
+                Ok(Token::Attribute { local, value, .. }) => {
+                    if awaiting_attribute {
+                        if let Some(attr) = attr_name.as_ref() {
+                            if attr.as_str() == local.as_str() {
+                                let quoted_start = value.start().saturating_sub(1);
+                                let quoted_end = value.end() + 1;
+                                return Ok(crate::Span::new(quoted_start, quoted_end));
                             }
-
-                            return Err(format!("Attribute '{}' not found", attr));
                         }
                     }
                 }
 
                 Ok(Token::ElementEnd { end, .. }) => {
+                    if awaiting_attribute && matches!(end, ElementEnd::Open | ElementEnd::Empty) {
+                        if let Some(attr) = attr_name.as_ref() {
+                            return Err(format!("Attribute '{}' not found", attr));
+                        }
+                    }
                     if matches!(end, ElementEnd::Close(..) | ElementEnd::Empty) {
+                        if stack == path.elements {
+                            awaiting_attribute = false;
+                        }
                         stack.pop();
-                        in_target = false;
                     }
                 }
 
                 Ok(Token::Text { text }) => {
-                    if in_target && path.attribute.is_none() {
+                    if stack == path.elements && path.attribute.is_none() {
                         return Ok(crate::Span::new(text.start(), text.end()));
                     }
                 }
