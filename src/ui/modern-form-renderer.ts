@@ -49,7 +49,6 @@ export class ModernFormRenderer implements IRenderer {
 		const header = renderFileHeader(
 			fileData.name,
 			fileData.type,
-			fileData.path,
 			!!fileData.handle
 		);
 

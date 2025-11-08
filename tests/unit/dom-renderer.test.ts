@@ -20,12 +20,7 @@ const mockRenderFormField = jest.fn() as jest.MockedFunction<
 	(fieldData: FormFieldData) => HTMLElement
 >;
 const mockRenderFileHeader = jest.fn() as jest.MockedFunction<
-	(
-		fileName: string,
-		fileType: string,
-		filePath?: string,
-		hasHandle?: boolean
-	) => HTMLElement
+	(fileName: string, fileType: string, hasHandle?: boolean) => HTMLElement
 >;
 const mockRenderSaveContainer = jest.fn() as jest.MockedFunction<
 	(fileName: string) => HTMLElement

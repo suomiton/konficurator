@@ -4,12 +4,12 @@
  */
 
 import {
-        createElement,
-        createInput,
-        createButton,
-        createForm,
-        createTextarea,
-        createLabel,
+	createElement,
+	createInput,
+	createButton,
+	createForm,
+	createTextarea,
+	createLabel,
 } from "./dom-factory.js";
 import { createIcon } from "./icon.js";
 import {
@@ -520,7 +520,6 @@ export function renderFormContainer(
 export function renderFileHeader(
 	fileName: string,
 	fileType: string,
-	filePath?: string,
 	hasHandle?: boolean
 ): HTMLElement {
 	const header = createElement({
@@ -557,18 +556,7 @@ export function renderFileHeader(
 	titleInlineWrapper.appendChild(title);
 	titleContainer.appendChild(titleInlineWrapper);
 
-	// Optional path display (now only shows actual file system path if provided)
-        if (filePath) {
-                const pathDisplay = createElement({
-                        tag: "div",
-                        className: "file-path",
-                });
-                pathDisplay.appendChild(
-                        createIcon("folder", { size: 16, className: "file-path__icon" })
-                );
-                pathDisplay.appendChild(document.createTextNode(` ${filePath}`));
-                titleContainer.appendChild(pathDisplay);
-        }
+	// File path display removed as redundant (filename already shown in title)
 
 	// Action buttons
 	const actionButtons = renderFileActionButtons(fileName, hasHandle);
@@ -591,51 +579,51 @@ function renderFileActionButtons(
 		className: "file-action-buttons",
 	});
 
-        if (hasHandle) {
-                const refreshButton = createButton({
-                        tag: "button",
-                        className: "btn btn-info btn-small refresh-file-btn",
-                        type: "button",
-                        attributes: {
-                                "data-file": fileName,
-                                title: `Reload ${fileName} from disk`,
-                                "aria-label": `Reload ${fileName} from disk`,
-                        },
-                });
-                refreshButton.appendChild(
-                        createIcon("refresh-cw", { size: 18, className: "btn-icon" })
-                );
-                actionButtons.appendChild(refreshButton);
+	if (hasHandle) {
+		const refreshButton = createButton({
+			tag: "button",
+			className: "btn btn-info btn-small refresh-file-btn",
+			type: "button",
+			attributes: {
+				"data-file": fileName,
+				title: `Reload ${fileName} from disk`,
+				"aria-label": `Reload ${fileName} from disk`,
+			},
+		});
+		refreshButton.appendChild(
+			createIcon("refresh-cw", { size: 18, className: "btn-icon" })
+		);
+		actionButtons.appendChild(refreshButton);
 	} else {
-                const reloadButton = createButton({
-                        tag: "button",
-                        className: "btn btn-warning btn-small reload-from-disk-btn",
-                        type: "button",
-                        attributes: {
-                                "data-file": fileName,
-                                title: `Select and reload ${fileName} from disk to get latest content`,
-                                "aria-label": `Select and reload ${fileName} from disk to get latest content`,
-                        },
-                });
-                reloadButton.appendChild(
-                        createIcon("folder", { size: 18, className: "btn-icon" })
-                );
+		const reloadButton = createButton({
+			tag: "button",
+			className: "btn btn-warning btn-small reload-from-disk-btn",
+			type: "button",
+			attributes: {
+				"data-file": fileName,
+				title: `Select and reload ${fileName} from disk to get latest content`,
+				"aria-label": `Select and reload ${fileName} from disk to get latest content`,
+			},
+		});
+		reloadButton.appendChild(
+			createIcon("folder", { size: 18, className: "btn-icon" })
+		);
 		actionButtons.appendChild(reloadButton);
 	}
 
-        const removeButton = createButton({
-                tag: "button",
-                className: "btn btn-danger btn-small remove-file-btn",
-                type: "button",
-                attributes: {
-                        "data-file": fileName,
-                        title: `Remove ${fileName}`,
-                        "aria-label": `Remove ${fileName}`,
-                },
-        });
-        removeButton.appendChild(
-                createIcon("trash", { size: 18, className: "btn-icon" })
-        );
+	const removeButton = createButton({
+		tag: "button",
+		className: "btn btn-danger btn-small remove-file-btn",
+		type: "button",
+		attributes: {
+			"data-file": fileName,
+			title: `Remove ${fileName}`,
+			"aria-label": `Remove ${fileName}`,
+		},
+	});
+	removeButton.appendChild(
+		createIcon("trash", { size: 18, className: "btn-icon" })
+	);
 
 	actionButtons.appendChild(removeButton);
 	return actionButtons;
@@ -651,16 +639,16 @@ export function renderSaveContainer(fileName: string): HTMLElement {
 		attributes: { "data-file": fileName },
 	});
 
-        const saveButton = createButton({
-                tag: "button",
-                className: "btn btn-success btn-small",
-                type: "button",
-                attributes: { "data-file": fileName },
-        });
-        saveButton.appendChild(
-                createIcon("save", { size: 18, className: "btn-icon" })
-        );
-        saveButton.appendChild(document.createTextNode(" Save Changes"));
+	const saveButton = createButton({
+		tag: "button",
+		className: "btn btn-success btn-small",
+		type: "button",
+		attributes: { "data-file": fileName },
+	});
+	saveButton.appendChild(
+		createIcon("save", { size: 18, className: "btn-icon" })
+	);
+	saveButton.appendChild(document.createTextNode(" Save Changes"));
 
 	container.appendChild(saveButton);
 
@@ -671,41 +659,41 @@ export function renderSaveContainer(fileName: string): HTMLElement {
  * Renders error notification
  */
 export function renderErrorNotification(
-        message: string,
-        className: string = "error-notification"
+	message: string,
+	className: string = "error-notification"
 ): HTMLElement {
-        const container = createElement({
-                tag: "div",
-                className,
-        });
+	const container = createElement({
+		tag: "div",
+		className,
+	});
 
-        container.appendChild(
-                createIcon("alert-triangle", { size: 24, className: "error-icon" })
-        );
+	container.appendChild(
+		createIcon("alert-triangle", { size: 24, className: "error-icon" })
+	);
 
-        const content = createElement({
-                tag: "div",
-                className: "error-content",
-        });
+	const content = createElement({
+		tag: "div",
+		className: "error-content",
+	});
 
-        content.appendChild(
-                createElement({
-                        tag: "strong",
-                        className: "error-title",
-                        textContent: "Error:",
-                })
-        );
+	content.appendChild(
+		createElement({
+			tag: "strong",
+			className: "error-title",
+			textContent: "Error:",
+		})
+	);
 
-        content.appendChild(
-                createElement({
-                        tag: "div",
-                        className: "error-message",
-                        textContent: message,
-                })
-        );
+	content.appendChild(
+		createElement({
+			tag: "div",
+			className: "error-message",
+			textContent: message,
+		})
+	);
 
-        container.appendChild(content);
-        return container;
+	container.appendChild(content);
+	return container;
 }
 
 /**

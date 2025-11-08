@@ -166,7 +166,6 @@ describe("ModernFormRenderer - Real Implementation Tests", () => {
 			expect(mockDomRenderer.renderFileHeader).toHaveBeenCalledWith(
 				"config.json",
 				"json",
-				undefined,
 				false
 			);
 
@@ -214,7 +213,6 @@ describe("ModernFormRenderer - Real Implementation Tests", () => {
 			expect(mockDomRenderer.renderFileHeader).toHaveBeenCalledWith(
 				"config.json",
 				"json",
-				"/path/to/config.json",
 				true
 			);
 		});
@@ -785,7 +783,6 @@ describe("ModernFormRenderer - Real Implementation Tests", () => {
 			expect(mockDomRenderer.renderFileHeader).toHaveBeenCalledWith(
 				longFileName,
 				"json",
-				undefined,
 				false
 			);
 		});

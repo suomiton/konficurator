@@ -83,15 +83,7 @@ header {
 	flex-grow: 1;
 }
 
-.file-path {
-        font-size: 0.75rem;
-        color: var(--color-text-muted);
-        font-weight: 400;
-        opacity: 0.85;
-        display: flex;
-        align-items: center;
-        gap: calc(var(--gutter-1) / 2);
-}
+/* .file-path removed (redundant with filename) */
 
 .file-action-buttons {
 	display: flex;
