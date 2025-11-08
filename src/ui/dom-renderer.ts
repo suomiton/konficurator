@@ -548,26 +548,17 @@ export function renderFileHeader(
 		textContent: fileName,
 	});
 
-	// Path display
-	const pathDisplay = createElement({
-		tag: "div",
-		className: "file-path",
-	});
-
-	if (filePath && filePath !== fileName) {
-		pathDisplay.textContent = `📁 ${filePath}`;
-	} else if (hasHandle) {
-		pathDisplay.textContent = "📁 Loaded from local file system";
-	} else {
-		const pathText =
-			filePath && filePath !== fileName
-				? `💾 ${filePath} (from storage)`
-				: "💾 Restored from browser storage";
-		pathDisplay.textContent = pathText;
-	}
-
 	titleContainer.appendChild(title);
-	titleContainer.appendChild(pathDisplay);
+
+	// Optional path display (now only shows actual file system path if provided)
+	if (filePath) {
+		const pathDisplay = createElement({
+			tag: "div",
+			className: "file-path",
+			textContent: `📁 ${filePath}`,
+		});
+		titleContainer.appendChild(pathDisplay);
+	}
 
 	// Type tag
 	const typeTag = createElement({

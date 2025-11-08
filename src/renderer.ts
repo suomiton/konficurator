@@ -123,30 +123,17 @@ export class FormRenderer implements IRenderer {
 			textContent: fileData.name,
 		});
 
-		// Add file path display below the filename
-		const pathDisplay = createElement({
-			tag: "div",
-			className: "file-path",
-		});
-
-		// Determine path text based on available information
-		if (fileData.path && fileData.path !== fileData.name) {
-			// Show actual file path if available and different from name
-			pathDisplay.textContent = `📁 ${fileData.path}`;
-		} else if (fileData.handle) {
-			// File was loaded from file system but no specific path available
-			pathDisplay.textContent = "📁 Loaded from local file system";
-		} else {
-			// File was restored from browser storage
-			const pathText =
-				fileData.path && fileData.path !== fileData.name
-					? `💾 ${fileData.path} (from storage)`
-					: "💾 Restored from browser storage";
-			pathDisplay.textContent = pathText;
-		}
-
 		titleContainer.appendChild(title);
-		titleContainer.appendChild(pathDisplay);
+
+		// Show file system path only if provided
+		if (fileData.path) {
+			const pathDisplay = createElement({
+				tag: "div",
+				className: "file-path",
+				textContent: `📁 ${fileData.path}`,
+			});
+			titleContainer.appendChild(pathDisplay);
+		}
 
 		const typeTag = createElement({
 			tag: "span",
@@ -234,7 +221,7 @@ export class FormRenderer implements IRenderer {
 	/**
 	 * Creates individual form field based on type
 	 */
-	private createFormField(
+ 	private createFormField(
 		key: string,
 		value: any,
 		path: string,
@@ -263,7 +250,11 @@ export class FormRenderer implements IRenderer {
 	/**
 	 * Creates text input field
 	 */
-	private createTextField(key: string, value: any, path: string): HTMLElement {
+	private createTextField(
+		key: string,
+		value: any,
+		path: string
+	): HTMLElement {
 		const formGroup = createElement({
 			tag: "div",
 			className: "form-group",

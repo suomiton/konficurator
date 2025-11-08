@@ -62,7 +62,7 @@ describe("FormRenderer - Real Implementation Tests", () => {
 			expect(saveContainer).toBeFalsy();
 		});
 
-		it("should render correct file path information", () => {
+		it("should render correct file system path when provided", () => {
 			const fileDataWithPath: FileData = {
 				name: "config.json",
 				type: "json",
