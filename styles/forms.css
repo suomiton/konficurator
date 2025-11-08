@@ -1,0 +1,122 @@
+.config-form {
+  display: grid;
+  gap: var(--gutter-2);
+}
+
+.form-group {
+  display: grid;
+  gap: var(--gutter-1);
+}
+
+.form-group label {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+}
+
+.form-group input,
+.form-group textarea {
+  padding: var(--gutter-2);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-medium);
+  font-size: 0.95rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  background: #ffffff;
+  color: var(--color-text-primary);
+}
+
+.form-group textarea {
+  min-height: 160px;
+  resize: vertical;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--color-blue-green);
+  box-shadow: 0 0 0 3px rgba(33, 158, 188, 0.15);
+}
+
+.form-group input[type='checkbox'] {
+  width: auto;
+  margin-right: var(--gutter-1);
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  padding: var(--gutter-1) 0;
+  gap: var(--gutter-1);
+}
+
+.checkbox-container label {
+  margin: 0;
+  cursor: pointer;
+}
+
+.nested-object {
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  padding: var(--gutter-2);
+  margin-top: var(--gutter-1);
+  box-shadow: 0 var(--gutter-1) var(--gutter-3) rgba(2, 48, 71, 0.05);
+}
+
+.nested-object > .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.attribute-field {
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  padding: var(--gutter-1);
+  margin-bottom: var(--gutter-1);
+  display: flex;
+  align-items: center;
+  gap: var(--gutter-2);
+}
+
+.attribute-field:last-child {
+  margin-bottom: 0;
+}
+
+.attribute-field label {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  min-width: 80px;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.attribute-field input {
+  flex: 1;
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-small);
+  padding: var(--gutter-1);
+  font-size: 0.9rem;
+  font-family: 'Courier New', monospace;
+}
+
+.attribute-field input:focus {
+  border-color: var(--color-warning);
+  box-shadow: 0 0 0 2px rgba(255, 183, 3, 0.25);
+}
+
+.attribute-field input[type='checkbox'] {
+  width: auto;
+  flex: none;
+}
+
+@media (max-width: 768px) {
+  .attribute-field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--gutter-1);
+  }
+
+  .attribute-field label {
+    min-width: auto;
+  }
+}

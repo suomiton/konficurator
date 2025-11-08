@@ -80,7 +80,7 @@ else
 fi
 
 # Check for CSS styles
-if grep -q "refresh-file-btn" styles/main.css; then
+if rg -q "refresh-file-btn" styles; then
     echo "✅ Refresh button styles found in CSS"
 else
     echo "❌ Refresh button styles not found in CSS"
@@ -88,7 +88,7 @@ else
 fi
 
 # Check for action buttons container styles
-if grep -q "file-action-buttons" styles/main.css; then
+if rg -q "file-action-buttons" styles; then
     echo "✅ Action buttons container styles found in CSS"
 else
     echo "❌ Action buttons container styles not found in CSS"

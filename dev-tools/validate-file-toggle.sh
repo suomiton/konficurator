@@ -51,18 +51,18 @@ else
 fi
 
 # Check CSS for inactive styling
-if grep -q "file-tag.inactive" styles/main.css; then
-    echo "✅ Inactive file styling found in main.css"
+if rg -q "file-tag\\.inactive" styles; then
+    echo "✅ Inactive file styling found in styles directory"
 else
-    echo "❌ Inactive file styling not found in main.css"
+    echo "❌ Inactive file styling not found in styles directory"
     exit 1
 fi
 
 # Check for cursor pointer styling
-if grep -q "cursor: pointer" styles/main.css; then
-    echo "✅ Cursor pointer styling found in main.css"
+if rg -q "cursor: pointer" styles; then
+    echo "✅ Cursor pointer styling found in styles directory"
 else
-    echo "❌ Cursor pointer styling not found in main.css"
+    echo "❌ Cursor pointer styling not found in styles directory"
     exit 1
 fi
 
