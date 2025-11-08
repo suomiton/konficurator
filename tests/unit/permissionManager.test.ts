@@ -92,10 +92,11 @@ describe("PermissionManager", () => {
                 // Set up default permission responses
                 mockFileHandle.queryPermission.mockResolvedValue("granted");
                 mockFileHandle.requestPermission.mockResolvedValue("granted");
+                const mockTextReader = jest
+                        .fn<() => Promise<string>>()
+                        .mockResolvedValue(mockFileData.content as string);
                 mockFileHandle.getFile.mockResolvedValue({
-                        text: jest
-                                .fn()
-                                .mockResolvedValue(mockFileData.content as string),
+                        text: mockTextReader,
                         lastModified: mockFileData.lastModified,
                         size:
                                 typeof mockFileData.content === "string"

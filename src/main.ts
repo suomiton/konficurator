@@ -68,13 +68,14 @@ export class KonficuratorApp {
                         );
                         if (existingIndex >= 0) {
                                 const existingFile = this.loadedFiles[existingIndex];
+                                const resolvedIsActive =
+                                        existingFile.isActive === false
+                                                ? false
+                                                : file.isActive ?? existingFile.isActive ?? true;
                                 const mergedFile: FileData = {
                                         ...existingFile,
                                         ...file,
-                                        isActive:
-                                                existingFile.isActive === false
-                                                        ? false
-                                                        : file.isActive ?? existingFile.isActive,
+                                        isActive: resolvedIsActive,
                                 };
                                 this.loadedFiles[existingIndex] = mergedFile;
                         } else {
