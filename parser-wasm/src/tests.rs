@@ -125,7 +125,7 @@ fn xml_attribute_span() {
     let span = parser
         .find_value_span(src, &["connection".into(), "@host".into()])
         .unwrap();
-    assert_eq!(&src[span.start..span.end], r#""127.0.0.1""#);
+    assert_eq!(&src[span.start..span.end], "127.0.0.1");
 }
 
 #[test]
