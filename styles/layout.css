@@ -42,7 +42,6 @@ header {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--gutter-1);
-	margin-top: var(--gutter-2);
 }
 
 .editor-container {
@@ -55,7 +54,6 @@ header {
 .file-editor {
 	background: var(--color-gray-100);
 	border-radius: var(--radius-large);
-	padding: var(--gutter-3);
 	border: 1px solid var(--color-border);
 	transition: all 0.3s ease;
 	position: relative;

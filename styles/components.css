@@ -1,215 +1,230 @@
 .btn {
-  background: var(--color-prussian-blue);
-  color: var(--color-text-inverse);
-  border: none;
-  padding: var(--gutter-2) var(--gutter-3);
-  border-radius: var(--radius-medium);
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--gutter-1);
-  font-weight: 600;
+	background: var(--color-prussian-blue);
+	color: var(--color-text-inverse);
+	border: none;
+	padding: var(--gutter-2) var(--gutter-3);
+	border-radius: var(--radius-medium);
+	font-size: 1rem;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--gutter-1);
+	font-weight: 600;
 }
 
 .btn:hover {
-  background: var(--color-blue-green);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-soft);
+	background: var(--color-blue-green);
+	transform: translateY(-2px);
+	box-shadow: var(--shadow-soft);
 }
 
 .btn-primary {
-  background: var(--color-prussian-blue);
+	background: var(--color-prussian-blue);
 }
 
 .btn-success {
-  background: var(--color-success);
+	background: var(--color-success);
 }
 
 .btn-success:hover {
-  background: #23867c;
-  box-shadow: var(--shadow-soft);
+	background: #23867c;
+	box-shadow: var(--shadow-soft);
 }
 
 .btn-small {
-  padding: var(--gutter-1) var(--gutter-2);
-  font-size: 0.875rem;
+	padding: var(--gutter-1) var(--gutter-2);
+	font-size: 0.875rem;
 }
 
 .btn-info {
-  background: var(--color-blue-green);
+	background: var(--color-blue-green);
 }
 
 .btn-info:hover {
-  background: #1b7f95;
-  box-shadow: var(--shadow-soft);
+	background: #1b7f95;
+	box-shadow: var(--shadow-soft);
 }
 
 .btn-danger {
-  background: var(--color-danger);
+	background: var(--color-danger);
 }
 
 .btn-danger:hover {
-  background: #ad1f1f;
-  box-shadow: var(--shadow-soft);
+	background: #ad1f1f;
+	box-shadow: var(--shadow-soft);
 }
 
 .btn-warning {
-  background: var(--color-warning);
-  color: var(--color-text-primary);
+	background: var(--color-warning);
+	color: var(--color-text-primary);
 }
 
 .btn-warning:hover {
-  background: #e69a00;
-  color: var(--color-text-primary);
-  box-shadow: var(--shadow-soft);
+	background: #e69a00;
+	color: var(--color-text-primary);
+	box-shadow: var(--shadow-soft);
 }
 
 .file-tag {
-  background: linear-gradient(135deg, var(--color-prussian-blue), var(--color-blue-green));
-  color: var(--color-text-inverse);
-  padding: var(--gutter-1) var(--gutter-2);
-  border-radius: 20px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  box-shadow: 0 var(--gutter-1) var(--gutter-2) rgba(2, 48, 71, 0.15);
-  transition: all 0.2s ease;
-  cursor: pointer;
-  user-select: none;
+	background: linear-gradient(135deg, var(--color-prussian-blue), var(--color-blue-green));
+	color: var(--color-text-inverse);
+	padding: var(--gutter-1) var(--gutter-2);
+	border-radius: 20px;
+	font-size: 0.875rem;
+	font-weight: 500;
+	box-shadow: 0 var(--gutter-1) var(--gutter-2) rgba(2, 48, 71, 0.15);
+	transition: all 0.2s ease;
+	cursor: pointer;
+	user-select: none;
 }
 
 .file-tag:hover {
-  transform: translateY(-1px);
+	transform: translateY(-1px);
 }
 
 .file-tag.inactive {
-  background: linear-gradient(135deg, var(--color-gray-400), var(--color-gray-500));
-  color: var(--color-gray-200);
-  opacity: 0.7;
+	background: linear-gradient(135deg, var(--color-gray-400), var(--color-gray-500));
+	color: var(--color-gray-200);
+	opacity: 0.7;
 }
 
 .file-tag.inactive:hover {
-  background: linear-gradient(135deg, var(--color-gray-500), var(--color-gray-600));
-  color: var(--color-gray-100);
+	background: linear-gradient(135deg, var(--color-gray-500), var(--color-gray-600));
+	color: var(--color-gray-100);
 }
 
 .file-type {
-  background: var(--color-prussian-blue);
-  color: var(--color-text-inverse);
-  padding: calc(var(--gutter-1) / 2) var(--gutter-1);
-  border-radius: var(--radius-small);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  margin-left: var(--gutter-2);
-  letter-spacing: 0.6px;
+	background: var(--color-prussian-blue);
+	color: var(--color-text-inverse);
+	padding: calc(var(--gutter-1) / 2) var(--gutter-1);
+	border-radius: var(--radius-small);
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	margin-left: var(--gutter-2);
+	letter-spacing: 0.6px;
+}
+
+.add-file-tag {
+	background: #fff;
+	color: #667eea;
+	border: 2px dashed #667eea;
+	padding: 0.5rem 0.9rem;
+	font-weight: 600;
+	cursor: pointer;
+	outline: none;
+}
+
+.add-file-tag:hover {
+	background: #eef2ff;
+	transform: translateY(-1px);
 }
 
 .file-editor-header .file-type {
-  margin-right: var(--gutter-2);
+	margin-right: var(--gutter-2);
 }
 
 .file-editor-header .file-type[data-type='xml'] {
-  background: var(--color-success);
+	background: var(--color-success);
 }
 
 .file-editor-header .file-type[data-type='config'] {
-  background: var(--color-accent);
+	background: var(--color-accent);
 }
 
 .loading {
-  text-align: center;
-  padding: var(--gutter-4);
-  color: var(--color-text-secondary);
+	text-align: center;
+	padding: var(--gutter-4);
+	color: var(--color-text-secondary);
 }
 
 .loading::before {
-  content: "⏳";
-  display: block;
-  font-size: 2rem;
-  margin-bottom: var(--gutter-2);
-  animation: pulse 1.5s ease-in-out infinite alternate;
+	content: "⏳";
+	display: block;
+	font-size: 2rem;
+	margin-bottom: var(--gutter-2);
+	animation: pulse 1.5s ease-in-out infinite alternate;
 }
 
 @keyframes pulse {
-  from {
-    opacity: 0.6;
-  }
+	from {
+		opacity: 0.6;
+	}
 
-  to {
-    opacity: 1;
-  }
+	to {
+		opacity: 1;
+	}
 }
 
 .refresh-file-btn {
-  background: var(--color-blue-green) !important;
-  color: var(--color-text-inverse) !important;
-  border: none !important;
-  padding: var(--gutter-1) var(--gutter-2) !important;
-  border-radius: var(--radius-small) !important;
-  font-size: 0.875rem !important;
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: var(--gutter-1) !important;
+	background: var(--color-blue-green) !important;
+	color: var(--color-text-inverse) !important;
+	border: none !important;
+	padding: var(--gutter-1) var(--gutter-2) !important;
+	border-radius: var(--radius-small) !important;
+	font-size: 0.875rem !important;
+	cursor: pointer !important;
+	transition: all 0.2s ease !important;
+	display: flex !important;
+	align-items: center !important;
+	gap: var(--gutter-1) !important;
 }
 
 .refresh-file-btn:hover {
-  background: #1b7f95 !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 var(--gutter-1) var(--gutter-3) rgba(33, 158, 188, 0.3) !important;
+	background: #1b7f95 !important;
+	transform: translateY(-1px) !important;
+	box-shadow: 0 var(--gutter-1) var(--gutter-3) rgba(33, 158, 188, 0.3) !important;
 }
 
 .refresh-file-btn:active {
-  transform: translateY(0) !important;
+	transform: translateY(0) !important;
 }
 
 .reload-from-disk-btn {
-  background: var(--color-warning) !important;
-  color: var(--color-text-primary) !important;
-  border: none !important;
-  padding: var(--gutter-1) var(--gutter-2) !important;
-  border-radius: var(--radius-small) !important;
-  font-size: 0.875rem !important;
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: var(--gutter-1) !important;
+	background: var(--color-warning) !important;
+	color: var(--color-text-primary) !important;
+	border: none !important;
+	padding: var(--gutter-1) var(--gutter-2) !important;
+	border-radius: var(--radius-small) !important;
+	font-size: 0.875rem !important;
+	cursor: pointer !important;
+	transition: all 0.2s ease !important;
+	display: flex !important;
+	align-items: center !important;
+	gap: var(--gutter-1) !important;
 }
 
 .reload-from-disk-btn:hover {
-  background: #e69a00 !important;
-  color: var(--color-text-primary) !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 var(--gutter-1) var(--gutter-3) rgba(255, 183, 3, 0.3) !important;
+	background: #e69a00 !important;
+	color: var(--color-text-primary) !important;
+	transform: translateY(-1px) !important;
+	box-shadow: 0 var(--gutter-1) var(--gutter-3) rgba(255, 183, 3, 0.3) !important;
 }
 
 .reload-from-disk-btn:active {
-  transform: translateY(0) !important;
+	transform: translateY(0) !important;
 }
 
 .remove-file-btn {
-  background: var(--color-danger) !important;
-  color: var(--color-text-inverse) !important;
-  border: none !important;
-  padding: var(--gutter-1) var(--gutter-2) !important;
-  border-radius: var(--radius-small) !important;
-  font-size: 0.875rem !important;
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: var(--gutter-1) !important;
+	background: var(--color-danger) !important;
+	color: var(--color-text-inverse) !important;
+	border: none !important;
+	padding: var(--gutter-1) var(--gutter-2) !important;
+	border-radius: var(--radius-small) !important;
+	font-size: 0.875rem !important;
+	cursor: pointer !important;
+	transition: all 0.2s ease !important;
+	display: flex !important;
+	align-items: center !important;
+	gap: var(--gutter-1) !important;
 }
 
 .remove-file-btn:hover {
-  background: #ad1f1f !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 var(--gutter-1) var(--gutter-3) rgba(214, 40, 40, 0.3) !important;
+	background: #ad1f1f !important;
+	transform: translateY(-1px) !important;
+	box-shadow: 0 var(--gutter-1) var(--gutter-3) rgba(214, 40, 40, 0.3) !important;
 }
 
 .remove-file-btn:active {
-  transform: translateY(0) !important;
+	transform: translateY(0) !important;
 }

@@ -1,6 +1,7 @@
 .config-form {
 	display: grid;
 	gap: var(--gutter-2);
+	padding: var(--gutter-3);
 }
 
 .form-group {

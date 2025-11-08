@@ -42,58 +42,64 @@ export class KonficuratorApp {
 	private init(): void {
 		this.setupEventListeners();
 		this.checkBrowserSupport();
+		// Ensure the file list (with the Add button) is visible even when there are no files yet
+		this.updateFileInfo(this.loadedFiles);
 	}
 
 	/**
 	 * Set up event listeners
 	 */
 	private setupEventListeners(): void {
-		const selectFilesBtn = document.getElementById("selectFiles");
-		if (selectFilesBtn) {
-			selectFilesBtn.addEventListener("click", () =>
-				this.handleFileSelection()
-			);
-		}
+		// Direct binding removed; Add file button rendered dynamically as part of file list
 
 		// Listen for file permission granted events
-                window.addEventListener("filePermissionGranted", async (event: Event) => {
-                        const customEvent = event as CustomEvent;
-                        const { file } = customEvent.detail as { file: FileData };
+		window.addEventListener("filePermissionGranted", async (event: Event) => {
+			const customEvent = event as CustomEvent;
+			const { file } = customEvent.detail as { file: FileData };
 
-                        await this.processFile(file);
+			await this.processFile(file);
 
-                        // Update existing file or add new one while preserving visibility state
-                        const existingIndex = this.loadedFiles.findIndex(
-                                (f) => f.name === file.name
-                        );
-                        if (existingIndex >= 0) {
-                                const existingFile = this.loadedFiles[existingIndex];
-                                const resolvedIsActive =
-                                        existingFile.isActive === false
-                                                ? false
-                                                : file.isActive ?? existingFile.isActive ?? true;
-                                const mergedFile: FileData = {
-                                        ...existingFile,
-                                        ...file,
-                                        isActive: resolvedIsActive,
-                                };
-                                this.loadedFiles[existingIndex] = mergedFile;
-                        } else {
-                                if (file.isActive === undefined) {
-                                        file.isActive = true;
-                                }
-                                this.loadedFiles.push(file);
-                        }
+			// Update existing file or add new one while preserving visibility state
+			const existingIndex = this.loadedFiles.findIndex(
+				(f) => f.name === file.name
+			);
+			if (existingIndex >= 0) {
+				const existingFile = this.loadedFiles[existingIndex];
+				const resolvedIsActive =
+					existingFile.isActive === false
+						? false
+						: file.isActive ?? existingFile.isActive ?? true;
+				const mergedFile: FileData = {
+					...existingFile,
+					...file,
+					isActive: resolvedIsActive,
+				};
+				this.loadedFiles[existingIndex] = mergedFile;
+			} else {
+				if (file.isActive === undefined) {
+					file.isActive = true;
+				}
+				this.loadedFiles.push(file);
+			}
 
-                        // Update UI and storage
-                        this.updateFileInfo(this.loadedFiles);
-                        this.renderFileEditors();
-                        await this.saveToStorage();
-                });
+			// Update UI and storage
+			this.updateFileInfo(this.loadedFiles);
+			this.renderFileEditors();
+			await this.saveToStorage();
+		});
 
 		// Delegate save button clicks
 		document.addEventListener("click", (event) => {
 			const target = event.target as HTMLElement;
+
+			// Handle dynamic Add file tag
+			if (
+				target &&
+				(target.id === "selectFiles" || target.closest("#selectFiles"))
+			) {
+				this.handleFileSelection();
+				return;
+			}
 
 			if (target.classList.contains("remove-file-btn")) {
 				const filename = target.getAttribute("data-file");
@@ -140,37 +146,38 @@ export class KonficuratorApp {
 	private async handleFileSelection(): Promise<void> {
 		try {
 			NotificationService.showLoading("Selecting files...");
-
 			const newFiles = await this.fileHandler.selectFiles(this.loadedFiles);
 
+			// Always restore current editors immediately (prevent flicker / hidden state)
+			this.renderFileEditors();
+			this.updateFileInfo(this.loadedFiles);
+
 			if (newFiles.length === 0) {
+				// User likely cancelled; keep existing UI visible
 				NotificationService.hideLoading();
 				return;
 			}
-			// Process new files and add to existing ones
+
 			for (const fileData of newFiles) {
-				// Ensure new files are active by default
-				if (fileData.isActive === undefined) {
-					fileData.isActive = true;
-				}
+				if (fileData.isActive === undefined) fileData.isActive = true;
 				await this.processFile(fileData);
 			}
 
-			// Add new files to existing loaded files
 			this.loadedFiles.push(...newFiles);
-
-			// Save to storage
 			await this.saveToStorage();
-
 			this.updateFileInfo(this.loadedFiles);
 			this.renderFileEditors();
 
-			// Show success message for new files
-			const filenames = newFiles.map((f) => f.name);
-			FileNotifications.showFilesLoaded(newFiles.length, filenames);
+			FileNotifications.showFilesLoaded(
+				newFiles.length,
+				newFiles.map((f) => f.name)
+			);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			NotificationService.showError(`Failed to load files: ${message}`);
+			// Ensure UI restored even on error
+			this.renderFileEditors();
+			this.updateFileInfo(this.loadedFiles);
 		} finally {
 			NotificationService.hideLoading();
 		}
@@ -204,6 +211,17 @@ export class KonficuratorApp {
 		const fileInfo = document.getElementById("fileInfo");
 		if (!fileInfo) return;
 
+		// Use dedicated list container to avoid removing the Add file button
+		let listContainer = document.getElementById("fileInfoListContainer");
+		if (!listContainer) {
+			listContainer = createElement({
+				tag: "div",
+				className: "file-list-container",
+				attributes: { id: "fileInfoListContainer" },
+			});
+			fileInfo.appendChild(listContainer);
+		}
+
 		const fileList = createElement({
 			tag: "div",
 			className: "file-list",
@@ -216,18 +234,12 @@ export class KonficuratorApp {
 				attributes: { "data-file": file.name },
 			});
 
-			// Add inactive class if file is inactive
 			if (file.isActive === false) {
 				fileTag.classList.add("inactive");
 			}
 
-			// Add visual indicator for file source
-			const indicator = file.handle ? "🖥️" : "💾";
-			fileTag.textContent = `${indicator} ${
-				file.name
-			} (${file.type.toUpperCase()})`;
+			fileTag.textContent = file.name;
 
-			// Add tooltip
 			const baseTooltip = file.handle
 				? "File loaded from disk - can be refreshed"
 				: "File restored from storage - use reload button to get latest version";
@@ -236,7 +248,6 @@ export class KonficuratorApp {
 				file.isActive === false ? "show" : "hide"
 			} editor.`;
 
-			// Add click event to toggle file visibility
 			fileTag.addEventListener("click", () => {
 				this.toggleFileVisibility(file.name);
 			});
@@ -244,8 +255,22 @@ export class KonficuratorApp {
 			fileList.appendChild(fileTag);
 		});
 
-		fileInfo.innerHTML = "";
-		fileInfo.appendChild(fileList);
+		// Add dynamic "Add file" pseudo-tag at end
+		const addTag = createElement({
+			tag: "button",
+			className: "file-tag add-file-tag",
+			attributes: {
+				id: "selectFiles",
+				type: "button",
+				title: "Add configuration file",
+			},
+			textContent: "+ Add",
+		});
+		fileList.appendChild(addTag);
+
+		// Replace only the list container contents
+		listContainer.innerHTML = "";
+		listContainer.appendChild(fileList);
 		fileInfo.classList.add("visible");
 	}
 
@@ -644,7 +669,7 @@ export class KonficuratorApp {
 			} else {
 				// No files in storage - show helpful message for first-time users
 				NotificationService.showInfo(
-					'💡 No saved files found. Use the "Select Files" button to load configuration files from your computer.'
+					'💡 No saved files found. Use the "Add" button to load configuration files from your computer.'
 				);
 			}
 		} catch (error) {
