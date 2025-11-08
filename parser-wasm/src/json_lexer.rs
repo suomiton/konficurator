@@ -71,6 +71,7 @@ pub fn lex(buf: &str) -> Result<Vec<Token>, String> {
                 let start = i;
                 i += 1;
                 let mut esc = false;
+                let mut terminated = false;
                 while i < bytes.len() {
                     match bytes[i] {
                         b'\\' if !esc => {
@@ -79,6 +80,7 @@ pub fn lex(buf: &str) -> Result<Vec<Token>, String> {
                         }
                         b'"' if !esc => {
                             i += 1;
+                            terminated = true;
                             break;
                         }
                         _ => {
@@ -87,7 +89,7 @@ pub fn lex(buf: &str) -> Result<Vec<Token>, String> {
                         }
                     }
                 }
-                if i > bytes.len() {
+                if !terminated {
                     return Err("unterminated string".into());
                 }
                 push!(Kind::StringLit, start, i);

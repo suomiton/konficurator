@@ -1,5 +1,6 @@
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
+use serde_json::Value;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -118,20 +119,11 @@ pub fn is_json_literal(s: &str) -> bool {
     if matches!(s, "true" | "false" | "null") {
         return true;
     }
-    
-    // Check for numbers
-    if s.parse::<f64>().map_or(false, |v| v.to_string() == s) {
-        return true;
+
+    if let Ok(value) = serde_json::from_str::<Value>(s) {
+        return matches!(value, Value::Number(_) | Value::Array(_) | Value::Object(_));
     }
-    
-    // Check for JSON arrays and objects by trying to parse them
-    if (s.starts_with('[') && s.ends_with(']')) || (s.starts_with('{') && s.ends_with('}')) {
-        // Try to parse as JSON to validate it's valid JSON
-        if let Ok(_) = serde_json::from_str::<serde_json::Value>(s) {
-            return true;
-        }
-    }
-    
+
     false
 }
 
