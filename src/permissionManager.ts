@@ -110,21 +110,49 @@ export class PermissionManager {
 					`Requesting permission for ${file.name}...`
 				);
 
-				const permission = await (file.handle as any).requestPermission({
-					mode: "readwrite",
-				});
+                                const permission = await (file.handle as any).requestPermission({
+                                        mode: "readwrite",
+                                });
 
-				NotificationService.hideLoading();
+                                NotificationService.hideLoading();
 
-				if (permission === "granted") {
-					// Permission granted, load the file
-					const restoredFile = { ...file, permissionDenied: false };
-					await onFileRestored(restoredFile);
+                                if (permission === "granted") {
+                                        // Permission granted, load the file
+                                        let restoredFile = { ...file, permissionDenied: false };
 
-					// Remove the reconnect card for this file
-					const reconnectContainer = document.getElementById("reconnectCards");
-					if (reconnectContainer) {
-						const existingCards = reconnectContainer.querySelectorAll(
+                                        if (
+                                                restoredFile.handle &&
+                                                "getFile" in restoredFile.handle &&
+                                                typeof restoredFile.handle.getFile === "function"
+                                        ) {
+                                                try {
+                                                        const fileBlob = await restoredFile.handle.getFile();
+                                                        const fileText = await fileBlob.text();
+
+                                                        restoredFile = {
+                                                                ...restoredFile,
+                                                                content: fileText,
+                                                                originalContent: fileText,
+                                                                lastModified: fileBlob.lastModified,
+                                                                size: fileBlob.size,
+                                                        };
+                                                } catch (readError) {
+                                                        const message =
+                                                                readError instanceof Error
+                                                                        ? readError.message
+                                                                        : "Unknown error";
+                                                        NotificationService.showError(
+                                                                `Failed to reload "${file.name}" after granting permission: ${message}`
+                                                        );
+                                                }
+                                        }
+
+                                        await onFileRestored(restoredFile);
+
+                                        // Remove the reconnect card for this file
+                                        const reconnectContainer = document.getElementById("reconnectCards");
+                                        if (reconnectContainer) {
+                                                const existingCards = reconnectContainer.querySelectorAll(
 							`[data-reconnect-file="${file.name}"]`
 						);
 						existingCards.forEach((card) => card.remove());

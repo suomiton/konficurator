@@ -56,25 +56,40 @@ export class KonficuratorApp {
 		}
 
 		// Listen for file permission granted events
-		window.addEventListener("filePermissionGranted", async (event: Event) => {
-			const customEvent = event as CustomEvent;
-			const { file } = customEvent.detail;
+                window.addEventListener("filePermissionGranted", async (event: Event) => {
+                        const customEvent = event as CustomEvent;
+                        const { file } = customEvent.detail as { file: FileData };
 
-			// Update existing file or add new one
-			const existingIndex = this.loadedFiles.findIndex(
-				(f) => f.name === file.name
-			);
-			if (existingIndex >= 0) {
-				this.loadedFiles[existingIndex] = file;
-			} else {
-				this.loadedFiles.push(file);
-			}
+                        await this.processFile(file);
 
-			// Update UI and storage
-			this.updateFileInfo(this.loadedFiles);
-			this.renderFileEditors();
-			await this.saveToStorage();
-		});
+                        // Update existing file or add new one while preserving visibility state
+                        const existingIndex = this.loadedFiles.findIndex(
+                                (f) => f.name === file.name
+                        );
+                        if (existingIndex >= 0) {
+                                const existingFile = this.loadedFiles[existingIndex];
+                                const resolvedIsActive =
+                                        existingFile.isActive === false
+                                                ? false
+                                                : file.isActive ?? existingFile.isActive ?? true;
+                                const mergedFile: FileData = {
+                                        ...existingFile,
+                                        ...file,
+                                        isActive: resolvedIsActive,
+                                };
+                                this.loadedFiles[existingIndex] = mergedFile;
+                        } else {
+                                if (file.isActive === undefined) {
+                                        file.isActive = true;
+                                }
+                                this.loadedFiles.push(file);
+                        }
+
+                        // Update UI and storage
+                        this.updateFileInfo(this.loadedFiles);
+                        this.renderFileEditors();
+                        await this.saveToStorage();
+                });
 
 		// Delegate save button clicks
 		document.addEventListener("click", (event) => {

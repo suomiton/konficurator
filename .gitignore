@@ -68,6 +68,7 @@ debug*
 parser-wasm/target/
 # Generated WASM package (build artifact - regenerate in CI/CD)
 parser-wasm/pkg/
+!parser-wasm/pkg/*.d.ts
 
 # Node modules in parser-wasm
 parser-wasm/node_modules/

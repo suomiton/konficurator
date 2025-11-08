@@ -89,12 +89,23 @@ describe("PermissionManager", () => {
 			return element;
 		});
 
-		// Set up default permission responses
-		mockFileHandle.queryPermission.mockResolvedValue("granted");
-		mockFileHandle.requestPermission.mockResolvedValue("granted");
+                // Set up default permission responses
+                mockFileHandle.queryPermission.mockResolvedValue("granted");
+                mockFileHandle.requestPermission.mockResolvedValue("granted");
+                const mockTextReader = jest
+                        .fn<() => Promise<string>>()
+                        .mockResolvedValue(mockFileData.content as string);
+                mockFileHandle.getFile.mockResolvedValue({
+                        text: mockTextReader,
+                        lastModified: mockFileData.lastModified,
+                        size:
+                                typeof mockFileData.content === "string"
+                                        ? mockFileData.content.length
+                                        : 0,
+                });
 
-		jest.clearAllMocks();
-	});
+                jest.clearAllMocks();
+        });
 
 	afterEach(() => {
 		document.body.innerHTML = "";
@@ -145,28 +156,38 @@ describe("PermissionManager", () => {
 			expect(result.filesNeedingPermission).toHaveLength(1);
 		});
 
-		it("should request permission and reload file", async () => {
-			const result = await PermissionManager.requestAndReload(
-				mockFileData,
-				mockCallback
-			);
+                it("should request permission and reload file", async () => {
+                        const result = await PermissionManager.requestAndReload(
+                                mockFileData,
+                                mockCallback
+                        );
 
-			expect(mockFileHandle.requestPermission).toHaveBeenCalledWith({
-				mode: "readwrite",
-			});
-			expect(result).toBe(true);
-		});
+                        expect(mockFileHandle.requestPermission).toHaveBeenCalledWith({
+                                mode: "readwrite",
+                        });
+                        expect(mockFileHandle.getFile).toHaveBeenCalled();
+                        expect(mockCallback).toHaveBeenCalledWith(
+                                expect.objectContaining({
+                                        name: mockFileData.name,
+                                        content: mockFileData.content,
+                                        originalContent: mockFileData.originalContent,
+                                        permissionDenied: false,
+                                })
+                        );
+                        expect(result).toBe(true);
+                });
 
-		it("should handle request permission failure", async () => {
-			mockFileHandle.requestPermission.mockResolvedValue("denied");
+                it("should handle request permission failure", async () => {
+                        mockFileHandle.requestPermission.mockResolvedValue("denied");
 
-			const result = await PermissionManager.requestAndReload(
-				mockFileData,
-				mockCallback
-			);
+                        const result = await PermissionManager.requestAndReload(
+                                mockFileData,
+                                mockCallback
+                        );
 
-			expect(result).toBe(false);
-		});
+                        expect(mockFileHandle.getFile).not.toHaveBeenCalled();
+                        expect(result).toBe(false);
+                });
 
 		it("should restore file handles", async () => {
 			const files = [mockFileData];

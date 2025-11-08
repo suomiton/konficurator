@@ -19,9 +19,10 @@
 		"noUnusedParameters": true,
 		"exactOptionalPropertyTypes": true,
 		"lib": ["ES2020", "DOM", "DOM.Iterable"],
-		"paths": {
-			"../parser-wasm/pkg/*": ["./parser-wasm/pkg/*"]
-		}
+                "paths": {
+                        "../parser-wasm/pkg/parser_core.js": ["./src/types/parser_core"],
+                        "../parser-wasm/pkg/*": ["./parser-wasm/pkg/*"]
+                }
 	},
 	"include": ["src/**/*"],
 	"exclude": ["node_modules", "dist"]
