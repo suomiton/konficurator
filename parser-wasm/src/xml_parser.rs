@@ -81,9 +81,7 @@ impl BytePreservingParser for XmlParser {
                     if awaiting_attribute {
                         if let Some(attr) = attr_name.as_ref() {
                             if attr.as_str() == local.as_str() {
-                                let quoted_start = value.start().saturating_sub(1);
-                                let quoted_end = value.end() + 1;
-                                return Ok(crate::Span::new(quoted_start, quoted_end));
+                                return Ok(crate::Span::new(value.start(), value.end()));
                             }
                         }
                     }
