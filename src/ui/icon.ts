@@ -46,7 +46,7 @@ export function createIcon(name: IconName, options: IconOptions = {}): HTMLEleme
 
         const wrapper = createElement({
                 tag: "span",
-                className: classes || undefined,
+                ...(classes ? { className: classes } : {}),
         });
 
         const iconPath = `styles/icons/${name}.svg`;
@@ -80,21 +80,21 @@ export function createIconLabel(
         const containerClasses = ["icon-label", containerClassName].filter(Boolean).join(" ");
         const container = createElement({
                 tag: "div",
-                className: containerClasses || undefined,
+                ...(containerClasses ? { className: containerClasses } : {}),
         });
 
         const iconClasses = ["icon-label__icon", iconClassName].filter(Boolean).join(" ");
         container.appendChild(
                 createIcon(name, {
                         ...iconOptions,
-                        className: iconClasses || undefined,
+                        ...(iconClasses ? { className: iconClasses } : {}),
                 })
         );
 
         const textClasses = ["icon-label__text", textClassName].filter(Boolean).join(" ");
         const textElement = createElement({
                 tag: "span",
-                className: textClasses || undefined,
+                ...(textClasses ? { className: textClasses } : {}),
                 textContent: text,
         });
         container.appendChild(textElement);
@@ -110,7 +110,7 @@ export function createIconList(
         const listClasses = ["icon-list", listClassName].filter(Boolean).join(" ");
         const list = createElement({
                 tag: "div",
-                className: listClasses || undefined,
+                ...(listClasses ? { className: listClasses } : {}),
         });
 
         items.forEach((item) => {
@@ -123,7 +123,7 @@ export function createIconList(
                 list.appendChild(
                         createIconLabel(item.icon, item.text, {
                                 ...labelOptions,
-                                containerClassName: itemClasses || undefined,
+                                ...(itemClasses ? { containerClassName: itemClasses } : {}),
                         })
                 );
         });
