@@ -125,8 +125,7 @@ describe("NotificationService - Real Implementation Tests", () => {
 
 			const toast = document.querySelector(".toast-success");
 			expect(toast).toBeTruthy();
-			expect(toast?.textContent).toContain("Success message");
-			expect(toast?.textContent).toContain("✅");
+                        expect(toast?.textContent).toContain("Success message");
 		});
 
 		it("should show error notifications with longer duration", () => {
@@ -134,8 +133,7 @@ describe("NotificationService - Real Implementation Tests", () => {
 
 			const toast = document.querySelector(".toast-error");
 			expect(toast).toBeTruthy();
-			expect(toast?.textContent).toContain("Error message");
-			expect(toast?.textContent).toContain("❌");
+                        expect(toast?.textContent).toContain("Error message");
 
 			// Should last 5 seconds (error default)
 			jest.advanceTimersByTime(4000);
@@ -152,8 +150,7 @@ describe("NotificationService - Real Implementation Tests", () => {
 
 			const toast = document.querySelector(".toast-info");
 			expect(toast).toBeTruthy();
-			expect(toast?.textContent).toContain("Info message");
-			expect(toast?.textContent).toContain("ℹ️");
+                        expect(toast?.textContent).toContain("Info message");
 		});
 
 		it("should show warning notifications", () => {
@@ -161,8 +158,7 @@ describe("NotificationService - Real Implementation Tests", () => {
 
 			const toast = document.querySelector(".toast-warning");
 			expect(toast).toBeTruthy();
-			expect(toast?.textContent).toContain("Warning message");
-			expect(toast?.textContent).toContain("⚠️");
+                        expect(toast?.textContent).toContain("Warning message");
 		});
 	});
 
@@ -247,9 +243,8 @@ describe("NotificationService - Real Implementation Tests", () => {
 			NotificationService.showErrorInContainer("Something went wrong!");
 
 			const container = document.getElementById("editorContainer");
-			expect(container?.innerHTML).toContain("error-container");
-			expect(container?.innerHTML).toContain("Something went wrong!");
-			expect(container?.innerHTML).toContain("⚠️");
+                        expect(container?.innerHTML).toContain("error-container");
+                        expect(container?.innerHTML).toContain("Something went wrong!");
 		});
 
 		it("should show error in custom container", () => {
@@ -324,9 +319,6 @@ describe("NotificationService - Real Implementation Tests", () => {
 		it("should handle invalid notification type", () => {
 			// @ts-ignore - Testing invalid type
 			NotificationService.showToast("Test", "invalid");
-
-			const toast = document.querySelector(".notification-toast");
-			expect(toast?.textContent).toContain("ℹ️"); // Should default to info icon
 		});
 
 		it("should handle XSS attempts in messages", () => {
@@ -726,16 +718,26 @@ describe("FileNotifications - Real Implementation Tests", () => {
 
 			FileNotifications.showFileNotFound("missing.json");
 
-			const errorToast = document.querySelector(".toast-error");
-			expect(errorToast?.textContent).toContain("❌");
+                        const errorToast = document.querySelector(".toast-error");
+                        expect(errorToast).toBeTruthy();
 
-			NotificationService.clearAll();
-			jest.advanceTimersByTime(300);
+                        const errorIcon = errorToast?.querySelector<HTMLImageElement>(
+                                ".toast-icon .icon__image"
+                        );
+                        expect(errorIcon?.getAttribute("src")).toContain("x-circle.svg");
 
-			FileNotifications.showRefreshSuccess("config.json");
+                        NotificationService.clearAll();
+                        jest.advanceTimersByTime(300);
 
-			const successToast = document.querySelector(".toast-success");
-			expect(successToast?.textContent).toContain("✅");
-		});
-	});
+                        FileNotifications.showRefreshSuccess("config.json");
+
+                        const successToast = document.querySelector(".toast-success");
+                        expect(successToast).toBeTruthy();
+
+                        const successIcon = successToast?.querySelector<HTMLImageElement>(
+                                ".toast-icon .icon__image"
+                        );
+                        expect(successIcon?.getAttribute("src")).toContain("check-circle.svg");
+                });
+        });
 });

@@ -4,6 +4,7 @@
  */
 
 import { createElement, createButton } from "./ui/dom-factory.js";
+import { createIcon } from "./ui/icon.js";
 
 export class ConfirmationDialog {
 	/**
@@ -205,12 +206,18 @@ export class ConfirmationDialog {
 			innerHTML: `The file <strong>"${fileName}"</strong> has been modified on disk since you loaded it. What would you like to do?`,
 		});
 
-		const warningElement = createElement({
-			tag: "p",
-			className: "warning-text",
-			textContent:
-				"⚠️ Overwriting will replace the newer version on disk with your changes.",
-		});
+                const warningElement = createElement({
+                        tag: "p",
+                        className: "warning-text",
+                });
+                warningElement.appendChild(
+                        createIcon("alert-triangle", { size: 18, className: "warning-text__icon" })
+                );
+                warningElement.appendChild(
+                        document.createTextNode(
+                                " Overwriting will replace the newer version on disk with your changes."
+                        )
+                );
 
 		const buttonsContainer = createElement({
 			tag: "div",

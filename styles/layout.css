@@ -84,10 +84,13 @@ header {
 }
 
 .file-path {
-	font-size: 0.75rem;
-	color: var(--color-text-muted);
-	font-weight: 400;
-	opacity: 0.85;
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
+        font-weight: 400;
+        opacity: 0.85;
+        display: flex;
+        align-items: center;
+        gap: calc(var(--gutter-1) / 2);
 }
 
 .file-action-buttons {

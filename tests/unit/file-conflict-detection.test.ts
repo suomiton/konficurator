@@ -407,9 +407,17 @@ describe("File Conflict Detection Feature", () => {
 			await new Promise((resolve) => setTimeout(resolve, 0));
 
 			const warningText = document.querySelector(".warning-text");
-			expect(warningText).not.toBeNull();
-			expect(warningText?.textContent).toContain("⚠️");
-			expect(warningText?.textContent).toContain("Overwriting will replace");
+                        expect(warningText).not.toBeNull();
+
+                        const warningIcon = warningText?.querySelector(
+                                ".warning-text__icon img.icon__image"
+                        ) as HTMLImageElement | null;
+                        expect(warningIcon).not.toBeNull();
+                        expect(warningIcon?.getAttribute("src")).toContain(
+                                "styles/icons/alert-triangle.svg"
+                        );
+
+                        expect(warningText?.textContent).toContain("Overwriting will replace");
 
 			// Clean up
 			const cancelBtn = document.querySelector(".cancel-btn") as HTMLElement;

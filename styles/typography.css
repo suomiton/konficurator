@@ -3,6 +3,14 @@ header h1 {
   margin-bottom: var(--gutter-1);
   font-weight: 600;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: var(--gutter-1);
+}
+
+header h1 .app-icon {
+  width: 2.25rem;
+  height: 2.25rem;
 }
 
 header p {
