@@ -319,8 +319,6 @@ describe("NotificationService - Real Implementation Tests", () => {
 		it("should handle invalid notification type", () => {
 			// @ts-ignore - Testing invalid type
 			NotificationService.showToast("Test", "invalid");
-
-			const toast = document.querySelector(".notification-toast");
 		});
 
 		it("should handle XSS attempts in messages", () => {
