@@ -726,16 +726,26 @@ describe("FileNotifications - Real Implementation Tests", () => {
 
 			FileNotifications.showFileNotFound("missing.json");
 
-			const errorToast = document.querySelector(".toast-error");
-			expect(errorToast?.textContent).toContain("❌");
+                        const errorToast = document.querySelector(".toast-error");
+                        expect(errorToast).toBeTruthy();
 
-			NotificationService.clearAll();
-			jest.advanceTimersByTime(300);
+                        const errorIcon = errorToast?.querySelector<HTMLImageElement>(
+                                ".toast-icon .icon__image"
+                        );
+                        expect(errorIcon?.getAttribute("src")).toContain("x-circle.svg");
 
-			FileNotifications.showRefreshSuccess("config.json");
+                        NotificationService.clearAll();
+                        jest.advanceTimersByTime(300);
 
-			const successToast = document.querySelector(".toast-success");
-			expect(successToast?.textContent).toContain("✅");
-		});
-	});
+                        FileNotifications.showRefreshSuccess("config.json");
+
+                        const successToast = document.querySelector(".toast-success");
+                        expect(successToast).toBeTruthy();
+
+                        const successIcon = successToast?.querySelector<HTMLImageElement>(
+                                ".toast-icon .icon__image"
+                        );
+                        expect(successIcon?.getAttribute("src")).toContain("check-circle.svg");
+                });
+        });
 });
