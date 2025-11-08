@@ -125,7 +125,7 @@ describe("NotificationService - Real Implementation Tests", () => {
 
 			const toast = document.querySelector(".toast-success");
 			expect(toast).toBeTruthy();
-                        expect(toast?.textContent).toContain("Success message");
+			expect(toast?.textContent).toContain("Success message");
 		});
 
 		it("should show error notifications with longer duration", () => {
@@ -133,7 +133,7 @@ describe("NotificationService - Real Implementation Tests", () => {
 
 			const toast = document.querySelector(".toast-error");
 			expect(toast).toBeTruthy();
-                        expect(toast?.textContent).toContain("Error message");
+			expect(toast?.textContent).toContain("Error message");
 
 			// Should last 5 seconds (error default)
 			jest.advanceTimersByTime(4000);
@@ -150,7 +150,7 @@ describe("NotificationService - Real Implementation Tests", () => {
 
 			const toast = document.querySelector(".toast-info");
 			expect(toast).toBeTruthy();
-                        expect(toast?.textContent).toContain("Info message");
+			expect(toast?.textContent).toContain("Info message");
 		});
 
 		it("should show warning notifications", () => {
@@ -158,7 +158,7 @@ describe("NotificationService - Real Implementation Tests", () => {
 
 			const toast = document.querySelector(".toast-warning");
 			expect(toast).toBeTruthy();
-                        expect(toast?.textContent).toContain("Warning message");
+			expect(toast?.textContent).toContain("Warning message");
 		});
 	});
 
@@ -243,8 +243,8 @@ describe("NotificationService - Real Implementation Tests", () => {
 			NotificationService.showErrorInContainer("Something went wrong!");
 
 			const container = document.getElementById("editorContainer");
-                        expect(container?.innerHTML).toContain("error-container");
-                        expect(container?.innerHTML).toContain("Something went wrong!");
+			expect(container?.innerHTML).toContain("error-container");
+			expect(container?.innerHTML).toContain("Something went wrong!");
 		});
 
 		it("should show error in custom container", () => {
@@ -326,10 +326,12 @@ describe("NotificationService - Real Implementation Tests", () => {
 			NotificationService.showToast(maliciousMessage, "info");
 
 			const toast = document.querySelector(".notification-toast");
-			// Test that the script is included in content (since this is what the current implementation does)
+			// Text content should contain the alert text
 			expect(toast?.textContent).toContain("alert");
-			// Note: This test documents current behavior - in production, content should be sanitized
-			expect(toast?.innerHTML).toContain("<script>alert");
+			// Inner HTML should NOT include raw script tags (sanitized)
+			expect(toast?.innerHTML).not.toContain("<script");
+			// And should include escaped script tag text
+			expect(toast?.innerHTML).toContain("&lt;script&gt;alert");
 		});
 
 		it("should handle very long messages", () => {
@@ -411,21 +413,23 @@ describe("FileNotifications - Real Implementation Tests", () => {
 		it("should show file not found error with guidance", () => {
 			FileNotifications.showFileNotFound("config.json");
 
-			expect(NotificationService.showError).toHaveBeenCalledWith(
-				expect.stringContaining('File not found: "config.json"')
-			);
-			expect(NotificationService.showError).toHaveBeenCalledWith(
-				expect.stringContaining('use "Select Files" to reload')
-			);
+			expect(NotificationService.showError).toHaveBeenCalledTimes(1);
+			const arg = (NotificationService.showError as jest.Mock).mock
+				.calls[0][0] as HTMLElement;
+			expect(arg).toBeInstanceOf(HTMLElement);
+			expect(arg.textContent).toContain('File not found: "config.json"');
+			expect(arg.textContent).toContain("Select Files");
 		});
 
 		it("should show permission denied error", () => {
 			FileNotifications.showPermissionDenied("secret.json");
 
-			expect(NotificationService.showError).toHaveBeenCalledWith(
-				expect.stringContaining(
-					'Permission denied: Cannot access "secret.json"'
-				)
+			expect(NotificationService.showError).toHaveBeenCalledTimes(1);
+			const arg = (NotificationService.showError as jest.Mock).mock
+				.calls[0][0] as HTMLElement;
+			expect(arg).toBeInstanceOf(HTMLElement);
+			expect(arg.textContent).toContain(
+				'Permission denied: Cannot access "secret.json"'
 			);
 		});
 
@@ -445,9 +449,11 @@ describe("FileNotifications - Real Implementation Tests", () => {
 		it("should show refresh success message", () => {
 			FileNotifications.showRefreshSuccess("config.json");
 
-			expect(NotificationService.showSuccess).toHaveBeenCalledWith(
-				expect.stringContaining('"config.json" refreshed successfully')
-			);
+			expect(NotificationService.showSuccess).toHaveBeenCalledTimes(1);
+			const arg = (NotificationService.showSuccess as jest.Mock).mock
+				.calls[0][0] as HTMLElement;
+			expect(arg).toBeInstanceOf(HTMLElement);
+			expect(arg.textContent).toContain('"config.json" refreshed successfully');
 		});
 
 		it("should show save success message", () => {
@@ -492,12 +498,14 @@ describe("FileNotifications - Real Implementation Tests", () => {
 				"file2.json",
 			]);
 
-			expect(NotificationService.showSuccess).toHaveBeenCalledWith(
-				expect.stringContaining("Successfully reloaded 2 file(s) from disk")
+			expect(NotificationService.showSuccess).toHaveBeenCalledTimes(1);
+			const arg = (NotificationService.showSuccess as jest.Mock).mock
+				.calls[0][0] as HTMLElement;
+			expect(arg).toBeInstanceOf(HTMLElement);
+			expect(arg.textContent).toContain(
+				"Successfully reloaded 2 file(s) from disk"
 			);
-			expect(NotificationService.showSuccess).toHaveBeenCalledWith(
-				expect.stringContaining("file1.json, file2.json")
-			);
+			expect(arg.textContent).toContain("file1.json, file2.json");
 		});
 	});
 
@@ -508,12 +516,12 @@ describe("FileNotifications - Real Implementation Tests", () => {
 				"settings.json",
 			]);
 
-			expect(NotificationService.showInfo).toHaveBeenCalledWith(
-				expect.stringContaining("Auto-refreshed 2 file(s) from disk")
-			);
-			expect(NotificationService.showInfo).toHaveBeenCalledWith(
-				expect.stringContaining("config.json, settings.json")
-			);
+			expect(NotificationService.showInfo).toHaveBeenCalledTimes(1);
+			const arg = (NotificationService.showInfo as jest.Mock).mock
+				.calls[0][0] as HTMLElement;
+			expect(arg).toBeInstanceOf(HTMLElement);
+			expect(arg.textContent).toContain("Auto-refreshed 2 file(s) from disk");
+			expect(arg.textContent).toContain("config.json, settings.json");
 		});
 
 		it("should not show auto-refresh notification when no files refreshed", () => {
@@ -654,9 +662,13 @@ describe("FileNotifications - Real Implementation Tests", () => {
 			const maliciousFilename = '<script>alert("xss")</script>';
 			FileNotifications.showFileNotFound(maliciousFilename);
 
-			expect(NotificationService.showError).toHaveBeenCalledWith(
-				expect.stringContaining("script")
-			);
+			expect(NotificationService.showError).toHaveBeenCalledTimes(1);
+			const arg = (NotificationService.showError as jest.Mock).mock
+				.calls[0][0] as HTMLElement;
+			expect(arg).toBeInstanceOf(HTMLElement);
+			expect(arg.textContent).toContain("script");
+			// Ensure raw script tag not interpreted
+			expect(arg.innerHTML).not.toContain("<script");
 		});
 
 		it("should handle very long filenames", () => {
@@ -671,18 +683,22 @@ describe("FileNotifications - Real Implementation Tests", () => {
 		it("should handle empty filename", () => {
 			FileNotifications.showFileNotFound("");
 
-			expect(NotificationService.showError).toHaveBeenCalledWith(
-				expect.stringContaining('File not found: ""')
-			);
+			expect(NotificationService.showError).toHaveBeenCalledTimes(1);
+			const arg = (NotificationService.showError as jest.Mock).mock
+				.calls[0][0] as HTMLElement;
+			expect(arg).toBeInstanceOf(HTMLElement);
+			expect(arg.textContent).toContain('File not found: ""');
 		});
 
 		it("should handle special characters in filenames", () => {
 			const specialFilename = "config@#$%^&*().json";
 			FileNotifications.showRefreshSuccess(specialFilename);
 
-			expect(NotificationService.showSuccess).toHaveBeenCalledWith(
-				expect.stringContaining(specialFilename)
-			);
+			expect(NotificationService.showSuccess).toHaveBeenCalledTimes(1);
+			const arg = (NotificationService.showSuccess as jest.Mock).mock
+				.calls[0][0] as HTMLElement;
+			expect(arg).toBeInstanceOf(HTMLElement);
+			expect(arg.textContent).toContain(specialFilename);
 		});
 
 		it("should handle undefined filenames gracefully", () => {
@@ -718,26 +734,26 @@ describe("FileNotifications - Real Implementation Tests", () => {
 
 			FileNotifications.showFileNotFound("missing.json");
 
-                        const errorToast = document.querySelector(".toast-error");
-                        expect(errorToast).toBeTruthy();
+			const errorToast = document.querySelector(".toast-error");
+			expect(errorToast).toBeTruthy();
 
-                        const errorIcon = errorToast?.querySelector<HTMLImageElement>(
-                                ".toast-icon .icon__image"
-                        );
-                        expect(errorIcon?.getAttribute("src")).toContain("x-circle.svg");
+			const errorIcon = errorToast?.querySelector<HTMLImageElement>(
+				".toast-icon .icon__image"
+			);
+			expect(errorIcon?.getAttribute("src")).toContain("x-circle.svg");
 
-                        NotificationService.clearAll();
-                        jest.advanceTimersByTime(300);
+			NotificationService.clearAll();
+			jest.advanceTimersByTime(300);
 
-                        FileNotifications.showRefreshSuccess("config.json");
+			FileNotifications.showRefreshSuccess("config.json");
 
-                        const successToast = document.querySelector(".toast-success");
-                        expect(successToast).toBeTruthy();
+			const successToast = document.querySelector(".toast-success");
+			expect(successToast).toBeTruthy();
 
-                        const successIcon = successToast?.querySelector<HTMLImageElement>(
-                                ".toast-icon .icon__image"
-                        );
-                        expect(successIcon?.getAttribute("src")).toContain("check-circle.svg");
-                });
-        });
+			const successIcon = successToast?.querySelector<HTMLImageElement>(
+				".toast-icon .icon__image"
+			);
+			expect(successIcon?.getAttribute("src")).toContain("check-circle.svg");
+		});
+	});
 });
