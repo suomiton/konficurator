@@ -34,7 +34,7 @@ fi
 
 # Check if CSS styles exist
 echo "✅ Checking CSS styles for error notifications..."
-if grep -q "error-notification" styles/main.css; then
+if rg -q "error-notification" styles; then
     echo "   ✓ Error notification styles found in CSS"
 else
     echo "   ❌ Error notification styles not found in CSS"

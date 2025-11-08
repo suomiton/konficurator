@@ -1,0 +1,67 @@
+header h1 {
+  font-size: 2.5rem;
+  margin-bottom: var(--gutter-1);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+header p {
+  opacity: 0.9;
+  font-size: 1.1rem;
+}
+
+.file-editor-header .file-title,
+.file-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.object-label {
+  font-weight: 600;
+  color: var(--color-prussian-blue);
+  margin-bottom: var(--gutter-2);
+  font-size: 1rem;
+}
+
+.xml-heading-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-size: 1.1rem;
+  margin-bottom: var(--gutter-1);
+  padding-bottom: var(--gutter-1);
+  border-bottom: 2px solid var(--color-border);
+  display: flex;
+  align-items: center;
+}
+
+.xml-attributes-heading {
+  font-weight: 600;
+  color: var(--color-warning);
+  font-size: 1rem;
+  margin-bottom: var(--gutter-1);
+  display: flex;
+  align-items: center;
+}
+
+.error-notification .error-title {
+  font-weight: 600;
+  color: #856404;
+  margin-bottom: var(--gutter-1);
+  font-size: 1rem;
+}
+
+.error-notification .error-message {
+  color: #856404;
+  margin-bottom: var(--gutter-1);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.error-notification .error-hint {
+  color: #6c5700;
+  font-size: 0.85rem;
+  font-style: italic;
+  opacity: 0.8;
+}
