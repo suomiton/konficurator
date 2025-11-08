@@ -1,9 +1,18 @@
+import { createButton, createElement } from "./dom-factory.js";
+import {
+        createIcon,
+        createIconLabel,
+        IconName,
+} from "./icon.js";
+
 /**
  * Centralized Notification System
  * Follows Single Responsibility Principle - handles all UI notifications
  */
 
 export type NotificationType = "success" | "error" | "info" | "warning";
+
+type NotificationContent = string | HTMLElement;
 
 export interface NotificationOptions {
 	duration?: number; // Duration in milliseconds, 0 for persistent
@@ -22,11 +31,11 @@ export class NotificationService {
 	/**
 	 * Show a temporary toast notification
 	 */
-	static showToast(
-		message: string,
-		type: NotificationType = "info",
-		options: NotificationOptions = {}
-	): void {
+        static showToast(
+                message: NotificationContent,
+                type: NotificationType = "info",
+                options: NotificationOptions = {}
+        ): void {
 		const {
 			duration = this.DEFAULT_DURATION,
 			position = this.DEFAULT_POSITION,
@@ -49,30 +58,30 @@ export class NotificationService {
 	/**
 	 * Show success notification
 	 */
-	static showSuccess(message: string, options?: NotificationOptions): void {
-		this.showToast(message, "success", options);
-	}
+        static showSuccess(message: NotificationContent, options?: NotificationOptions): void {
+                this.showToast(message, "success", options);
+        }
 
 	/**
 	 * Show error notification
 	 */
-	static showError(message: string, options?: NotificationOptions): void {
-		this.showToast(message, "error", { duration: 5000, ...options });
-	}
+        static showError(message: NotificationContent, options?: NotificationOptions): void {
+                this.showToast(message, "error", { duration: 5000, ...options });
+        }
 
 	/**
 	 * Show info notification
 	 */
-	static showInfo(message: string, options?: NotificationOptions): void {
-		this.showToast(message, "info", options);
-	}
+        static showInfo(message: NotificationContent, options?: NotificationOptions): void {
+                this.showToast(message, "info", options);
+        }
 
 	/**
 	 * Show warning notification
 	 */
-	static showWarning(message: string, options?: NotificationOptions): void {
-		this.showToast(message, "warning", options);
-	}
+        static showWarning(message: NotificationContent, options?: NotificationOptions): void {
+                this.showToast(message, "warning", options);
+        }
 
 	/**
 	 * Show loading message (replaces content area)
@@ -105,20 +114,36 @@ export class NotificationService {
 	/**
 	 * Show error in content area (for major errors)
 	 */
-	static showErrorInContainer(
-		message: string,
-		containerId: string = "editorContainer"
-	): void {
-		const container = document.getElementById(containerId);
-		if (container) {
-			container.innerHTML = `
-				<div class="error-container">
-					<div class="error-icon">⚠️</div>
-					<div class="error-message">${message}</div>
-				</div>
-			`;
-		}
-	}
+        static showErrorInContainer(
+                message: string,
+                containerId: string = "editorContainer"
+        ): void {
+                const container = document.getElementById(containerId);
+                if (container) {
+                        container.innerHTML = "";
+                        const errorContainer = createElement({
+                                tag: "div",
+                                className: "error-container",
+                        });
+
+                        errorContainer.appendChild(
+                                createIcon("alert-triangle", {
+                                        size: 48,
+                                        className: "error-icon",
+                                })
+                        );
+
+                        errorContainer.appendChild(
+                                createElement({
+                                        tag: "div",
+                                        className: "error-message",
+                                        textContent: message,
+                                })
+                        );
+
+                        container.appendChild(errorContainer);
+                }
+        }
 
 	/**
 	 * Clear all notifications
@@ -130,37 +155,64 @@ export class NotificationService {
 	/**
 	 * Create toast element with proper styling
 	 */
-	private static createToastElement(
-		message: string,
-		type: NotificationType,
-		dismissible: boolean
-	): HTMLElement {
-		const toast = document.createElement("div");
-		toast.className = `notification-toast toast-${type}`;
+        private static createToastElement(
+                message: NotificationContent,
+                type: NotificationType,
+                dismissible: boolean
+        ): HTMLElement {
+                const toast = createElement({
+                        tag: "div",
+                        className: `notification-toast toast-${type}`,
+                });
 
-		// Add CSS if not already present
-		this.ensureStyles();
+                this.ensureStyles();
 
-		toast.innerHTML = `
-			<div class="toast-content">
-				<div class="toast-icon">${this.getIcon(type)}</div>
-				<div class="toast-message">${message}</div>
-				${
-					dismissible
-						? '<button class="toast-dismiss" aria-label="Dismiss">×</button>'
-						: ""
-				}
-			</div>
-		`;
+                const content = createElement({
+                        tag: "div",
+                        className: "toast-content",
+                });
 
-		// Add dismiss functionality
-		if (dismissible) {
-			const dismissBtn = toast.querySelector(".toast-dismiss");
-			dismissBtn?.addEventListener("click", () => this.removeToast(toast));
-		}
+                content.appendChild(
+                        createIcon(this.getIconName(type), {
+                                size: 20,
+                                className: "toast-icon",
+                        })
+                );
 
-		return toast;
-	}
+                const messageContainer = createElement({
+                        tag: "div",
+                        className: "toast-message",
+                });
+
+                if (typeof message === "string") {
+                        messageContainer.textContent = message;
+                } else {
+                        messageContainer.appendChild(message);
+                }
+
+                content.appendChild(messageContainer);
+
+                if (dismissible) {
+                        const dismissBtn = createButton({
+                                tag: "button",
+                                className: "toast-dismiss",
+                                type: "button",
+                        });
+                        dismissBtn.setAttribute("aria-label", "Dismiss");
+                        dismissBtn.title = "Dismiss";
+                        dismissBtn.appendChild(
+                                createIcon("x", {
+                                        size: 16,
+                                        className: "toast-dismiss__icon",
+                                })
+                        );
+                        dismissBtn.addEventListener("click", () => this.removeToast(toast));
+                        content.appendChild(dismissBtn);
+                }
+
+                toast.appendChild(content);
+                return toast;
+        }
 
 	/**
 	 * Position toast based on specified location
@@ -199,15 +251,15 @@ export class NotificationService {
 	/**
 	 * Get icon for notification type
 	 */
-	private static getIcon(type: NotificationType): string {
-		const icons = {
-			success: "✅",
-			error: "❌",
-			info: "ℹ️",
-			warning: "⚠️",
-		};
-		return icons[type] || "ℹ️";
-	}
+        private static getIconName(type: NotificationType): IconName {
+                const icons: Record<NotificationType, IconName> = {
+                        success: "check-circle",
+                        error: "x-circle",
+                        info: "info",
+                        warning: "alert-triangle",
+                };
+                return icons[type] ?? "info";
+        }
 
 	/**
 	 * Ensure notification styles are loaded
@@ -240,37 +292,56 @@ export class NotificationService {
 				gap: 12px;
 			}
 
-			.toast-icon {
-				font-size: 18px;
-				flex-shrink: 0;
-			}
+                        .toast-icon {
+                                width: 24px;
+                                height: 24px;
+                                flex-shrink: 0;
+                        }
 
-			.toast-message {
-				flex: 1;
-				color: #333;
-				font-weight: 500;
-				line-height: 1.4;
-			}
+                        .toast-icon .icon__image {
+                                width: 100%;
+                                height: 100%;
+                        }
 
-			.toast-dismiss {
-				background: none;
-				border: none;
-				font-size: 18px;
-				color: #999;
-				cursor: pointer;
-				padding: 0;
-				width: 24px;
-				height: 24px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				border-radius: 50%;
-			}
+                        .toast-message {
+                                flex: 1;
+                                color: #333;
+                                font-weight: 500;
+                                line-height: 1.4;
+                                white-space: pre-line;
+                                display: flex;
+                                flex-direction: column;
+                                gap: 4px;
+                        }
 
-			.toast-dismiss:hover {
-				background: #f5f5f5;
-				color: #666;
-			}
+                        .toast-dismiss {
+                                background: none;
+                                border: none;
+                                color: #999;
+                                cursor: pointer;
+                                padding: 0;
+                                width: 24px;
+                                height: 24px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                border-radius: 50%;
+                        }
+
+                        .toast-dismiss:hover {
+                                background: #f5f5f5;
+                                color: #666;
+                        }
+
+                        .toast-dismiss__icon {
+                                width: 16px;
+                                height: 16px;
+                        }
+
+                        .toast-dismiss__icon .icon__image {
+                                width: 100%;
+                                height: 100%;
+                        }
 
 			.loading {
 				text-align: center;
@@ -295,10 +366,16 @@ export class NotificationService {
 				color: #dc3545;
 			}
 
-			.error-icon {
-				font-size: 3rem;
-				margin-bottom: 1rem;
-			}
+                        .error-icon {
+                                width: 3rem;
+                                height: 3rem;
+                                margin: 0 auto 1rem;
+                        }
+
+                        .error-icon .icon__image {
+                                width: 100%;
+                                height: 100%;
+                        }
 
 			.error-message {
 				font-size: 1.1rem;
@@ -345,20 +422,24 @@ export class FileNotifications {
 	/**
 	 * Show file not found error with guidance
 	 */
-	static showFileNotFound(filename: string): void {
-		NotificationService.showError(
-			`📁 File not found: "${filename}" may have been moved, renamed, or deleted. Please check the file location and use "Select Files" to reload.`
-		);
-	}
+        static showFileNotFound(filename: string): void {
+                NotificationService.showError(
+                        createIconLabel("folder", `File not found: "${filename}" may have been moved, renamed, or deleted. Please check the file location and use "Select Files" to reload.`, {
+                                size: 18,
+                        })
+                );
+        }
 
 	/**
 	 * Show permission denied error
 	 */
-	static showPermissionDenied(filename: string): void {
-		NotificationService.showError(
-			`🔒 Permission denied: Cannot access "${filename}". You may need to grant permission again or the file may be locked.`
-		);
-	}
+        static showPermissionDenied(filename: string): void {
+                NotificationService.showError(
+                        createIconLabel("lock", `Permission denied: Cannot access "${filename}". You may need to grant permission again or the file may be locked.`, {
+                                size: 18,
+                        })
+                );
+        }
 
 	/**
 	 * Show no file handle error
@@ -372,11 +453,13 @@ export class FileNotifications {
 	/**
 	 * Show file refresh success
 	 */
-	static showRefreshSuccess(filename: string): void {
-		NotificationService.showSuccess(
-			`🔄 "${filename}" refreshed successfully from disk.`
-		);
-	}
+        static showRefreshSuccess(filename: string): void {
+                NotificationService.showSuccess(
+                        createIconLabel("refresh-cw", `"${filename}" refreshed successfully from disk.`, {
+                                size: 18,
+                        })
+                );
+        }
 
 	/**
 	 * Show file save success
@@ -401,18 +484,20 @@ export class FileNotifications {
 	/**
 	 * Show auto-refresh results
 	 */
-	static showAutoRefreshResults(
-		refreshedCount: number,
-		filenames: string[]
-	): void {
-		if (refreshedCount > 0) {
-			NotificationService.showInfo(
-				`🔄 Auto-refreshed ${refreshedCount} file(s) from disk: ${filenames.join(
-					", "
-				)}`
-			);
-		}
-	}
+        static showAutoRefreshResults(
+                refreshedCount: number,
+                filenames: string[]
+        ): void {
+                if (refreshedCount > 0) {
+                        NotificationService.showInfo(
+                                createIconLabel(
+                                        "refresh-cw",
+                                        `Auto-refreshed ${refreshedCount} file(s) from disk: ${filenames.join(", ")}`,
+                                        { size: 18 }
+                                )
+                        );
+                }
+        }
 
 	/**
 	 * Show file removal success
@@ -424,13 +509,15 @@ export class FileNotifications {
 	/**
 	 * Show files reloaded from disk success
 	 */
-	static showReloadFromDiskSuccess(count: number, filenames: string[]): void {
-		NotificationService.showSuccess(
-			`📁 Successfully reloaded ${count} file(s) from disk: ${filenames.join(
-				", "
-			)}`
-		);
-	}
+        static showReloadFromDiskSuccess(count: number, filenames: string[]): void {
+                NotificationService.showSuccess(
+                        createIconLabel(
+                                "folder",
+                                `Successfully reloaded ${count} file(s) from disk: ${filenames.join(", ")}`,
+                                { size: 18 }
+                        )
+                );
+        }
 
 	/**
 	 * Show reconnect card for a file that needs permission
@@ -474,9 +561,11 @@ export class FileNotifications {
 		content.className = "reconnect-content";
 
 		// Create elements individually to ensure they exist
-		const icon = document.createElement("div");
-		icon.className = "reconnect-icon";
-		icon.textContent = "🔒";
+                const icon = document.createElement("div");
+                icon.className = "reconnect-icon";
+                icon.appendChild(
+                        createIcon("lock", { size: 28, className: "reconnect-icon__image" })
+                );
 
 		const info = document.createElement("div");
 		info.className = "reconnect-info";
@@ -490,10 +579,13 @@ export class FileNotifications {
 		reconnectBtn.id = reconnectId;
 		reconnectBtn.textContent = `Grant Access to ${handle.name}`;
 
-		const dismissBtn = document.createElement("button");
-		dismissBtn.className = "dismiss-btn";
-		dismissBtn.setAttribute("aria-label", "Dismiss");
-		dismissBtn.textContent = "×";
+                const dismissBtn = document.createElement("button");
+                dismissBtn.className = "dismiss-btn";
+                dismissBtn.setAttribute("aria-label", "Dismiss");
+                dismissBtn.title = "Dismiss";
+                dismissBtn.appendChild(
+                        createIcon("x", { size: 18, className: "dismiss-btn__icon" })
+                );
 
 		// Assemble the card
 		content.appendChild(icon);
@@ -544,10 +636,16 @@ export class FileNotifications {
 				gap: 16px;
 			}
 
-			.reconnect-icon {
-				font-size: 24px;
-				flex-shrink: 0;
-			}
+                        .reconnect-icon {
+                                flex-shrink: 0;
+                                width: 28px;
+                                height: 28px;
+                        }
+
+                        .reconnect-icon__image {
+                                width: 100%;
+                                height: 100%;
+                        }
 
 			.reconnect-info {
 				flex: 1;
@@ -581,21 +679,30 @@ export class FileNotifications {
 				background: #0056b3;
 			}
 
-			.dismiss-btn {
-				background: none;
-				border: none;
-				font-size: 20px;
-				color: #856404;
-				cursor: pointer;
-				padding: 4px;
-				width: 32px;
-				height: 32px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				border-radius: 50%;
-				flex-shrink: 0;
-			}
+                        .dismiss-btn {
+                                background: none;
+                                border: none;
+                                color: #856404;
+                                cursor: pointer;
+                                padding: 4px;
+                                width: 32px;
+                                height: 32px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                border-radius: 50%;
+                                flex-shrink: 0;
+                        }
+
+                        .dismiss-btn__icon {
+                                width: 18px;
+                                height: 18px;
+                        }
+
+                        .dismiss-btn__icon .icon__image {
+                                width: 100%;
+                                height: 100%;
+                        }
 
 			.dismiss-btn:hover {
 				background: rgba(133, 100, 4, 0.1);

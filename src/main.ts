@@ -8,6 +8,7 @@ import { NotificationService, FileNotifications } from "./ui/notifications.js";
 import { ConfirmationDialog } from "./confirmation.js";
 import { PermissionManager } from "./permissionManager.js";
 import { createElement } from "./ui/dom-factory.js";
+import { createIconLabel, createIconList, IconListItem } from "./ui/icon.js";
 
 /**
  * Main Application Controller
@@ -295,9 +296,13 @@ export class KonficuratorApp {
 
 		// Show notification
 		const action = fileData.isActive ? "shown" : "hidden";
-		NotificationService.showInfo(
-			`📄 Editor for "${filename}" is now ${action}.`
-		);
+                NotificationService.showInfo(
+                        createIconLabel(
+                                "file-text",
+                                `Editor for "${filename}" is now ${action}.`,
+                                { size: 18 }
+                        )
+                );
 	}
 
 	/**
@@ -533,13 +538,17 @@ export class KonficuratorApp {
 			// Find the file with matching name
 			const matchingFile = newFiles.find((f) => f.name === filename);
 
-			if (!matchingFile) {
-				NotificationService.hideLoading();
-				NotificationService.showInfo(
-					`📁 No file named "${filename}" was selected. Please select the correct file to reload.`
-				);
-				return;
-			}
+                        if (!matchingFile) {
+                                NotificationService.hideLoading();
+                                NotificationService.showInfo(
+                                        createIconLabel(
+                                                "folder",
+                                                `No file named "${filename}" was selected. Please select the correct file to reload.`,
+                                                { size: 18 }
+                                        )
+                                );
+                                return;
+                        }
 
 			// Process the new file
 			await this.processFile(matchingFile);
@@ -559,9 +568,13 @@ export class KonficuratorApp {
 			NotificationService.hideLoading();
 
 			// Show success message
-			NotificationService.showSuccess(
-				`📁 "${filename}" successfully reloaded from disk with latest content and file handle.`
-			);
+                        NotificationService.showSuccess(
+                                createIconLabel(
+                                        "folder",
+                                        `"${filename}" successfully reloaded from disk with latest content and file handle.`,
+                                        { size: 18 }
+                                )
+                        );
 		} catch (error) {
 			NotificationService.hideLoading();
 			const message = error instanceof Error ? error.message : "Unknown error";
@@ -639,38 +652,59 @@ export class KonficuratorApp {
 				NotificationService.hideLoading();
 
 				// Show permission warning if needed (after hideLoading)
-				if (filesNeedingPermission.length > 0) {
-					NotificationService.showWarning(
-						`⚠️ ${filesNeedingPermission.length} file(s) need permission to access. Please grant access using the cards above.`
-					);
-				}
+                                if (filesNeedingPermission.length > 0) {
+                                        NotificationService.showWarning(
+                                                createIconLabel(
+                                                        "alert-triangle",
+                                                        `${filesNeedingPermission.length} file(s) need permission to access. Please grant access using the cards above.`,
+                                                        { size: 18 }
+                                                )
+                                        );
+                                }
 
-				// Show detailed success message
-				const fileNames = refreshedFiles.map((f) => f.name).join(", ");
-				let message = `📂 Restored ${refreshedFiles.length} file(s): ${fileNames}`;
+                                // Show detailed success message
+                                const fileNames = refreshedFiles.map((f) => f.name).join(", ");
+                                const messageItems: IconListItem[] = [
+                                        {
+                                                icon: "folder",
+                                                text: `Restored ${refreshedFiles.length} file(s): ${fileNames}`,
+                                        },
+                                ];
 
-				if (grantedFiles > 0) {
-					message += `\n✅ ${grantedFiles} file(s) have disk access`;
-				}
+                                if (grantedFiles > 0) {
+                                        messageItems.push({
+                                                icon: "check-circle",
+                                                text: `${grantedFiles} file(s) have disk access`,
+                                        });
+                                }
 
-				if (autoRefreshedCount > 0) {
-					message += `\n🔄 Auto-refreshed ${autoRefreshedCount} file(s) from disk`;
-				}
+                                if (autoRefreshedCount > 0) {
+                                        messageItems.push({
+                                                icon: "refresh-cw",
+                                                text: `Auto-refreshed ${autoRefreshedCount} file(s) from disk`,
+                                        });
+                                }
 
-				// Only show info notification if no files need permission
-				if (
-					permissionDeniedCount === 0 &&
-					filesNeedingPermission.length === 0
-				) {
-					NotificationService.showInfo(message);
-				}
+                                // Only show info notification if no files need permission
+                                if (
+                                        permissionDeniedCount === 0 &&
+                                        filesNeedingPermission.length === 0
+                                ) {
+                                        NotificationService.showInfo(
+                                                createIconList(messageItems, { size: 18 })
+                                        );
+                                }
 
 				return;
 			} else {
 				// No files in storage - show helpful message for first-time users
-				NotificationService.showInfo(
-					'💡 No saved files found. Use the "Add" button to load configuration files from your computer.'
-				);
+                                NotificationService.showInfo(
+                                        createIconLabel(
+                                                "help-circle",
+                                                'No saved files found. Use the "Add" button to load configuration files from your computer.',
+                                                { size: 18 }
+                                        )
+                                );
 			}
 		} catch (error) {
 			console.warn(
@@ -707,9 +741,13 @@ export class KonficuratorApp {
 
 				// Show success message for restored files
 				const fileNames = storedFiles.map((f) => f.name).join(", ");
-				NotificationService.showInfo(
-					`📂 Restored ${storedFiles.length} file(s) from previous session: ${fileNames}`
-				);
+                                NotificationService.showInfo(
+                                        createIconLabel(
+                                                "folder",
+                                                `Restored ${storedFiles.length} file(s) from previous session: ${fileNames}`,
+                                                { size: 18 }
+                                        )
+                                );
 			}
 		} catch (error) {
 			console.warn("Failed to load persisted files:", error);

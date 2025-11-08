@@ -8,9 +8,12 @@
 }
 
 .xml-heading-label::before {
-  content: "📁";
+  content: "";
+  display: inline-block;
   margin-right: var(--gutter-1);
-  font-size: 1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  background: url("./icons/folder.svg") no-repeat center/contain;
 }
 
 .xml-value {
@@ -51,9 +54,12 @@
 }
 
 .xml-attributes-heading::before {
-  content: "🏷️";
+  content: "";
+  display: inline-block;
   margin-right: var(--gutter-1);
-  font-size: 0.9rem;
+  width: 1rem;
+  height: 1rem;
+  background: url("./icons/tag.svg") no-repeat center/contain;
 }
 
 .xml-attributes-container {

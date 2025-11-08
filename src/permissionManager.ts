@@ -7,6 +7,7 @@ import { FileData } from "./interfaces.js";
 import { FileNotifications } from "./ui/notifications.js";
 import { NotificationService } from "./ui/notifications.js";
 import { createElement } from "./ui/dom-factory.js";
+import { createIconLabel } from "./ui/icon.js";
 
 export class PermissionManager {
 	/**
@@ -165,15 +166,23 @@ export class PermissionManager {
 						})
 					);
 
-					NotificationService.showSuccess(
-						`✅ Access granted to "${file.name}". File loaded successfully.`
-					);
+                                        NotificationService.showSuccess(
+                                                createIconLabel(
+                                                        "check-circle",
+                                                        `Access granted to "${file.name}". File loaded successfully.`,
+                                                        { size: 18 }
+                                                )
+                                        );
 					return true;
 				} else {
 					// Permission denied
-					NotificationService.showError(
-						`🔒 Permission denied for "${file.name}". The file will remain in storage-only mode.`
-					);
+                                        NotificationService.showError(
+                                                createIconLabel(
+                                                        "lock",
+                                                        `Permission denied for "${file.name}". The file will remain in storage-only mode.`,
+                                                        { size: 18 }
+                                                )
+                                        );
 					return false;
 				}
 			} else {
@@ -188,9 +197,13 @@ export class PermissionManager {
 			const message = error instanceof Error ? error.message : "Unknown error";
 
 			if (error instanceof Error && error.name === "SecurityError") {
-				NotificationService.showError(
-					`🔒 Security error accessing "${file.name}": ${message}`
-				);
+                                NotificationService.showError(
+                                        createIconLabel(
+                                                "lock",
+                                                `Security error accessing "${file.name}": ${message}`,
+                                                { size: 18 }
+                                        )
+                                );
 			} else {
 				NotificationService.showError(
 					`Failed to request permission for "${file.name}": ${message}`
