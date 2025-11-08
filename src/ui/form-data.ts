@@ -42,20 +42,31 @@ export interface ObjectFieldData extends FormFieldData {
 }
 
 export interface XmlHeadingFieldData extends FormFieldData {
-	type: "xml-heading";
-	attributes?: Record<string, any>;
-	children: FormFieldData[];
+        type: "xml-heading";
+        attributes?: Record<string, any>;
+        attributeFields?: XmlAttributeField[];
+        children: FormFieldData[];
 }
 
 export interface XmlValueFieldData extends FormFieldData {
-	type: "xml-value";
-	textValue: string;
-	attributes?: Record<string, any>;
+        type: "xml-value";
+        textValue: string;
+        attributes?: Record<string, any>;
+        attributeFields?: XmlAttributeField[];
 }
 
 export interface XmlAttributesFieldData extends FormFieldData {
-	type: "xml-attributes";
-	attributes: Record<string, any>;
+        type: "xml-attributes";
+        attributes: Record<string, any>;
+        attributeFields?: XmlAttributeField[];
+}
+
+export interface XmlAttributeField {
+        key: string;
+        label: string;
+        path: string;
+        value: any;
+        inputType: "text" | "number" | "boolean";
 }
 
 export type AnyFormFieldData =
@@ -135,9 +146,9 @@ export function determineInputType(value: any): string {
  */
 // Patch: filter out @type, @value, @attributes from XML children and use tag names as labels
 export function createFormFieldData(
-	key: string,
-	value: any,
-	path: string
+        key: string,
+        value: any,
+        path: string
 ): AnyFormFieldData {
 	const baseData: Partial<FormFieldData> = {
 		key,
@@ -172,34 +183,49 @@ export function createFormFieldData(
 				children,
 			} as ObjectFieldData;
 
-		case "xml-heading":
-			const xmlHeadingChildren = Object.entries(value)
-				.filter(([k]) => k !== "@type" && k !== "@value" && k !== "@attributes")
-				.map(([childKey, childValue]) => {
-					const childPath = path ? `${path}.${childKey}` : childKey;
-					return createFormFieldData(childKey, childValue, childPath);
-				});
-			return {
-				...baseData,
-				type: "xml-heading",
-				attributes: value["@attributes"],
-				children: xmlHeadingChildren,
-			} as XmlHeadingFieldData;
+                case "xml-heading":
+                        const headingAttributes = createXmlAttributeFields(
+                                value["@attributes"],
+                                path
+                        );
+                        const xmlHeadingChildren = Object.entries(value)
+                                .filter(([k]) => k !== "@type" && k !== "@value" && k !== "@attributes")
+                                .map(([childKey, childValue]) => {
+                                        const childPath = path ? `${path}.${childKey}` : childKey;
+                                        return createFormFieldData(childKey, childValue, childPath);
+                                });
+                        return {
+                                ...baseData,
+                                type: "xml-heading",
+                                attributes: value["@attributes"],
+                                attributeFields: headingAttributes,
+                                children: xmlHeadingChildren,
+                        } as XmlHeadingFieldData;
 
-		case "xml-value":
-			return {
-				...baseData,
-				type: "xml-value",
-				textValue: String(value["@value"] ?? value ?? ""),
-				attributes: value["@attributes"],
-			} as XmlValueFieldData;
+                case "xml-value":
+                        const valueAttributes = createXmlAttributeFields(
+                                value["@attributes"],
+                                path
+                        );
+                        return {
+                                ...baseData,
+                                type: "xml-value",
+                                textValue: String(value["@value"] ?? value ?? ""),
+                                attributes: value["@attributes"],
+                                attributeFields: valueAttributes,
+                        } as XmlValueFieldData;
 
-		case "xml-attributes":
-			return {
-				...baseData,
-				type: "xml-attributes",
-				attributes: value["@attributes"] || {},
-			} as XmlAttributesFieldData;
+                case "xml-attributes":
+                        const attributeFields = createXmlAttributeFields(
+                                value["@attributes"],
+                                path
+                        );
+                        return {
+                                ...baseData,
+                                type: "xml-attributes",
+                                attributes: value["@attributes"] || {},
+                                attributeFields,
+                        } as XmlAttributesFieldData;
 
 		default:
 			return {
@@ -213,6 +239,31 @@ export function createFormFieldData(
 				value: value,
 			} as TextFieldData;
 	}
+}
+
+function createXmlAttributeFields(
+        attributes: Record<string, any> | undefined,
+        path: string
+): XmlAttributeField[] {
+        if (!attributes) {
+                return [];
+        }
+
+        return Object.entries(attributes).map(([attrKey, attrValue]) => {
+                const attributePath = path ? `${path}.@${attrKey}` : `@${attrKey}`;
+                return {
+                        key: attrKey,
+                        label: formatLabel(attrKey),
+                        path: attributePath,
+                        value: attrValue,
+                        inputType:
+                                typeof attrValue === "boolean"
+                                        ? "boolean"
+                                        : typeof attrValue === "number"
+                                        ? "number"
+                                        : "text",
+                };
+        });
 }
 
 /**
