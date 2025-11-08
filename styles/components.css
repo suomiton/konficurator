@@ -101,7 +101,6 @@
 	border-radius: var(--radius-small);
 	font-size: 0.75rem;
 	text-transform: uppercase;
-	margin-left: var(--gutter-2);
 	letter-spacing: 0.6px;
 }
 
@@ -118,10 +117,6 @@
 .add-file-tag:hover {
 	background: #eef2ff;
 	transform: translateY(-1px);
-}
-
-.file-editor-header .file-type {
-	margin-right: var(--gutter-2);
 }
 
 .file-editor-header .file-type[data-type='xml'] {

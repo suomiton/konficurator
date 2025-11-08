@@ -534,12 +534,27 @@ export function renderFileHeader(
 	});
 
 	const title = createElement({
-		tag: "h3",
+		tag: "span",
 		className: "file-title",
 		textContent: fileName,
 	});
 
-	titleContainer.appendChild(title);
+	// Type tag (moved inside titleContainer before the filename)
+	const typeTag = createElement({
+		tag: "span",
+		className: "file-type",
+		textContent: fileType,
+	});
+
+	// Inline wrapper for type + title for controlled flex gap
+	const titleInlineWrapper = createElement({
+		tag: "div",
+		className: "file-title-inline",
+	});
+
+	titleInlineWrapper.appendChild(typeTag);
+	titleInlineWrapper.appendChild(title);
+	titleContainer.appendChild(titleInlineWrapper);
 
 	// Optional path display (now only shows actual file system path if provided)
 	if (filePath) {
@@ -551,18 +566,10 @@ export function renderFileHeader(
 		titleContainer.appendChild(pathDisplay);
 	}
 
-	// Type tag
-	const typeTag = createElement({
-		tag: "span",
-		className: "file-type",
-		textContent: fileType,
-	});
-
 	// Action buttons
 	const actionButtons = renderFileActionButtons(fileName, hasHandle);
 
 	header.appendChild(titleContainer);
-	header.appendChild(typeTag);
 	header.appendChild(actionButtons);
 
 	return header;

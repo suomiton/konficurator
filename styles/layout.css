@@ -23,6 +23,13 @@ header {
 	box-shadow: 0 var(--gutter-1) var(--gutter-2) rgba(2, 48, 71, 0.08);
 }
 
+.file-title-inline {
+	display: flex;
+	align-items: center;
+	flex-flow: row nowrap;
+	gap: 8px;
+}
+
 .file-info {
 	padding: var(--gutter-2);
 	background: var(--color-gray-100);
@@ -66,7 +73,7 @@ header {
 	align-items: center;
 	justify-content: space-between;
 	padding: var(--gutter-2) var(--gutter-3);
-	background: linear-gradient(135deg, var(--color-gray-50), var(--color-gray-100));
+	background: var(--color-gray-50);
 	border-radius: var(--radius-medium) var(--radius-medium) 0 0;
 	border-bottom: 2px solid var(--color-border);
 	margin-bottom: var(--gutter-3);
@@ -79,7 +86,6 @@ header {
 .file-path {
 	font-size: 0.75rem;
 	color: var(--color-text-muted);
-	margin-top: var(--gutter-1);
 	font-weight: 400;
 	opacity: 0.85;
 }
@@ -92,9 +98,9 @@ header {
 
 .save-container {
 	margin-top: var(--gutter-3);
-	padding-top: var(--gutter-2);
+	padding: var(--gutter-2);
 	border-top: 1px solid var(--color-border);
-	text-align: right;
+	text-align: center;
 }
 
 footer {
