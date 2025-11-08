@@ -12,7 +12,7 @@
 - **Implementation:**
   - Enhanced `fileHandler.ts` to capture file metadata (path, size, lastModified)
   - Updated `storage.ts` to persist and restore path information
-  - Modified `renderer.ts` with intelligent path display logic
+  - Updated `src/ui/dom-renderer.ts` with intelligent path display logic
   - Added appropriate fallback messages for different file sources
 
 ### ✅ Feature 2: Sticky Save Button
@@ -31,7 +31,7 @@
 
 1. **`src/fileHandler.ts`** - Enhanced to capture file path metadata
 2. **`src/storage.ts`** - Updated to persist/restore path information
-3. **`src/renderer.ts`** - Added path display logic + sticky button implementation
+3. **`src/ui/dom-renderer.ts`** - Path display rendering + header action buttons
 4. **`styles/main.css`** - Added sticky button styles and animations
 
 ### Key Features Implemented

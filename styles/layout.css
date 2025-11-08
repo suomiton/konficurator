@@ -1,6 +1,5 @@
 main {
 	margin: 0 auto;
-	padding: 0 var(--gutter-2);
 	background: var(--color-surface);
 	min-height: calc(100vh - var(--gutter-8));
 	border-radius: var(--radius-large) var(--radius-large) 0 0;
@@ -9,13 +8,12 @@ main {
 
 header {
 	text-align: center;
-	padding: var(--gutter-4) var(--gutter-2);
+	padding: var(--gutter-2) var(--gutter-2);
 	color: var(--color-text-inverse);
 	background: linear-gradient(135deg, var(--color-prussian-blue), var(--color-blue-green));
 }
 
 .file-selector {
-	padding: var(--gutter-4);
 	text-align: center;
 	border-bottom: 1px solid var(--color-border);
 	position: sticky;
@@ -26,10 +24,8 @@ header {
 }
 
 .file-info {
-	margin-top: var(--gutter-2);
 	padding: var(--gutter-2);
 	background: var(--color-gray-100);
-	border-radius: var(--radius-medium);
 	display: none;
 	text-align: left;
 }
@@ -45,7 +41,7 @@ header {
 }
 
 .editor-container {
-	padding: var(--gutter-4) 0;
+	padding: var(--gutter-4);
 	display: grid;
 	gap: var(--gutter-4);
 	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

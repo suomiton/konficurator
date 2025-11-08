@@ -6,7 +6,7 @@ Enhanced file path display below filename in file tiles with smaller font stylin
 
 ## 🎯 **Implementation Details**
 
-### 1. **Updated File Header Structure** (`src/renderer.ts`)
+### 1. **Updated File Header Structure** (`src/ui/dom-renderer.ts`)
 
 - Modified `createFileHeader()` method to include file path display
 - Added `file-title-container` div to wrap filename and path
@@ -72,7 +72,7 @@ The logic now prioritizes showing actual file paths when available, with appropr
 - `src/interfaces.ts` - Already includes path, lastModified, and size fields
 - `src/fileHandler.ts` - Enhanced to capture file metadata including path information
 - `src/storage.ts` - Updated to persist and restore path information
-- `src/renderer.ts` - Enhanced createFileHeader with intelligent path display logic
+- `src/ui/dom-renderer.ts` - `renderFileHeader` now conditionally shows only actual filesystem path
 - `styles/main.css` - Already includes CSS classes for path display
 - `test-file-path-display.html` - Updated test scenarios for enhanced functionality
 - `FILE_PATH_DISPLAY_FEATURE.md` - Updated documentation for enhanced implementation

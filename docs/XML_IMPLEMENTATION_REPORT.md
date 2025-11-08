@@ -33,7 +33,7 @@ We have successfully implemented and **COMPLETED** the XML parser refinement wit
 
 #### 3. **Renderer Enhancement**
 
-- **File**: `/Users/tonisuominen/dev/konficurator/src/renderer.ts`
+- **File** (migrated): XML field rendering now lives in `src/ui/dom-renderer.ts` & orchestration in `src/ui/modern-form-renderer.ts` (legacy `renderer.ts` removed)
 - **Implementation**: Added XML-specific rendering methods:
   - `createXmlHeadingField()` - Renders heading elements as expandable containers
   - `createXmlValueField()` - Renders value elements with text input and optional attribute inputs
@@ -102,7 +102,7 @@ We have successfully implemented and **COMPLETED** the XML parser refinement wit
 #### Data Flow
 
 1. **XML Input** → `XmlParser.parse()` → **Structured Object with @type annotations**
-2. **Structured Object** → `FormRenderer.generateFormFields()` → **HTML Form with XML-specific fields**
+2. **Structured Object** → `ModernFormRenderer.renderFormFields()` (pure DOM via `dom-renderer`) → **HTML Form with XML-specific fields**
 3. **Form Data** → `FilePersistence.extractFormData()` → **Updated Object Structure**
 4. **Updated Object** → `XmlParser.serialize()` → **XML Output**
 
@@ -152,7 +152,7 @@ For the sample file `samples/server-config.xml`:
 
 - `/src/parsers.ts` - Enhanced XML parser with type detection and proper structure
 - `/src/interfaces.ts` - Extended FieldType enum with XML-specific types
-- `/src/renderer.ts` - Added XML field rendering methods and field type detection
+- `/src/ui/dom-renderer.ts` - XML field rendering methods and field type detection (migrated)
 - `/styles/main.css` - Added comprehensive XML field styling
 - `/tests/unit/parsers.test.ts` - Added XML-specific unit tests
 

@@ -25,7 +25,7 @@ The Konficurator application has been successfully refactored to use the dom-fac
 ### Core Modules
 
 1. **`src/main.ts`** - File info display refactored to use dom-factory
-2. **`src/renderer.ts`** - Complete DOM creation refactoring for all form fields
+2. ~~`src/renderer.ts`~~ - Legacy renderer removed (superseded by modular UI in `src/ui/`)
 3. **`src/confirmation.ts`** - Dialog creation refactored with CSS classes
 4. **`src/ui/modern-form-renderer.ts`** - Form rendering updated to use dom-factory
 5. **`src/permissionManager.ts`** - Reconnect container creation refactored
@@ -121,7 +121,7 @@ const button = createButton({
 | **Form Data**       | Multiple | ✅ Passing         | Complete          |
 | **Event Handlers**  | Multiple | ✅ Passing         | Complete          |
 | **Sticky Behavior** | 19       | ✅ Passing         | Complete          |
-| **Legacy Renderer** | Existing | ✅ Passing         | Maintained        |
+| **Legacy Renderer** | Removed  | —                  | —                 |
 | **Other Modules**   | Existing | ✅ Passing         | Maintained        |
 | **TOTAL**           | **141**  | **✅ ALL PASSING** | **Comprehensive** |
 
@@ -201,7 +201,7 @@ src/
 │   ├── modern-form-renderer.ts     # Orchestrator implementing IRenderer
 │   └── notifications.ts            # Existing notification system
 ├── main.ts                         # Updated to use ModernFormRenderer
-├── renderer.ts                     # Legacy renderer (kept for reference)
+├── (removed) renderer.ts           # Legacy renderer removed
 └── ...                             # Other existing modules
 
 tests/unit/                          # Comprehensive unit test suite

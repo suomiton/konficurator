@@ -104,11 +104,12 @@ The application follows SOLID principles with clear separation of concerns and a
 - **Parser WASM** (`parser-wasm/`): High-performance Rust-based parser compiled to WebAssembly for JSON, XML, and ENV files
 - **FileHandler** (`src/fileHandler.ts`): Advanced file operations with File System Access API and permission management
 - **Parsers** (`src/parsers.ts`): TypeScript integration layer for the WASM parser with extensible factory patterns
-- **Renderer** (`src/renderer.ts`): Dynamic form generation and enhanced UI
+- **DOM Renderer** (`src/ui/dom-renderer.ts`): Stateless, pure DOM element creation (headers, fields, XML handling, save containers)
+- **Modern Form Renderer** (`src/ui/modern-form-renderer.ts`): Orchestrates rendering using pure functions and attaches events (replaces legacy `renderer.ts`)
 - **Persistence** (`src/persistence.ts`): Intelligent file saving with conflict detection and resolution
 - **Storage** (`src/handleStorage.ts`): Enhanced persistent storage with metadata and restoration capabilities
 - **Permission Manager** (`src/permissionManager.ts`): Robust permission handling and validation
-- **UI Components** (`src/ui/`): Reusable UI components and confirmation dialogs
+- **UI Components** (`src/ui/`): Reusable UI components, notifications, sticky behavior, confirmation dialogs
 - **Main** (`src/main.ts`): Application orchestration and enhanced event handling
 
 ### Design Principles Applied
@@ -234,42 +235,43 @@ wasm-pack build --target web --out-dir pkg  # Manual build
 
 ```
 konficurator/
-├── index.html              # Main HTML file
+├── index.html               # Main HTML file
 ├── styles/
-│   └── main.css            # Application styles with enhanced UI
+│   └── main.css             # Application styles
 ├── src/
-│   ├── interfaces.ts       # TypeScript interfaces
-│   ├── fileHandler.ts      # Advanced file operations
-│   ├── parsers.ts          # WASM parser integration layer
-│   ├── renderer.ts         # Enhanced form generation
-│   ├── persistence.ts      # Intelligent save operations
-│   ├── handleStorage.ts    # Enhanced storage management
+│   ├── interfaces.ts        # TypeScript interfaces
+│   ├── fileHandler.ts       # File operations & metadata
+│   ├── parsers.ts           # WASM parser integration layer
+│   ├── ui/dom-renderer.ts   # Pure DOM element creation (no business logic)
+│   ├── ui/modern-form-renderer.ts # UI orchestration & event wiring
+│   ├── persistence.ts       # Intelligent save operations
+│   ├── handleStorage.ts     # Persistence management
 │   ├── permissionManager.ts # Permission handling
-│   ├── confirmation.ts     # User confirmation dialogs
-│   ├── ui/                 # Reusable UI components
-│   └── main.ts            # Main application orchestration
-├── parser-wasm/           # High-performance WASM parser core
-│   ├── src/               # Rust source code
-│   │   ├── lib.rs         # Main WASM interface
-│   │   ├── json_parser.rs # JSON parsing implementation
-│   │   ├── xml_parser.rs  # XML parsing implementation
-│   │   ├── env_parser.rs  # Environment file parsing
-│   │   └── tests.rs       # Comprehensive test suite
-│   ├── pkg/               # Generated WASM bindings (generated)
-│   ├── Cargo.toml         # Rust dependencies and configuration
-│   ├── package.json       # WASM build configuration
-│   └── README.md          # WASM parser documentation
-├── samples/               # Sample config files
-├── manual-tests/          # Comprehensive test suite
-├── docs/                  # Detailed documentation
-├── dev-tools/             # Development utilities
-├── build-tools/           # Production optimization scripts
-├── dist/                  # Compiled JavaScript (generated)
-├── build/                 # Optimized production build (generated)
-├── coverage/              # Test coverage reports (generated)
-├── deploy.sh              # One-command deployment script
-├── docker-compose.yml     # Development and production containers
-├── Dockerfile             # Multi-stage Docker build
+│   ├── confirmation.ts      # User confirmation dialogs
+│   ├── ui/                  # Additional UI modules (factory, events, sticky)
+│   └── main.ts              # Application orchestration
+├── parser-wasm/             # High-performance WASM parser core
+│   ├── src/                 # Rust source code
+│   │   ├── lib.rs           # Main WASM interface
+│   │   ├── json_parser.rs   # JSON parsing implementation
+│   │   ├── xml_parser.rs    # XML parsing implementation
+│   │   ├── env_parser.rs    # ENV parsing implementation
+│   │   └── tests.rs         # Rust test suite
+│   ├── pkg/                 # Generated WASM bindings (generated)
+│   ├── Cargo.toml           # Rust dependencies & config
+│   ├── package.json         # WASM build configuration
+│   └── README.md            # WASM parser documentation
+├── samples/                 # Sample config files
+├── manual-tests/            # Manual test pages
+├── docs/                    # Detailed documentation
+├── dev-tools/               # Development utilities
+├── build-tools/             # Production optimization scripts
+├── dist/                    # Compiled JavaScript (generated)
+├── build/                   # Optimized production build (generated)
+├── coverage/                # Test coverage reports (generated)
+├── deploy.sh                # One-command deployment script
+├── docker-compose.yml       # Development and production containers
+├── Dockerfile               # Multi-stage Docker build
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -491,13 +493,25 @@ cd parser-wasm && npm run build && cd ..
 
 ### Adding New Input Types
 
-Extend the `FormRenderer` class to handle new data types:
+Add new field types by:
+
+1. Extending `generateFormFieldsData()` in `src/ui/form-data.ts` to emit a new `type`.
+2. Adding a render branch in `renderInputElement()` (or a helper) inside `src/ui/dom-renderer.ts`.
+3. (Optional) Wiring any special events via `event-handlers.ts` so `ModernFormRenderer` picks them up automatically.
+
+Example (pseudo):
 
 ```typescript
-private createCustomField(key: string, value: any, path: string): HTMLElement {
-  // Custom input field logic
-}
+// form-data.ts
+// Emit a custom field type
+fields.push({ type: "custom", path, label, value });
+
+// dom-renderer.ts
+case "custom":
+   return renderCustomField(fieldData as CustomFieldData, className);
 ```
+
+The legacy `FormRenderer` class (`src/renderer.ts`) has been removed; all new work should target the modular renderer architecture above.
 
 ## Sample Files
 

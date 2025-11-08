@@ -50,7 +50,7 @@ konficurator/
 
 ### **🔧 Technical Improvements**
 
-- Enhanced `renderer.ts` with sticky behavior methods
+- Added `src/ui/sticky-behavior.ts` with sticky behavior methods (legacy `renderer.ts` removed)
 - Updated CSS with sticky positioning and animations
 - Improved file editor containment styling
 - Added comprehensive validation and test pages

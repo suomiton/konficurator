@@ -39,7 +39,7 @@ return {
 
 - `src/fileHandler.ts` - Enhanced metadata capture
 - `src/storage.ts` - Path persistence logic
-- `src/renderer.ts` - Intelligent path display logic
+- `src/ui/dom-renderer.ts` - File header & path display logic (migrated from legacy renderer)
 
 ---
 
@@ -82,7 +82,7 @@ const observer = new IntersectionObserver(
 
 ### **Files Modified**:
 
-- `src/renderer.ts` - Sticky behavior implementation
+- `src/ui/sticky-behavior.ts` - Sticky behavior implementation (legacy renderer removed)
 - `styles/main.css` - Sticky button styles and animations
 
 ---
@@ -134,7 +134,7 @@ const observer = new IntersectionObserver(
 
 - `src/fileHandler.ts` - File metadata capture
 - `src/storage.ts` - Path persistence
-- `src/renderer.ts` - Path display + sticky buttons
+- `src/ui/dom-renderer.ts` - Path display rendering & action buttons
 - `styles/main.css` - Enhanced styling
 
 ### **Documentation & Testing**:

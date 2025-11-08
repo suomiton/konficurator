@@ -34,7 +34,8 @@ src/
 ├── interfaces.ts       # TypeScript interfaces and contracts
 ├── fileHandler.ts      # File System Access API operations
 ├── parsers.ts          # JSON/XML parsing with factory pattern
-├── renderer.ts         # Dynamic form generation
+├── ui/dom-renderer.ts  # Pure DOM rendering helpers
+├── ui/modern-form-renderer.ts # Orchestrates UI using pure functions
 ├── persistence.ts      # Form data serialization and saving
 └── main.ts            # Application orchestration
 ```
@@ -169,7 +170,7 @@ ParserFactory.registerParser('yaml', () => new YamlParser());
 ### Adding New Input Types
 
 ```typescript
-// Extend FormRenderer with new field types
+// Add new field types via form-data + dom-renderer
 private createCustomField(key: string, value: any): HTMLElement { ... }
 ```
 

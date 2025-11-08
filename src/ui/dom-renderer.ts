@@ -12,15 +12,15 @@ import {
 	createLabel,
 } from "./dom-factory.js";
 import {
-        FormFieldData,
-        TextFieldData,
-        NumberFieldData,
-        BooleanFieldData,
-        XmlHeadingFieldData,
-        XmlValueFieldData,
-        XmlAttributesFieldData,
-        XmlAttributeField,
-        formatLabel,
+	FormFieldData,
+	TextFieldData,
+	NumberFieldData,
+	BooleanFieldData,
+	XmlHeadingFieldData,
+	XmlValueFieldData,
+	XmlAttributesFieldData,
+	XmlAttributeField,
+	formatLabel,
 } from "./form-data.js";
 
 export interface FormElementRenderOptions {
@@ -97,25 +97,22 @@ export function renderInputElement(
 			return renderNumberInput(fieldData as NumberFieldData, className);
 		case "boolean":
 			return renderBooleanInput(fieldData as BooleanFieldData, className);
-                case "object":
-                        return renderObjectField(fieldData, className);
-                case "array":
-                        return renderArrayField(fieldData, className);
-                case "xml-heading":
-                        return renderXmlHeadingField(
-                                fieldData as XmlHeadingFieldData,
-                                className
-                        );
-                case "xml-value":
-                        return renderXmlValueField(fieldData as XmlValueFieldData, className);
-                case "xml-attributes":
-                        return renderXmlAttributesField(
-                                fieldData as XmlAttributesFieldData,
-                                className
-                        );
-                default:
-                        return renderTextInput(fieldData as TextFieldData, className);
-        }
+		case "object":
+			return renderObjectField(fieldData, className);
+		case "array":
+			return renderArrayField(fieldData, className);
+		case "xml-heading":
+			return renderXmlHeadingField(fieldData as XmlHeadingFieldData, className);
+		case "xml-value":
+			return renderXmlValueField(fieldData as XmlValueFieldData, className);
+		case "xml-attributes":
+			return renderXmlAttributesField(
+				fieldData as XmlAttributesFieldData,
+				className
+			);
+		default:
+			return renderTextInput(fieldData as TextFieldData, className);
+	}
 }
 
 /**
@@ -311,202 +308,196 @@ function renderArrayField(
  * Renders XML heading field
  */
 function renderXmlHeadingField(
-        fieldData: XmlHeadingFieldData,
-        className: string
+	fieldData: XmlHeadingFieldData,
+	className: string
 ): HTMLElement {
-        const container = createElement({
-                tag: "div",
-                className: `${className} xml-heading`,
-                data: { path: fieldData.path, type: "xml-heading" },
-        });
+	const container = createElement({
+		tag: "div",
+		className: `${className} xml-heading`,
+		data: { path: fieldData.path, type: "xml-heading" },
+	});
 
-        const heading = createElement({
-                tag: "h4",
-                className: "xml-tag-name",
-                innerHTML: `&lt;${fieldData.key}&gt;`,
-        });
-        container.appendChild(heading);
+	const heading = createElement({
+		tag: "h4",
+		className: "xml-tag-name",
+		innerHTML: `&lt;${fieldData.key}&gt;`,
+	});
+	container.appendChild(heading);
 
-        const attributesList = renderXmlAttributeList(fieldData);
-        if (attributesList) {
-                container.appendChild(attributesList);
-        }
+	const attributesList = renderXmlAttributeList(fieldData);
+	if (attributesList) {
+		container.appendChild(attributesList);
+	}
 
-        if (Array.isArray(fieldData.children)) {
-                fieldData.children.forEach((child) => {
-                        container.appendChild(renderFormField(child));
-                });
-        }
+	if (Array.isArray(fieldData.children)) {
+		fieldData.children.forEach((child) => {
+			container.appendChild(renderFormField(child));
+		});
+	}
 
-        return container;
+	return container;
 }
 
 /**
  * Renders XML value field (textarea for XML content)
  */
 function renderXmlValueField(
-        fieldData: XmlValueFieldData,
-        className: string
+	fieldData: XmlValueFieldData,
+	className: string
 ): HTMLElement {
-        const container = createElement({
-                tag: "div",
-                className: `${className} xml-value-field`,
-                data: { path: fieldData.path, type: "xml-value" },
-        });
+	const container = createElement({
+		tag: "div",
+		className: `${className} xml-value-field`,
+		data: { path: fieldData.path, type: "xml-value" },
+	});
 
-        const textarea = createTextarea({
-                tag: "textarea",
-                className: `${className} xml-value`,
-                name: fieldData.path,
-                id: fieldData.path,
-                textContent: String(fieldData.textValue || ""),
-                attributes: { rows: "3" },
-        });
+	const textarea = createTextarea({
+		tag: "textarea",
+		className: `${className} xml-value`,
+		name: fieldData.path,
+		id: fieldData.path,
+		textContent: String(fieldData.textValue || ""),
+		attributes: { rows: "3" },
+	});
 
-        container.appendChild(textarea);
+	container.appendChild(textarea);
 
-        const attributesList = renderXmlAttributeList(fieldData);
-        if (attributesList) {
-                container.appendChild(attributesList);
-        }
+	const attributesList = renderXmlAttributeList(fieldData);
+	if (attributesList) {
+		container.appendChild(attributesList);
+	}
 
-        return container;
+	return container;
 }
 
 /**
  * Renders XML attributes field (special handling for XML attributes)
  */
 function renderXmlAttributesField(
-        fieldData: XmlAttributesFieldData,
-        className: string
+	fieldData: XmlAttributesFieldData,
+	className: string
 ): HTMLElement {
-        const container = createElement({
-                tag: "div",
-                className: `${className} xml-attributes`,
-                data: { path: fieldData.path, type: "xml-attributes" },
-        });
+	const container = createElement({
+		tag: "div",
+		className: `${className} xml-attributes`,
+		data: { path: fieldData.path, type: "xml-attributes" },
+	});
 
-        const header = createElement({
-                tag: "div",
-                className: "xml-attributes-header",
-                textContent: fieldData.label || "Attributes",
-        });
-        container.appendChild(header);
+	const header = createElement({
+		tag: "div",
+		className: "xml-attributes-header",
+		textContent: fieldData.label || "Attributes",
+	});
+	container.appendChild(header);
 
-        const attributesList = renderXmlAttributeList(fieldData);
-        if (attributesList) {
-                container.appendChild(attributesList);
-        }
+	const attributesList = renderXmlAttributeList(fieldData);
+	if (attributesList) {
+		container.appendChild(attributesList);
+	}
 
-        return container;
+	return container;
 }
 
 function renderXmlAttributeList(
-        fieldData:
-                | XmlHeadingFieldData
-                | XmlValueFieldData
-                | XmlAttributesFieldData
+	fieldData: XmlHeadingFieldData | XmlValueFieldData | XmlAttributesFieldData
 ): HTMLElement | null {
-        const attributeFields = resolveXmlAttributeFields(fieldData);
-        if (attributeFields.length === 0) {
-                return null;
-        }
+	const attributeFields = resolveXmlAttributeFields(fieldData);
+	if (attributeFields.length === 0) {
+		return null;
+	}
 
-        const list = createElement({
-                tag: "div",
-                className: "xml-attributes-list",
-                data: { path: fieldData.path },
-        });
+	const list = createElement({
+		tag: "div",
+		className: "xml-attributes-list",
+		data: { path: fieldData.path },
+	});
 
-        attributeFields.forEach((attribute) => {
-                list.appendChild(renderSingleXmlAttribute(attribute));
-        });
+	attributeFields.forEach((attribute) => {
+		list.appendChild(renderSingleXmlAttribute(attribute));
+	});
 
-        return list;
+	return list;
 }
 
 function resolveXmlAttributeFields(
-        fieldData:
-                | XmlHeadingFieldData
-                | XmlValueFieldData
-                | XmlAttributesFieldData
+	fieldData: XmlHeadingFieldData | XmlValueFieldData | XmlAttributesFieldData
 ): XmlAttributeField[] {
-        if (fieldData.attributeFields && fieldData.attributeFields.length > 0) {
-                return fieldData.attributeFields;
-        }
+	if (fieldData.attributeFields && fieldData.attributeFields.length > 0) {
+		return fieldData.attributeFields;
+	}
 
-        if (!fieldData.attributes) {
-                return [];
-        }
+	if (!fieldData.attributes) {
+		return [];
+	}
 
-        return Object.entries(fieldData.attributes).map(([key, value]) => ({
-                key,
-                label: formatLabel(key),
-                path: fieldData.path ? `${fieldData.path}.@${key}` : `@${key}`,
-                value,
-                inputType:
-                        typeof value === "boolean"
-                                ? "boolean"
-                                : typeof value === "number"
-                                ? "number"
-                                : "text",
-        }));
+	return Object.entries(fieldData.attributes).map(([key, value]) => ({
+		key,
+		label: formatLabel(key),
+		path: fieldData.path ? `${fieldData.path}.@${key}` : `@${key}`,
+		value,
+		inputType:
+			typeof value === "boolean"
+				? "boolean"
+				: typeof value === "number"
+				? "number"
+				: "text",
+	}));
 }
 
 function renderSingleXmlAttribute(attribute: XmlAttributeField): HTMLElement {
-        const container = createElement({
-                tag: "div",
-                className: "xml-attribute-field",
-        });
+	const container = createElement({
+		tag: "div",
+		className: "xml-attribute-field",
+	});
 
-        const label = createElement({
-                tag: "label",
-                className: "xml-attribute-label",
-                textContent: `@${attribute.key}`,
-                attributes: { for: attribute.path },
-        });
+	const label = createElement({
+		tag: "label",
+		className: "xml-attribute-label",
+		textContent: `@${attribute.key}`,
+		attributes: { for: attribute.path },
+	});
 
-        let input: HTMLElement;
-        switch (attribute.inputType) {
-                case "boolean":
-                        input = createInput({
-                                tag: "input",
-                                className: "xml-attribute-input checkbox-input",
-                                type: "checkbox",
-                                name: attribute.path,
-                                id: attribute.path,
-                                checked: Boolean(attribute.value),
-                                data: { path: attribute.path },
-                        });
-                        break;
-                case "number":
-                        input = createInput({
-                                tag: "input",
-                                className: "xml-attribute-input",
-                                type: "number",
-                                name: attribute.path,
-                                id: attribute.path,
-                                value: String(attribute.value ?? ""),
-                                data: { path: attribute.path },
-                        });
-                        break;
-                default:
-                        input = createInput({
-                                tag: "input",
-                                className: "xml-attribute-input",
-                                type: "text",
-                                name: attribute.path,
-                                id: attribute.path,
-                                value: String(attribute.value ?? ""),
-                                data: { path: attribute.path },
-                        });
-                        break;
-        }
+	let input: HTMLElement;
+	switch (attribute.inputType) {
+		case "boolean":
+			input = createInput({
+				tag: "input",
+				className: "xml-attribute-input checkbox-input",
+				type: "checkbox",
+				name: attribute.path,
+				id: attribute.path,
+				checked: Boolean(attribute.value),
+				data: { path: attribute.path },
+			});
+			break;
+		case "number":
+			input = createInput({
+				tag: "input",
+				className: "xml-attribute-input",
+				type: "number",
+				name: attribute.path,
+				id: attribute.path,
+				value: String(attribute.value ?? ""),
+				data: { path: attribute.path },
+			});
+			break;
+		default:
+			input = createInput({
+				tag: "input",
+				className: "xml-attribute-input",
+				type: "text",
+				name: attribute.path,
+				id: attribute.path,
+				value: String(attribute.value ?? ""),
+				data: { path: attribute.path },
+			});
+			break;
+	}
 
-        container.appendChild(label);
-        container.appendChild(input);
+	container.appendChild(label);
+	container.appendChild(input);
 
-        return container;
+	return container;
 }
 
 /**
@@ -594,7 +585,7 @@ function renderFileActionButtons(
 			tag: "button",
 			className: "btn btn-info btn-small refresh-file-btn",
 			type: "button",
-			innerHTML: "🔄 Refresh",
+			innerHTML: "🔄",
 			attributes: {
 				"data-file": fileName,
 				title: `Reload ${fileName} from disk`,
@@ -606,7 +597,7 @@ function renderFileActionButtons(
 			tag: "button",
 			className: "btn btn-warning btn-small reload-from-disk-btn",
 			type: "button",
-			innerHTML: "📁 Reload from Disk",
+			innerHTML: "📁",
 			attributes: {
 				"data-file": fileName,
 				title: `Select and reload ${fileName} from disk to get latest content`,
@@ -619,7 +610,7 @@ function renderFileActionButtons(
 		tag: "button",
 		className: "btn btn-danger btn-small remove-file-btn",
 		type: "button",
-		innerHTML: "🗑️ Remove",
+		innerHTML: "🗑️",
 		attributes: {
 			"data-file": fileName,
 			title: `Remove ${fileName}`,

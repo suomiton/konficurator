@@ -57,7 +57,7 @@ export interface IFileHandler {
 
 - Extended interface to include refresh functionality
 
-#### `src/renderer.ts`
+#### `src/ui/dom-renderer.ts`
 
 ```typescript
 // Enhanced file header with action buttons container
@@ -71,7 +71,7 @@ if (fileData.handle) {
 }
 ```
 
-- Added action buttons container for better organization
+- Added header action buttons container for better organization
 - Conditional refresh button display based on file handle availability
 - Proper styling and accessibility attributes
 
@@ -115,7 +115,7 @@ async handleFileRefresh(filename: string): Promise<void>
 ### Single Responsibility Principle (SRP)
 
 - **FileHandler**: Handles file system operations only
-- **FormRenderer**: Handles UI rendering only
+- **ModernFormRenderer**: Handles UI orchestration and event wiring only
 - **KonficuratorApp**: Orchestrates components only
 - **StorageService**: Handles browser storage only
 
