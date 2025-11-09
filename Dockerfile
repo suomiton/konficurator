@@ -20,16 +20,16 @@ ENV WASM_BINDGEN_BIN=/root/.cargo/bin/wasm-bindgen
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy only package.json to allow platform-specific optional dependencies (Rollup native) to resolve
+COPY package.json ./
 COPY parser-wasm/package*.json ./parser-wasm/
 COPY parser-wasm/Cargo.toml ./parser-wasm/
 
 # Create empty Cargo.lock to avoid issues with wasm-pack
 RUN touch ./parser-wasm/Cargo.lock
 
-# Install all dependencies (including devDependencies)
-RUN npm ci --no-optional
+# Install dependencies including optional platform-specific binaries
+RUN npm install --no-audit --no-fund
 
 # Copy source code
 COPY . .

@@ -68,7 +68,7 @@ konficurator/
 ## 🧪 Development and testing
 
 - **Local dev server** – `npm run dev` compiles the WASM bindings (dev profile) and starts Vite with hot module reloading.
-- **Build** – `npm run build` compiles the WASM bindings in release mode and produces a Vite bundle in `dist/`.
+- **Build** – `npm run build` compiles the WASM bindings in release mode and produces a Vite bundle in `build/`.
 - **Production build** – `npm run build:prod` runs the optimised pipeline with minification and pre-compression.
 - **TypeScript tests** – `npm test` executes the Jest suites in JSDOM.
 - **Rust tests** – `cd parser-wasm && npm test` runs the parser span coverage.
