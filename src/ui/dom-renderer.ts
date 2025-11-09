@@ -4,25 +4,25 @@
  */
 
 import {
-	createElement,
-	createInput,
-	createButton,
-	createForm,
-	createTextarea,
-	createLabel,
-} from "./dom-factory.js";
-import { createIcon } from "./icon.js";
+        createElement,
+        createInput,
+        createButton,
+        createForm,
+        createTextarea,
+        createLabel,
+} from "./dom-factory";
+import { createIcon } from "./icon";
 import {
-	FormFieldData,
-	TextFieldData,
-	NumberFieldData,
-	BooleanFieldData,
-	XmlHeadingFieldData,
-	XmlValueFieldData,
-	XmlAttributesFieldData,
-	XmlAttributeField,
-	formatLabel,
-} from "./form-data.js";
+        FormFieldData,
+        TextFieldData,
+        NumberFieldData,
+        BooleanFieldData,
+        XmlHeadingFieldData,
+        XmlValueFieldData,
+        XmlAttributesFieldData,
+        XmlAttributeField,
+        formatLabel,
+} from "./form-data";
 
 export interface FormElementRenderOptions {
 	showLabels?: boolean;

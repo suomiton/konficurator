@@ -11,7 +11,7 @@ import {
 	afterEach,
 	jest,
 } from "@jest/globals";
-import type { FileData } from "../../src/interfaces.js";
+import type { FileData } from "../../src/interfaces";
 
 // Mock notifications
 const mockShowReconnectCard = jest.fn() as jest.MockedFunction<any>;
@@ -39,7 +39,7 @@ jest.mock("../../src/ui/dom-factory", () => ({
 }));
 
 // Import after mocking
-import { PermissionManager } from "../../src/permissionManager.js";
+import { PermissionManager } from "../../src/permissionManager";
 
 describe("PermissionManager", () => {
 	let mockFileData: FileData;

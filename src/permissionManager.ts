@@ -3,11 +3,10 @@
  * Handles file permission restoration with user interaction
  */
 
-import { FileData } from "./interfaces.js";
-import { FileNotifications } from "./ui/notifications.js";
-import { NotificationService } from "./ui/notifications.js";
-import { createElement } from "./ui/dom-factory.js";
-import { createIconLabel } from "./ui/icon.js";
+import { FileData } from "./interfaces";
+import { FileNotifications, NotificationService } from "./ui/notifications";
+import { createElement } from "./ui/dom-factory";
+import { createIconLabel } from "./ui/icon";
 
 export class PermissionManager {
 	/**

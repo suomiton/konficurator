@@ -22,7 +22,7 @@ jest.mock("../../src/ui/dom-factory", () => ({
 }));
 
 // Import after mocking
-import { ConfirmationDialog } from "../../src/confirmation.js";
+import { ConfirmationDialog } from "../../src/confirmation";
 
 describe("ConfirmationDialog", () => {
 	beforeEach(() => {

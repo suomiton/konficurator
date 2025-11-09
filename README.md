@@ -46,16 +46,11 @@ git clone https://github.com/suomiton/konficurator.git
 cd konficurator
 npm install
 
-# Build the WebAssembly parser once for development
-cd parser-wasm
-npm run build
-cd ..
-
-# Serve the app (http://localhost:8080)
-npm run serve
+# Start the dev server with HMR (http://localhost:5173)
+npm run dev
 ```
 
-Open `index.html` in a supported browser, choose **Select Configuration Files**, and start editing.
+Visit `http://localhost:5173` in a supported browser, choose **Select Configuration Files**, and start editing.
 
 ## 🧱 Project structure
 
@@ -72,7 +67,8 @@ konficurator/
 
 ## 🧪 Development and testing
 
-- **Build** – `npm run build` compiles the WASM bindings (dev profile) and TypeScript.
+- **Local dev server** – `npm run dev` compiles the WASM bindings (dev profile) and starts Vite with hot module reloading.
+- **Build** – `npm run build` compiles the WASM bindings in release mode and produces a Vite bundle in `dist/`.
 - **Production build** – `npm run build:prod` runs the optimised pipeline with minification and pre-compression.
 - **TypeScript tests** – `npm test` executes the Jest suites in JSDOM.
 - **Rust tests** – `cd parser-wasm && npm test` runs the parser span coverage.

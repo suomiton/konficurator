@@ -1,4 +1,4 @@
-import { ParsedData, FieldType } from "../interfaces.js";
+import { ParsedData, FieldType } from "../interfaces";
 
 /**
  * Pure functions for form field creation - no DOM manipulation, just data transformation
