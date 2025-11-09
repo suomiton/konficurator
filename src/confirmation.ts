@@ -3,8 +3,8 @@
  * Provides consistent confirmation dialogs throughout the application
  */
 
-import { createElement, createButton } from "./ui/dom-factory.js";
-import { createIcon } from "./ui/icon.js";
+import { createElement, createButton } from "./ui/dom-factory";
+import { createIcon } from "./ui/icon";
 
 export class ConfirmationDialog {
 	/**

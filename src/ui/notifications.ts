@@ -1,9 +1,9 @@
-import { createButton, createElement } from "./dom-factory.js";
+import { createButton, createElement } from "./dom-factory";
 import {
         createIcon,
         createIconLabel,
         IconName,
-} from "./icon.js";
+} from "./icon";
 
 /**
  * Centralized Notification System
