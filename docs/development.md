@@ -13,9 +13,9 @@ npm install
 
 ## Build workflows
 
-- **Development build**: `npm run build` compiles the WASM package in dev mode and runs the TypeScript compiler.
-- **Production build**: `npm run build:prod` performs a clean build, compiles the WASM module in release mode, transpiles TypeScript, minifies assets, and generates pre-compressed bundles.
-- **Serve locally**: `npm run serve` starts a static server on `http://localhost:8080`. Run `npm run dev` to build once and serve in a single command.
+- **Dev server**: `npm run dev` builds the WASM package in dev mode and launches Vite with HMR on `http://localhost:5173`.
+- **Production build**: `npm run build` compiles the WASM module in release mode and produces a Vite bundle in `dist/`.
+- **Optimised release**: `npm run build:prod` performs a clean build, compiles the WASM module in release mode, minifies assets, and generates pre-compressed bundles.
 
 To rebuild the WebAssembly parser by itself, run:
 
