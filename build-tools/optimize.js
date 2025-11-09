@@ -35,8 +35,8 @@ console.log('🔨 Starting optimization process...');
 async function minifyJS() {
 	console.log('📦 Minifying JavaScript files...');
 
-	if (!fs.existsSync(distDir)) {
-		console.error('❌ No dist directory found. Run "npm run build:ts" first.');
+        if (!fs.existsSync(distDir)) {
+                console.error('❌ No dist directory found. Run "npm run build" first.');
 		process.exit(1);
 	}
 

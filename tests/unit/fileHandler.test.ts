@@ -11,7 +11,7 @@ import {
 	afterEach,
 	jest,
 } from "@jest/globals";
-import { FileHandler } from "../../src/fileHandler.js";
+import { FileHandler } from "../../src/fileHandler";
 
 // Mock file handles and files
 const mockFileHandle = {

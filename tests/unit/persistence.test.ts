@@ -11,8 +11,8 @@ import {
 	beforeEach,
 	afterEach,
 } from "@jest/globals";
-import { FilePersistence } from "../../src/persistence.js";
-import { FileData } from "../../src/interfaces.js";
+import { FilePersistence } from "../../src/persistence";
+import { FileData } from "../../src/interfaces";
 
 describe("FilePersistence", () => {
 	let persistence: FilePersistence;

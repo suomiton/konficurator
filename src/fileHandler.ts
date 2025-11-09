@@ -1,5 +1,5 @@
-import { IFileHandler, FileData } from "./interfaces.js";
-import { determineFileType } from "./utils/fileTypeUtils.js";
+import { IFileHandler, FileData } from "./interfaces";
+import { determineFileType } from "./utils/fileTypeUtils";
 
 /**
  * File Handling Module

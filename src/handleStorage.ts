@@ -14,7 +14,7 @@
  * click-triggered `requestPermission()`.
  */
 
-import { FileData } from "./interfaces.js";
+import { FileData } from "./interfaces";
 
 export interface StoredFile {
 	name: string;

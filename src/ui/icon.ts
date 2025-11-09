@@ -1,4 +1,4 @@
-import { createElement } from "./dom-factory.js";
+import { createElement } from "./dom-factory";
 
 export type IconName =
 	| "alert-circle"
