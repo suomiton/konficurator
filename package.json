@@ -14,7 +14,8 @@
 	},
 	"scripts": {
 		"build": "npm run build:wasm && tsc",
-		"build:prod": "npm run clean && npm run build:wasm:prod && npm run build:ts && npm run build:optimize && npm run build:gzip",
+		"build:prod": "npm run clean && npm run build:wasm:prod && npm run build:ts && npm run build:optimize && npm run build:gzip && npm run postbuild:assets",
+		"postbuild:assets": "cp -r styles build/ && cp -r samples build/ && mkdir -p build/parser-wasm/pkg && cp -r parser-wasm/pkg/* build/parser-wasm/pkg/ || true",
 		"build:ts": "tsc",
 		"build:wasm": "cd parser-wasm && wasm-pack build --target web --dev",
 		"build:wasm:prod": "cd parser-wasm && wasm-pack build --target web --release",
