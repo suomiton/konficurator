@@ -1,14 +1,14 @@
-import { FileHandler } from "./fileHandler.js";
-import { ParserFactory } from "./parsers.js";
-import { ModernFormRenderer } from "./ui/modern-form-renderer.js";
-import { FilePersistence } from "./persistence.js";
-import { FileData } from "./interfaces.js";
-import { StorageService } from "./handleStorage.js";
-import { NotificationService, FileNotifications } from "./ui/notifications.js";
-import { ConfirmationDialog } from "./confirmation.js";
-import { PermissionManager } from "./permissionManager.js";
-import { createElement } from "./ui/dom-factory.js";
-import { createIconLabel, createIconList, IconListItem } from "./ui/icon.js";
+import { FileHandler } from "./fileHandler";
+import { ParserFactory } from "./parsers";
+import { ModernFormRenderer } from "./ui/modern-form-renderer";
+import { FilePersistence } from "./persistence";
+import { FileData } from "./interfaces";
+import { StorageService } from "./handleStorage";
+import { NotificationService, FileNotifications } from "./ui/notifications";
+import { ConfirmationDialog } from "./confirmation";
+import { PermissionManager } from "./permissionManager";
+import { createElement } from "./ui/dom-factory";
+import { createIconLabel, createIconList, IconListItem } from "./ui/icon";
 
 /**
  * Main Application Controller
@@ -349,7 +349,7 @@ export class KonficuratorApp {
 
 				if (isModifiedOnDisk) {
 					// Import the ConfirmationDialog
-					const { ConfirmationDialog } = await import("./confirmation.js");
+                                const { ConfirmationDialog } = await import("./confirmation");
 
 					// Show file conflict dialog
 					const choice = await ConfirmationDialog.showFileConflictDialog(

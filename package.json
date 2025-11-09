@@ -12,19 +12,21 @@
 	"bugs": {
 		"url": "https://github.com/suomiton/konficurator/issues"
 	},
-	"scripts": {
-		"build": "npm run build:wasm && tsc",
-		"build:prod": "npm run clean && npm run build:wasm:prod && npm run build:ts && npm run build:optimize && npm run build:gzip && npm run postbuild:assets",
-		"postbuild:assets": "cp -r styles build/ && cp -r samples build/ && mkdir -p build/parser-wasm/pkg && cp -r parser-wasm/pkg/* build/parser-wasm/pkg/ || true",
-		"build:ts": "tsc",
-		"build:wasm": "cd parser-wasm && wasm-pack build --target web --dev",
-		"build:wasm:prod": "cd parser-wasm && wasm-pack build --target web --release",
-		"build:optimize": "node build-tools/optimize.cjs",
-		"build:gzip": "node build-tools/gzip.cjs",
-		"watch": "tsc --watch",
-		"serve": "python3 -m http.server 8080",
-		"dev": "npm run build && python3 -m http.server 8080",
-		"clean": "rm -rf dist build parser-wasm/pkg",
+        "scripts": {
+                "build": "npm run build:wasm:prod && vite build",
+                "build:prod": "npm run clean && npm run build:wasm:prod && vite build && npm run build:optimize && npm run build:gzip && npm run postbuild:assets",
+                "postbuild:assets": "cp -r styles build/ && cp -r samples build/ && mkdir -p build/parser-wasm/pkg && cp -r parser-wasm/pkg/* build/parser-wasm/pkg/ || true",
+                "build:ts": "tsc",
+                "build:wasm": "cd parser-wasm && wasm-pack build --target web --dev",
+                "build:wasm:prod": "cd parser-wasm && wasm-pack build --target web --release",
+                "build:optimize": "node build-tools/optimize.cjs",
+                "build:gzip": "node build-tools/gzip.cjs",
+                "watch": "tsc --watch",
+                "serve": "python3 -m http.server 8080",
+                "dev": "npm run build:wasm && vite dev",
+                "dev:legacy": "npm run build:wasm && python3 -m http.server 8080",
+                "preview": "vite preview",
+                "clean": "rm -rf dist build parser-wasm/pkg",
 		"test": "TS_NODE_COMPILER_OPTIONS='{\"noUnusedParameters\":false,\"noUnusedLocals\":false}' jest",
 		"test:watch": "TS_NODE_COMPILER_OPTIONS='{\"noUnusedParameters\":false,\"noUnusedLocals\":false}' jest --watch",
 		"test:coverage": "TS_NODE_COMPILER_OPTIONS='{\"noUnusedParameters\":false,\"noUnusedLocals\":false}' jest --coverage",
@@ -52,10 +54,11 @@
 		"jest-environment-jsdom": "^30.2.0",
 		"jsdom": "^27.1.0",
 		"terser": "^5.44.1",
-		"ts-jest": "^29.4.5",
-		"typescript": "^5.9.3",
-		"wasm-pack": "^0.13.1"
-	},
+                "ts-jest": "^29.4.5",
+                "typescript": "^5.9.3",
+                "vite": "^5.4.10",
+                "wasm-pack": "^0.13.1"
+        },
 	"engines": {
 		"node": ">=16.0.0"
 	}

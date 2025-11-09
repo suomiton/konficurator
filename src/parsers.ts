@@ -1,5 +1,5 @@
-import { IParser, ParsedData } from "./interfaces.js";
-import { determineFileType } from "./utils/fileTypeUtils.js";
+import { IParser, ParsedData } from "./interfaces";
+import { determineFileType } from "./utils/fileTypeUtils";
 
 /**
  * Abstract base parser implementing common functionality
