@@ -12,7 +12,12 @@ RUN rustup target add wasm32-unknown-unknown
 
 # Install wasm-pack and wasm-bindgen CLI
 RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-RUN cargo install wasm-bindgen-cli
+# Install latest wasm-bindgen CLI
+RUN cargo install wasm-bindgen-cli --force
+
+# Prevent wasm-pack from downloading a glibc-linked prebuilt on Alpine
+ENV WASM_PACK_NO_INSTALL=true
+ENV WASM_BINDGEN_BIN=/root/.cargo/bin/wasm-bindgen
 
 WORKDIR /app
 

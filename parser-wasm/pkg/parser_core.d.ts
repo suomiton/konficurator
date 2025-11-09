@@ -9,9 +9,9 @@ export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly update_value: (a: number, b: number, c: number, d: number, e: any, f: number, g: number) => [number, number, number, number];
   readonly main: () => void;
-  readonly __wbindgen_export_0: WebAssembly.Table;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbindgen_externrefs: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __wbindgen_start: () => void;
