@@ -19,11 +19,12 @@ module.exports = {
 	setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
 	moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 	testTimeout: 10000,
-        moduleNameMapper: {
-                '../parser-wasm/pkg/parser_core.js': '<rootDir>/tests/__mocks__/parser_core.js',
-                './persistence': '<rootDir>/tests/__mocks__/persistence.js',
-                '../persistence': '<rootDir>/tests/__mocks__/persistence.js'
-        },
+	moduleNameMapper: {
+		'^@/(.*)$': '<rootDir>/src/$1',
+		'../parser-wasm/pkg/parser_core.js': '<rootDir>/tests/__mocks__/parser_core.js',
+		'./persistence': '<rootDir>/tests/__mocks__/persistence.js',
+		'../persistence': '<rootDir>/tests/__mocks__/persistence.js'
+	},
 	transformIgnorePatterns: [
 		'/node_modules/',
 		'!parser-wasm/pkg/'

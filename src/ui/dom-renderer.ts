@@ -68,6 +68,10 @@ export function renderFormField(
 	// Create input based on field type
 	const input = renderInputElement(fieldData, inputClassName);
 
+	if (input instanceof HTMLInputElement && input.type === "checkbox") {
+		formGroup.classList.add("checkbox");
+	}
+
 	// Arrange elements based on label position
 	if (label) {
 		if (labelPosition === "above" || labelPosition === "before") {
@@ -192,7 +196,7 @@ function renderObjectField(
 	const header = createElement({
 		tag: "div",
 		className: "object-header",
-		innerHTML: `<strong>${fieldData.label}</strong>`,
+		innerHTML: `<h4>${fieldData.label}</h4>`,
 	});
 
 	const fieldsContainer = createElement({

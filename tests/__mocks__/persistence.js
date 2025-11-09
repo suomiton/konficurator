@@ -3,7 +3,7 @@
  * We completely override the saveFile method to handle the mocks
  */
 
-export class FilePersistence {
+class FilePersistence {
 	constructor() {
 		this.wasmInitialized = false;
 	}
@@ -70,4 +70,4 @@ export class FilePersistence {
 	}
 }
 
-export default FilePersistence;
+module.exports = { FilePersistence };
