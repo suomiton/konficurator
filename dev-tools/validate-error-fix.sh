@@ -16,7 +16,7 @@ fi
 
 # Check if error notification method exists in compiled JS
 echo "✅ Checking compiled JavaScript for error notification method..."
-if grep -q "createErrorNotification" dist/renderer.js; then
+if rg -q "createErrorNotification" dist; then
     echo "   ✓ createErrorNotification method found in compiled code"
 else
     echo "   ❌ createErrorNotification method not found in compiled code"
@@ -25,7 +25,7 @@ fi
 
 # Check if error handling exists in renderFileEditor
 echo "✅ Checking error handling in renderFileEditor..."
-if grep -q "_error" dist/renderer.js; then
+if rg -q "_error" dist; then
     echo "   ✓ Error handling code found in compiled renderer"
 else
     echo "   ❌ Error handling code not found in compiled renderer"

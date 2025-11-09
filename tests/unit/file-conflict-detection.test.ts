@@ -23,9 +23,9 @@ jest.mock("../../src/ui/dom-factory", () => ({
 }));
 
 // Import after mocking
-import { FileHandler } from "../../src/fileHandler.js";
-import { ConfirmationDialog } from "../../src/confirmation.js";
-import { FileData } from "../../src/interfaces.js";
+import { FileHandler } from "../../src/fileHandler";
+import { ConfirmationDialog } from "../../src/confirmation";
+import { FileData } from "../../src/interfaces";
 
 describe("File Conflict Detection Feature", () => {
 	let fileHandler: FileHandler;

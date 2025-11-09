@@ -3,25 +3,25 @@
  * This class orchestrates the UI modules but doesn't handle DOM creation directly
  */
 
-import { IRenderer, FileData } from "../interfaces.js";
-import { generateFormFieldsData } from "./form-data.js";
+import { IRenderer, FileData } from "../interfaces";
+import { generateFormFieldsData } from "./form-data";
 import {
-	renderFormField,
-	renderFormContainer,
-	renderFileHeader,
-	renderSaveContainer,
-	renderErrorNotification,
-	renderErrorMessage,
-	FormElementRenderOptions,
-} from "./dom-renderer.js";
+        renderFormField,
+        renderFormContainer,
+        renderFileHeader,
+        renderSaveContainer,
+        renderErrorNotification,
+        renderErrorMessage,
+        FormElementRenderOptions,
+} from "./dom-renderer";
 import {
-	setupFieldEventListeners,
-	setupFileActionEventListeners,
-	setupSaveEventListeners,
-	setupFormEventListeners,
-	FormEventHandlers,
-} from "./event-handlers.js";
-import { createElement } from "./dom-factory.js";
+        setupFieldEventListeners,
+        setupFileActionEventListeners,
+        setupSaveEventListeners,
+        setupFormEventListeners,
+        FormEventHandlers,
+} from "./event-handlers";
+import { createElement } from "./dom-factory";
 
 export class ModernFormRenderer implements IRenderer {
 	private eventHandlers: FormEventHandlers;

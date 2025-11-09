@@ -7,13 +7,13 @@ import {
 	jest,
 } from "@jest/globals";
 import {
-	FormFieldData,
-	TextFieldData,
-	NumberFieldData,
-	BooleanFieldData,
-	ArrayFieldData,
-} from "../../src/ui/form-data.js";
-import { FormEventHandlers } from "../../src/ui/event-handlers.js";
+        FormFieldData,
+        TextFieldData,
+        NumberFieldData,
+        BooleanFieldData,
+        ArrayFieldData,
+} from "../../src/ui/form-data";
+import { FormEventHandlers } from "../../src/ui/event-handlers";
 
 // Mock DOM renderer module
 const mockRenderFormField = jest.fn() as jest.MockedFunction<
@@ -29,7 +29,7 @@ const mockRenderErrorNotification = jest.fn() as jest.MockedFunction<
 	(message: string) => HTMLElement
 >;
 
-jest.mock("../../src/ui/dom-renderer.js", () => ({
+jest.mock("../../src/ui/dom-renderer", () => ({
 	renderFormField: mockRenderFormField,
 	renderFileHeader: mockRenderFileHeader,
 	renderSaveContainer: mockRenderSaveContainer,
@@ -42,7 +42,7 @@ import {
 	renderFileHeader,
 	renderSaveContainer,
 	renderErrorNotification,
-} from "../../src/ui/dom-renderer.js";
+} from "../../src/ui/dom-renderer";
 
 describe("DOM Renderer", () => {
 	let mockEventHandlers: FormEventHandlers;

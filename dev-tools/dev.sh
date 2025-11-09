@@ -20,14 +20,12 @@ case "${1:-help}" in
         npm run watch
         ;;
     "serve")
-        echo "🚀 Starting development server..."
-        npm run serve
+        echo "🚀 Starting Vite development server..."
+        npm run dev
         ;;
     "dev")
-        echo "🚀 Starting development mode (build + serve)..."
-        npm run build
-        echo "✅ Build complete! Starting server..."
-        npm run serve
+        echo "🚀 Starting development mode with hot reloading..."
+        npm run dev
         ;;
     "clean")
         echo "🧹 Cleaning build artifacts..."
@@ -38,8 +36,8 @@ case "${1:-help}" in
         echo "🧪 Testing in browser..."
         npm run build
         echo "✅ Build complete! Opening browser..."
-        open http://localhost:8080 &
-        npm run serve
+        open http://localhost:5173 &
+        npm run dev
         ;;
     "help"|*)
         echo "🔧 Konficurator Development Script"
@@ -48,8 +46,8 @@ case "${1:-help}" in
         echo "  wasm    - Build WASM module only"
         echo "  build   - Build WASM + TypeScript to JavaScript"
         echo "  watch   - Watch TypeScript files for changes"
-        echo "  serve   - Start HTTP server on port 8080"
-        echo "  dev     - Build and serve (development mode)"
+        echo "  serve   - Start Vite dev server on port 5173"
+        echo "  dev     - Start Vite dev server (alias for serve)"
         echo "  clean   - Clean build artifacts"
         echo "  test    - Build, serve, and open browser"
         echo "  help    - Show this help message"

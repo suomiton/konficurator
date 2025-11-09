@@ -1,7 +1,8 @@
-import { IPersistence, FileData } from "./interfaces.js";
-import { ParserFactory } from "./parsers.js";
-import { NotificationService } from "./ui/notifications.js";
-import { SupportedFileType, getMimeTypeForFileType, getExtensionsForFileType } from "./utils/fileTypeUtils.js";
+import { IPersistence, FileData } from "./interfaces";
+import { ParserFactory } from "./parsers";
+import { NotificationService } from "./ui/notifications";
+import { SupportedFileType, getMimeTypeForFileType, getExtensionsForFileType } from "./utils/fileTypeUtils";
+import { FileHandler } from "./fileHandler";
 
 // Import WASM parser for non-destructive updates
 import init, { update_value } from "../parser-wasm/pkg/parser_core.js";
@@ -75,11 +76,10 @@ export class FilePersistence implements IPersistence {
 			}
 
 			// Write to file
-			if (fileData.handle) {
-				// Use existing handle if available
-				const fileHandler = await import("./fileHandler.js");
-				const handler = new fileHandler.FileHandler();
-				await handler.writeFile(fileData.handle, updatedContent);
+                        if (fileData.handle) {
+                                // Use existing handle if available
+                                const handler = new FileHandler();
+                                await handler.writeFile(fileData.handle, updatedContent);
 			} else {
 				// For restored files without handles, prompt user to save
 				await this.saveAsNewFile(fileData.name, updatedContent, fileData.type);

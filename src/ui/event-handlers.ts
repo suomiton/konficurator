@@ -3,7 +3,7 @@
  * Separates event handling logic from DOM creation
  */
 
-import { FormFieldData } from "./form-data.js";
+import { FormFieldData } from "./form-data";
 
 export interface FormEventHandlers {
 	onFieldChange?: (path: string, value: any, fieldType: string) => void;
