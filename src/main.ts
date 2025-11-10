@@ -5,7 +5,6 @@ import { FilePersistence } from "./persistence";
 import { FileData } from "./interfaces";
 import { StorageService } from "./handleStorage";
 import { NotificationService, FileNotifications } from "./ui/notifications";
-import { ConfirmationDialog } from "./confirmation";
 import { PermissionManager } from "./permissionManager";
 import { createElement } from "./ui/dom-factory";
 import { createIconLabel, createIconList, IconListItem } from "./ui/icon";
@@ -105,22 +104,42 @@ export class KonficuratorApp {
 				return;
 			}
 
-			if (target.classList.contains("remove-file-btn")) {
-				const id = target.getAttribute("data-id");
+			// Use event delegation with closest() so inner icon clicks also work
+			const removeBtn = target.closest(
+				".remove-file-btn"
+			) as HTMLElement | null;
+			if (removeBtn) {
+				const id = removeBtn.getAttribute("data-id");
 				if (id) this.handleFileRemove(id);
-			} else if (target.classList.contains("refresh-file-btn")) {
-				const id = target.getAttribute("data-id");
-				if (id) this.handleFileRefresh(id);
-			} else if (target.classList.contains("reload-from-disk-btn")) {
-				const id = target.getAttribute("data-id");
+				return;
+			}
+
+			const reloadBtn = target.closest(
+				".reload-from-disk-btn"
+			) as HTMLElement | null;
+			if (reloadBtn) {
+				const id = reloadBtn.getAttribute("data-id");
 				if (id) this.handleReloadFromDisk(id);
-			} else if (
-				target.classList.contains("btn") &&
-				target.textContent?.includes("Save")
-			) {
-				const id = target.getAttribute("data-id");
+				return;
+			}
+
+			const minimizeBtn = target.closest(
+				".minimize-file-btn"
+			) as HTMLElement | null;
+			if (minimizeBtn) {
+				const id = minimizeBtn.getAttribute("data-id");
+				if (id) this.toggleFileVisibility(id);
+				return;
+			}
+
+			const saveBtn = target.closest(".btn") as HTMLElement | null;
+			if (saveBtn && saveBtn.textContent?.includes("Save")) {
+				const id = saveBtn.getAttribute("data-id");
 				if (id) this.handleFileSave(id);
-			} else if (target.classList.contains("file-group-title")) {
+				return;
+			}
+
+			if (target.classList.contains("file-group-title")) {
 				const group = target.getAttribute("data-group");
 				if (group) this.handleGroupTitleClick(group);
 			}
@@ -350,15 +369,7 @@ export class KonficuratorApp {
 			console.warn("Failed to save file visibility state:", error);
 		});
 
-		// Show notification
-		const action = fileData.isActive ? "shown" : "hidden";
-		NotificationService.showInfo(
-			createIconLabel(
-				"file-text",
-				`Editor for "${fileData.name}" is now ${action}.`,
-				{ size: 18 }
-			)
-		);
+		// No toast/notification for minimize/restore to reduce noise
 	}
 
 	/**
@@ -824,10 +835,6 @@ export class KonficuratorApp {
 		try {
 			const file = this.loadedFiles.find((f) => f.id === fileId);
 			if (!file) throw new Error("File not found");
-			const confirmed = await this.showRemoveConfirmation(file.name);
-			if (!confirmed) {
-				return;
-			}
 
 			// Remove from loaded files array
 			this.loadedFiles = this.loadedFiles.filter((f) => f.id !== fileId);
@@ -947,14 +954,6 @@ export class KonficuratorApp {
 	/**
 	 * Show confirmation dialog for file removal
 	 */
-	private async showRemoveConfirmation(filename: string): Promise<boolean> {
-		return await ConfirmationDialog.show(
-			"Remove File",
-			`Are you sure you want to remove "${filename}" from the editor?\n\nThis will not delete the actual file, only remove it from the current session.`,
-			"Remove",
-			"Cancel"
-		);
-	}
 
 	/**
 	 * Save files to storage when files change

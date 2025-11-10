@@ -9,11 +9,13 @@ export type IconName =
 	| "help-circle"
 	| "info"
 	| "lock"
+	| "minus"
+	| "minimize"
+	| "minimize-2"
 	| "refresh-cw"
 	| "save"
 	| "tag"
 	| "tool"
-	| "trash"
 	| "x"
 	| "x-circle";
 

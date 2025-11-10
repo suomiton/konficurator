@@ -584,22 +584,8 @@ function renderFileActionButtons(
 		className: "file-action-buttons",
 	});
 
-	if (hasHandle) {
-		const refreshButton = createButton({
-			tag: "button",
-			className: "btn btn-info btn-small refresh-file-btn",
-			type: "button",
-			attributes: {
-				"data-id": fileId,
-				title: `Reload from disk`,
-				"aria-label": `Reload from disk`,
-			},
-		});
-		refreshButton.appendChild(
-			createIcon("refresh-cw", { size: 18, className: "btn-icon" })
-		);
-		actionButtons.appendChild(refreshButton);
-	} else {
+	// Reload button only shown if we don't yet have a persistent file handle
+	if (!hasHandle) {
 		const reloadButton = createButton({
 			tag: "button",
 			className: "btn btn-warning btn-small reload-from-disk-btn",
@@ -616,18 +602,34 @@ function renderFileActionButtons(
 		actionButtons.appendChild(reloadButton);
 	}
 
+	// Minimize button (replaces refresh) always available to hide/show the editor
+	const minimizeButton = createButton({
+		tag: "button",
+		className: "btn btn-info btn-small minimize-file-btn",
+		type: "button",
+		attributes: {
+			"data-id": fileId,
+			title: "Minimize editor",
+			"aria-label": "Minimize editor",
+		},
+	});
+	minimizeButton.appendChild(
+		createIcon("minus", { size: 18, className: "btn-icon" })
+	);
+	actionButtons.appendChild(minimizeButton);
+
 	const removeButton = createButton({
 		tag: "button",
 		className: "btn btn-danger btn-small remove-file-btn",
 		type: "button",
 		attributes: {
 			"data-id": fileId,
-			title: `Remove`,
-			"aria-label": `Remove`,
+			title: `Close editor`,
+			"aria-label": `Close editor`,
 		},
 	});
 	removeButton.appendChild(
-		createIcon("trash", { size: 18, className: "btn-icon" })
+		createIcon("x", { size: 18, className: "btn-icon" })
 	);
 
 	actionButtons.appendChild(removeButton);

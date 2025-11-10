@@ -10,7 +10,9 @@ export interface FormEventHandlers {
 	onArrayItemAdd?: (path: string) => void;
 	onArrayItemRemove?: (path: string, index: number) => void;
 	onFileRemove?: (fileName: string) => void;
+	/** Deprecated: use onFileMinimize or onFileReload */
 	onFileRefresh?: (fileName: string) => void;
+	onFileMinimize?: (fileName: string) => void;
 	onFileReload?: (fileName: string) => void;
 	onFileSave?: (fileName: string) => void;
 }
@@ -170,7 +172,8 @@ export function setupFileActionEventListeners(
 	fileName: string,
 	handlers: FormEventHandlers
 ): void {
-	const { onFileRemove, onFileRefresh, onFileReload } = handlers;
+	const { onFileRemove, onFileRefresh, onFileReload, onFileMinimize } =
+		handlers;
 
 	// Remove file button
 	const removeButton = headerElement.querySelector(
@@ -182,13 +185,13 @@ export function setupFileActionEventListeners(
 		});
 	}
 
-	// Refresh file button
-	const refreshButton = headerElement.querySelector(
-		".refresh-file-btn"
+	// Minimize button (preferred) or legacy refresh button
+	const minimizeButton = headerElement.querySelector(
+		".minimize-file-btn"
 	) as HTMLButtonElement;
-	if (refreshButton && onFileRefresh) {
-		refreshButton.addEventListener("click", () => {
-			onFileRefresh(fileName);
+	if (minimizeButton && (onFileMinimize || onFileRefresh)) {
+		minimizeButton.addEventListener("click", () => {
+			(onFileMinimize || onFileRefresh)?.(fileName);
 		});
 	}
 
