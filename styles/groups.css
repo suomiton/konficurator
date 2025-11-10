@@ -1,0 +1,62 @@
+/* Grouped file list styles extracted from ensureGroupListStyles() */
+.file-group {
+	border: 2px solid #e5e7eb;
+	border-radius: 12px;
+	padding: 12px 14px;
+	margin: 12px 0;
+	background: #fff;
+	transition: border-color .25s ease;
+}
+
+.file-group-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 10px;
+	padding-bottom: 4px;
+}
+
+.file-group-title {
+	background: transparent;
+	border: none;
+	color: #111827;
+	font-weight: 600;
+	cursor: pointer;
+	padding: 4px 6px;
+	border-radius: 6px;
+}
+
+.file-group-title:hover {
+	background: #f3f4f6;
+}
+
+.file-group-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.file-tag {
+	background: #ffffff;
+	border: 2px solid #e5e7eb;
+	padding: 4px 10px;
+	border-radius: 999px;
+	cursor: pointer;
+	font-size: 13px;
+	line-height: 1.2;
+	transition: border-color .2s, background .2s;
+}
+
+.file-tag:hover {
+	background: #f9fafb;
+}
+
+.file-tag.inactive {
+	opacity: 0.6;
+}
+
+.add-file-tag {
+	background: #eef2ff;
+	border-color: #c7d2fe;
+	color: #3730a3;
+}

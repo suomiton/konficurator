@@ -6,20 +6,20 @@
 import { IRenderer, FileData } from "../interfaces";
 import { generateFormFieldsData } from "./form-data";
 import {
-        renderFormField,
-        renderFormContainer,
-        renderFileHeader,
-        renderSaveContainer,
-        renderErrorNotification,
-        renderErrorMessage,
-        FormElementRenderOptions,
+	renderFormField,
+	renderFormContainer,
+	renderFileHeader,
+	renderSaveContainer,
+	renderErrorNotification,
+	renderErrorMessage,
+	FormElementRenderOptions,
 } from "./dom-renderer";
 import {
-        setupFieldEventListeners,
-        setupFileActionEventListeners,
-        setupSaveEventListeners,
-        setupFormEventListeners,
-        FormEventHandlers,
+	setupFieldEventListeners,
+	setupFileActionEventListeners,
+	setupSaveEventListeners,
+	setupFormEventListeners,
+	FormEventHandlers,
 } from "./event-handlers";
 import { createElement } from "./dom-factory";
 
@@ -42,11 +42,20 @@ export class ModernFormRenderer implements IRenderer {
 		const container = createElement({
 			tag: "div",
 			className: "file-editor fade-in",
-			attributes: { "data-file": fileData.name },
+			attributes: { "data-id": fileData.id },
 		});
+
+		// Apply group color to the editor container border if available
+		if (fileData.groupColor) {
+			(
+				container as HTMLElement
+			).style.border = `2px solid ${fileData.groupColor}`;
+			(container as HTMLElement).style.borderRadius = "8px";
+		}
 
 		// Render header
 		const header = renderFileHeader(
+			fileData.id,
 			fileData.name,
 			fileData.type,
 			!!fileData.handle
@@ -101,8 +110,8 @@ export class ModernFormRenderer implements IRenderer {
 		container.appendChild(form);
 
 		// Render save button
-		const saveContainer = renderSaveContainer(fileData.name);
-		setupSaveEventListeners(saveContainer, fileData.name, this.eventHandlers);
+		const saveContainer = renderSaveContainer(fileData.id);
+		setupSaveEventListeners(saveContainer, fileData.id, this.eventHandlers);
 		container.appendChild(saveContainer);
 
 		return container;

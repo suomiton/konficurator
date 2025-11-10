@@ -116,7 +116,7 @@
 
 .file-tag {
 	background: linear-gradient(135deg, var(--color-prussian-blue), var(--color-blue-green));
-	color: var(--color-text-inverse);
+	color: var(--color-text);
 	padding: var(--gutter-1) var(--gutter-2);
 	border-radius: 20px;
 	font-size: 0.875rem;

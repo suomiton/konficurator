@@ -16,23 +16,25 @@
 
 import { FileData } from "./interfaces";
 
-export interface StoredFile {
+export interface StoredFileV2 {
+	id: string;
 	name: string;
+	group: string;
+	groupColor?: string;
 	type: "json" | "xml" | "config" | "env";
 	lastModified: number;
 	content: string;
 	size: number;
-	/** `handle` is optional – file may have come from drag-drop */
 	handle?: FileSystemFileHandle | undefined;
-	/** original location hint – purely informational */
 	path?: string | undefined;
-	isActive?: boolean | undefined; // Allow undefined for backward compatibility
+	isActive?: boolean | undefined;
 }
 
 export class StorageService {
+	// Dev reset: bump version to wipe old data; we intentionally recreate the store.
 	private static readonly DB_NAME = "konficurator_db";
-	private static readonly DB_VERSION = 1;
-	private static readonly STORE = "files";
+	private static readonly DB_VERSION = 2;
+	private static readonly STORE = "files_v2";
 
 	/* ────────────────────────────────────────────────────────────────── */
 	/*  Low-level helpers                                                */
@@ -45,8 +47,15 @@ export class StorageService {
 
 			req.onupgradeneeded = () => {
 				const db = req.result;
+				// Drop legacy stores if present (development reset scenario)
+				for (let i = 0; i < db.objectStoreNames.length; i++) {
+					const name = db.objectStoreNames.item(i);
+					if (name && name !== this.STORE) {
+						db.deleteObjectStore(name);
+					}
+				}
 				if (!db.objectStoreNames.contains(this.STORE)) {
-					db.createObjectStore(this.STORE, { keyPath: "name" });
+					db.createObjectStore(this.STORE, { keyPath: "id" });
 				}
 			};
 
@@ -75,20 +84,31 @@ export class StorageService {
 		const store = tx.objectStore(this.STORE);
 
 		for (const f of files) {
-			const record: StoredFile = {
+			const record: StoredFileV2 = {
+				id: f.id,
 				name: f.name,
+				group: f.group,
 				type: f.type,
 				lastModified: f.lastModified ?? Date.now(),
 				content: f.originalContent,
 				size: f.size ?? f.originalContent.length,
-				handle: f.handle ?? undefined,
-				path: f.path ?? undefined,
-				isActive: f.isActive, // Save toggle state
-			};
+				isActive: f.isActive,
+			} as StoredFileV2;
+
+			if (f.groupColor !== undefined) {
+				(record as any).groupColor = f.groupColor;
+			}
+			if (f.handle !== null && f.handle !== undefined) {
+				(record as any).handle = f.handle;
+			}
+			if (f.path !== undefined) {
+				(record as any).path = f.path;
+			}
+
 			store.put(record);
 		}
 
-		await this.awaitTx(tx); // ensure commit before returning
+		await this.awaitTx(tx);
 	}
 
 	/** Load every stored file; tries to reuse handles if permission granted. */
@@ -97,9 +117,9 @@ export class StorageService {
 		const tx = db.transaction(this.STORE, "readonly");
 		const store = tx.objectStore(this.STORE);
 
-		const records: StoredFile[] = await new Promise((res, rej) => {
+		const records: StoredFileV2[] = await new Promise((res, rej) => {
 			const req = store.getAll();
-			req.onsuccess = () => res(req.result as StoredFile[]);
+			req.onsuccess = () => res(req.result as StoredFileV2[]);
 			req.onerror = () => rej(req.error);
 		});
 
@@ -108,36 +128,37 @@ export class StorageService {
 		const result: FileData[] = [];
 
 		for (const r of records) {
-			// Re-evaluate file type for config files that might contain JSON/XML
 			let actualType = r.type;
 			if (r.type === "config" && r.content) {
-				// Check if config file actually contains JSON
 				try {
 					JSON.parse(r.content.trim());
 					actualType = "json";
 				} catch {
-					// Check if it's XML
 					const trimmed = r.content.trim();
 					if (trimmed.startsWith("<?xml") || trimmed.startsWith("<")) {
 						actualType = "xml";
 					}
-					// Otherwise keep as "config"
 				}
 			}
 
 			const fd: FileData = {
+				id: r.id,
 				name: r.name,
-				type: actualType, // Use re-evaluated type
+				group: r.group,
+				type: actualType,
 				content: r.content,
 				originalContent: r.content,
 				lastModified: r.lastModified,
 				size: r.size,
 				handle: null,
-				isActive: r.isActive !== undefined ? r.isActive : true, // Restore toggle state, default true
-			};
+				isActive: r.isActive !== undefined ? r.isActive : true,
+			} as FileData;
+
+			if (r.groupColor !== undefined) {
+				(fd as any).groupColor = r.groupColor;
+			}
 			if (r.path) fd.path = r.path;
 
-			// Attempt to reuse the handle if present
 			if (r.handle) {
 				try {
 					const qp = await (r.handle as any).queryPermission?.({
@@ -146,11 +167,11 @@ export class StorageService {
 					if (qp === "granted") {
 						fd.handle = r.handle;
 					} else {
-						fd.handle = r.handle; // still keep it so UI can requestPermission()
+						fd.handle = r.handle;
 						fd.permissionDenied = true;
 					}
 				} catch {
-					/* handle is likely dead – ignore */
+					/* ignore */
 				}
 			}
 
@@ -161,10 +182,10 @@ export class StorageService {
 	}
 
 	/** Remove a single file entry. */
-	static async removeFile(name: string): Promise<void> {
+	static async removeFile(id: string): Promise<void> {
 		const db = await this.db();
 		const tx = db.transaction(this.STORE, "readwrite");
-		tx.objectStore(this.STORE).delete(name);
+		tx.objectStore(this.STORE).delete(id);
 		await this.awaitTx(tx);
 	}
 

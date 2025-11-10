@@ -1,6 +1,18 @@
 import { IFileHandler, FileData } from "./interfaces";
 import { determineFileType } from "./utils/fileTypeUtils";
 
+// Lightweight UUID generator (fallback if crypto.randomUUID unavailable)
+function generateId(): string {
+	if (typeof crypto !== "undefined" && (crypto as any).randomUUID) {
+		return (crypto as any).randomUUID();
+	}
+	return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+		const r = (Math.random() * 16) | 0;
+		const v = c === "x" ? r : (r & 0x3) | 0x8;
+		return v.toString(16);
+	});
+}
+
 /**
  * File Handling Module
  * Responsible for reading/writing files using the File System Access API
@@ -8,15 +20,28 @@ import { determineFileType } from "./utils/fileTypeUtils";
  */
 export class FileHandler implements IFileHandler {
 	/**
-	 * Opens file picker and allows user to select multiple configuration files
+	 * Opens file picker and allows user to select multiple configuration files.
+	 * Backward compatible signature: if first argument is an array, treat as existing files (group defaults to "default").
 	 */
-	async selectFiles(existingFiles: FileData[] = []): Promise<FileData[]> {
+	async selectFiles(
+		groupOrExisting: string | FileData[] = "default",
+		existingFilesInGroup: FileData[] = [],
+		groupColor?: string
+	): Promise<FileData[]> {
 		try {
 			// Check if File System Access API is supported
 			if (!window.showOpenFilePicker) {
 				throw new Error(
 					"File System Access API is not supported in this browser"
 				);
+			}
+
+			let group = "default";
+			if (Array.isArray(groupOrExisting)) {
+				// Old usage: first param was existing files
+				existingFilesInGroup = groupOrExisting;
+			} else {
+				group = groupOrExisting;
 			}
 
 			const fileHandles = await window.showOpenFilePicker({
@@ -40,25 +65,30 @@ export class FileHandler implements IFileHandler {
 					const content = await file.text();
 					const fileType = determineFileType(handle.name, content);
 
-					return {
+					const fd: FileData = {
+						id: generateId(),
 						name: handle.name,
 						handle,
 						type: fileType,
-						content: content, // Will be parsed later
-						originalContent: content, // Keep raw string for storage
-						path: file.webkitRelativePath || handle.name, // Use relative path if available, fallback to name
+						content: content, // Parsed later by app
+						originalContent: content,
+						group,
+						path: file.webkitRelativePath || handle.name,
 						lastModified: file.lastModified,
 						size: file.size,
-					};
+						isActive: true,
+					} as FileData;
+					if (groupColor) (fd as any).groupColor = groupColor;
+					return fd;
 				}
 			);
 
 			const newFiles = await Promise.all(fileDataPromises);
 
-			// Filter out duplicates based on file name
+			// Filter out duplicates based on file name within the same group
 			const uniqueNewFiles = newFiles.filter(
 				(newFile) =>
-					!existingFiles.some(
+					!existingFilesInGroup.some(
 						(existingFile) => existingFile.name === newFile.name
 					)
 			);

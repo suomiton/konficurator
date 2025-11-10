@@ -9,6 +9,10 @@ import { ConfirmationDialog } from "./confirmation";
 import { PermissionManager } from "./permissionManager";
 import { createElement } from "./ui/dom-factory";
 import { createIconLabel, createIconList, IconListItem } from "./ui/icon";
+import {
+	showAddFilesDialog,
+	showEditGroupDialog,
+} from "./ui/group-file-dialog";
 
 /**
  * Main Application Controller
@@ -20,6 +24,7 @@ export class KonficuratorApp {
 	private persistence: FilePersistence;
 	private loadedFiles: FileData[] = [];
 	private activeSaveOperations: Set<string> = new Set();
+	private groupColors: Map<string, string> = new Map();
 
 	constructor() {
 		this.fileHandler = new FileHandler();
@@ -60,10 +65,8 @@ export class KonficuratorApp {
 
 			await this.processFile(file);
 
-			// Update existing file or add new one while preserving visibility state
-			const existingIndex = this.loadedFiles.findIndex(
-				(f) => f.name === file.name
-			);
+			// Update existing file (by id) or add new one while preserving visibility state
+			const existingIndex = this.loadedFiles.findIndex((f) => f.id === file.id);
 			if (existingIndex >= 0) {
 				const existingFile = this.loadedFiles[existingIndex];
 				const resolvedIsActive =
@@ -98,33 +101,28 @@ export class KonficuratorApp {
 				target &&
 				(target.id === "selectFiles" || target.closest("#selectFiles"))
 			) {
-				this.handleFileSelection();
+				this.handleAddFilesWithGrouping();
 				return;
 			}
 
 			if (target.classList.contains("remove-file-btn")) {
-				const filename = target.getAttribute("data-file");
-				if (filename) {
-					this.handleFileRemove(filename);
-				}
+				const id = target.getAttribute("data-id");
+				if (id) this.handleFileRemove(id);
 			} else if (target.classList.contains("refresh-file-btn")) {
-				const filename = target.getAttribute("data-file");
-				if (filename) {
-					this.handleFileRefresh(filename);
-				}
+				const id = target.getAttribute("data-id");
+				if (id) this.handleFileRefresh(id);
 			} else if (target.classList.contains("reload-from-disk-btn")) {
-				const filename = target.getAttribute("data-file");
-				if (filename) {
-					this.handleReloadFromDisk(filename);
-				}
+				const id = target.getAttribute("data-id");
+				if (id) this.handleReloadFromDisk(id);
 			} else if (
 				target.classList.contains("btn") &&
 				target.textContent?.includes("Save")
 			) {
-				const filename = target.getAttribute("data-file");
-				if (filename) {
-					this.handleFileSave(filename);
-				}
+				const id = target.getAttribute("data-id");
+				if (id) this.handleFileSave(id);
+			} else if (target.classList.contains("file-group-title")) {
+				const group = target.getAttribute("data-group");
+				if (group) this.handleGroupTitleClick(group);
 			}
 		});
 	}
@@ -144,17 +142,29 @@ export class KonficuratorApp {
 	/**
 	 * Handle file selection
 	 */
-	private async handleFileSelection(): Promise<void> {
+	private async handleAddFilesWithGrouping(): Promise<void> {
 		try {
+			// Show group picker dialog
+			const existingGroups = this.getExistingGroups();
+			const selection = await showAddFilesDialog(existingGroups);
+			if (!selection) return;
+			const { group, color } = selection;
+			if (color) this.groupColors.set(group, color);
+
 			NotificationService.showLoading("Selecting files...");
-			const newFiles = await this.fileHandler.selectFiles(this.loadedFiles);
+			// Only consider duplicates within the target group
+			const existingInGroup = this.loadedFiles.filter((f) => f.group === group);
+			const newFiles = await this.fileHandler.selectFiles(
+				group,
+				existingInGroup,
+				color || this.groupColors.get(group)
+			);
 
 			// Always restore current editors immediately (prevent flicker / hidden state)
 			this.renderFileEditors();
 			this.updateFileInfo(this.loadedFiles);
 
 			if (newFiles.length === 0) {
-				// User likely cancelled; keep existing UI visible
 				NotificationService.hideLoading();
 				return;
 			}
@@ -171,7 +181,7 @@ export class KonficuratorApp {
 
 			FileNotifications.showFilesLoaded(
 				newFiles.length,
-				newFiles.map((f) => f.name)
+				newFiles.map((f) => `${f.name}`)
 			);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
@@ -212,6 +222,8 @@ export class KonficuratorApp {
 		const fileInfo = document.getElementById("fileInfo");
 		if (!fileInfo) return;
 
+		// Static CSS now loaded from styles/groups.css (no inline injection)
+
 		// Use dedicated list container to avoid removing the Add file button
 		let listContainer = document.getElementById("fileInfoListContainer");
 		if (!listContainer) {
@@ -228,32 +240,76 @@ export class KonficuratorApp {
 			className: "file-list",
 		});
 
-		files.forEach((file) => {
-			const fileTag = createElement({
-				tag: "span",
-				className: "file-tag",
-				attributes: { "data-file": file.name },
-			});
+		// Group by group name
+		const groups = new Map<string, FileData[]>();
+		files.forEach((f) => {
+			const arr = groups.get(f.group) || [];
+			arr.push(f);
+			groups.set(f.group, arr);
+		});
 
-			if (file.isActive === false) {
-				fileTag.classList.add("inactive");
+		groups.forEach((groupFiles, groupName) => {
+			const color =
+				this.groupColors.get(groupName) || groupFiles[0]?.groupColor;
+			if (color) this.groupColors.set(groupName, color!);
+
+			const groupContainer = createElement({
+				tag: "div",
+				className: "file-group",
+			});
+			// Apply group border color if available
+			// Apply group color to file entry border if available
+			if (color) {
+				(groupContainer as HTMLElement).style.borderColor = color;
 			}
 
-			fileTag.textContent = file.name;
+			const header = createElement({
+				tag: "div",
+				className: "file-group-header",
+			});
+			// Group title button (remains clickable)
+			const title = createElement({
+				tag: "button",
+				className: "file-group-title",
+				textContent: groupName,
+				attributes: { "data-group": groupName, type: "button" },
+			});
+			if (color) {
+				(header as HTMLElement).style.borderBottom = `3px solid ${color}`;
+			}
+			header.appendChild(title);
 
-			const baseTooltip = file.handle
-				? "File loaded from disk - can be refreshed"
-				: "File restored from storage - use reload button to get latest version";
+			const groupList = createElement({
+				tag: "div",
+				className: "file-group-list",
+			});
+			groupFiles.forEach((file) => {
+				const fileTag = createElement({
+					tag: "span",
+					className: "file-tag",
+					attributes: { "data-id": file.id },
+				});
+				if (file.isActive === false) fileTag.classList.add("inactive");
+				fileTag.textContent = file.name;
+				if (color) {
+					(fileTag as HTMLElement).style.borderColor = color;
+				}
 
-			fileTag.title = `${baseTooltip}. Click to ${
-				file.isActive === false ? "show" : "hide"
-			} editor.`;
-
-			fileTag.addEventListener("click", () => {
-				this.toggleFileVisibility(file.name);
+				const baseTooltip = file.handle
+					? "File loaded from disk - can be refreshed"
+					: "File restored from storage - use reload button to get latest version";
+				fileTag.title = `${baseTooltip}. Click to ${
+					file.isActive === false ? "show" : "hide"
+				} editor.`;
+				fileTag.addEventListener("click", () =>
+					this.toggleFileVisibility(file.id)
+				);
+				groupList.appendChild(fileTag);
 			});
 
-			fileList.appendChild(fileTag);
+			groupContainer.appendChild(header);
+			groupContainer.appendChild(groupList);
+			fileList.appendChild(groupContainer);
 		});
 
 		// Add dynamic "Add file" pseudo-tag at end
@@ -278,8 +334,8 @@ export class KonficuratorApp {
 	/**
 	 * Toggle file editor visibility
 	 */
-	private toggleFileVisibility(filename: string): void {
-		const fileData = this.loadedFiles.find((f) => f.name === filename);
+	private toggleFileVisibility(fileId: string): void {
+		const fileData = this.loadedFiles.find((f) => f.id === fileId);
 		if (!fileData) return;
 
 		// Toggle the isActive state (default to true if undefined)
@@ -296,13 +352,13 @@ export class KonficuratorApp {
 
 		// Show notification
 		const action = fileData.isActive ? "shown" : "hidden";
-                NotificationService.showInfo(
-                        createIconLabel(
-                                "file-text",
-                                `Editor for "${filename}" is now ${action}.`,
-                                { size: 18 }
-                        )
-                );
+		NotificationService.showInfo(
+			createIconLabel(
+				"file-text",
+				`Editor for "${fileData.name}" is now ${action}.`,
+				{ size: 18 }
+			)
+		);
 	}
 
 	/**
@@ -326,19 +382,19 @@ export class KonficuratorApp {
 	/**
 	 * Handle file save operation
 	 */
-	private async handleFileSave(filename: string): Promise<void> {
+	private async handleFileSave(fileId: string): Promise<void> {
 		// Prevent concurrent save operations on the same file
-		if (this.activeSaveOperations.has(filename)) {
-			console.warn(`Save operation already in progress for ${filename}`);
+		if (this.activeSaveOperations.has(fileId)) {
+			console.warn(`Save operation already in progress for ${fileId}`);
 			return;
 		}
 
-		this.activeSaveOperations.add(filename);
+		this.activeSaveOperations.add(fileId);
 
 		try {
-			const fileData = this.loadedFiles.find((f) => f.name === filename);
+			const fileData = this.loadedFiles.find((f) => f.id === fileId);
 			if (!fileData) {
-				throw new Error(`File ${filename} not found`);
+				throw new Error(`File not found`);
 			}
 
 			// Check if file has been modified on disk before saving
@@ -349,11 +405,11 @@ export class KonficuratorApp {
 
 				if (isModifiedOnDisk) {
 					// Import the ConfirmationDialog
-                                const { ConfirmationDialog } = await import("./confirmation");
+					const { ConfirmationDialog } = await import("./confirmation");
 
 					// Show file conflict dialog
 					const choice = await ConfirmationDialog.showFileConflictDialog(
-						filename
+						fileData.name
 					);
 
 					switch (choice) {
@@ -363,7 +419,7 @@ export class KonficuratorApp {
 
 						case "refresh":
 							// Refresh the file content from disk
-							await this.handleFileRefresh(filename);
+							await this.handleFileRefresh(fileId);
 							return;
 
 						case "overwrite":
@@ -374,7 +430,7 @@ export class KonficuratorApp {
 			}
 
 			// Robust form element finding with retry logic for race conditions
-			const formElement = await this.findFormElementWithRetry(filename);
+			const formElement = await this.findFormElementWithRetry(fileId);
 			if (!formElement) {
 				throw new Error("Form not found after retries");
 			}
@@ -387,7 +443,10 @@ export class KonficuratorApp {
 					const file = await fileData.handle.getFile();
 					fileData.lastModified = file.lastModified;
 				} catch (error) {
-					console.warn(`Could not update lastModified for ${filename}:`, error);
+					console.warn(
+						`Could not update lastModified for ${fileData.name}:`,
+						error
+					);
 				}
 			}
 
@@ -395,13 +454,13 @@ export class KonficuratorApp {
 			await this.saveToStorage();
 
 			// Show success message
-			FileNotifications.showSaveSuccess(filename);
+			FileNotifications.showSaveSuccess(fileData.name);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
-			NotificationService.showError(`Failed to save ${filename}: ${message}`);
+			NotificationService.showError(`Failed to save: ${message}`);
 		} finally {
 			// Always remove from active operations
-			this.activeSaveOperations.delete(filename);
+			this.activeSaveOperations.delete(fileId);
 		}
 	}
 
@@ -409,26 +468,26 @@ export class KonficuratorApp {
 	 * Find form element with retry logic to handle potential race conditions
 	 */
 	private async findFormElementWithRetry(
-		filename: string,
+		fileId: string,
 		maxRetries: number = 3
 	): Promise<HTMLFormElement | null> {
 		for (let attempt = 1; attempt <= maxRetries; attempt++) {
 			// Find the main file editor container (not buttons or other elements with data-file)
 			const editorElement = document.querySelector(
-				`div.file-editor[data-file="${filename}"]`
+				`div.file-editor[data-id="${fileId}"]`
 			);
 			if (!editorElement) {
 				console.warn(
-					`Attempt ${attempt}: File editor container not found for ${filename}`
+					`Attempt ${attempt}: File editor container not found for ${fileId}`
 				);
 				if (attempt === maxRetries) {
 					// Final attempt: provide debugging info
 					const allEditorElements = document.querySelectorAll(
-						"div.file-editor[data-file]"
+						"div.file-editor[data-id]"
 					);
 					console.error(
 						`Available file editor elements: ${Array.from(allEditorElements)
-							.map((el) => el.getAttribute("data-file"))
+							.map((el) => el.getAttribute("data-id"))
 							.join(", ")}`
 					);
 					return null;
@@ -443,7 +502,7 @@ export class KonficuratorApp {
 			) as HTMLFormElement;
 			if (!formElement) {
 				console.warn(
-					`Attempt ${attempt}: Form not found in file editor container for ${filename}`
+					`Attempt ${attempt}: Form not found in file editor container for ${fileId}`
 				);
 				if (attempt === maxRetries) {
 					// Final attempt: provide debugging info
@@ -460,7 +519,7 @@ export class KonficuratorApp {
 			}
 
 			// Success!
-			console.log(`Form found for ${filename} on attempt ${attempt}`);
+			console.log(`Form found for ${fileId} on attempt ${attempt}`);
 			return formElement;
 		}
 
@@ -470,14 +529,14 @@ export class KonficuratorApp {
 	/**
 	 * Handle file refresh operation - reload content from disk
 	 */
-	private async handleFileRefresh(filename: string): Promise<void> {
+	private async handleFileRefresh(fileId: string): Promise<void> {
 		try {
-			const fileData = this.loadedFiles.find((f) => f.name === filename);
+			const fileData = this.loadedFiles.find((f) => f.id === fileId);
 			if (!fileData) {
-				throw new Error(`File ${filename} not found`);
+				throw new Error(`File not found`);
 			}
 
-			NotificationService.showLoading(`Refreshing ${filename}...`);
+			NotificationService.showLoading(`Refreshing ${fileData.name}...`);
 
 			// Refresh file content from disk
 			const refreshedFileData = await this.fileHandler.refreshFile(fileData);
@@ -486,7 +545,7 @@ export class KonficuratorApp {
 			await this.processFile(refreshedFileData);
 
 			// Update the file in loaded files array
-			const fileIndex = this.loadedFiles.findIndex((f) => f.name === filename);
+			const fileIndex = this.loadedFiles.findIndex((f) => f.id === fileId);
 			if (fileIndex !== -1) {
 				this.loadedFiles[fileIndex] = refreshedFileData;
 			}
@@ -500,22 +559,20 @@ export class KonficuratorApp {
 			NotificationService.hideLoading();
 
 			// Show success message
-			FileNotifications.showRefreshSuccess(filename);
+			FileNotifications.showRefreshSuccess(fileData.name);
 		} catch (error) {
 			NotificationService.hideLoading();
 			const message = error instanceof Error ? error.message : "Unknown error";
 
 			// Show user-friendly error messages
 			if (message.includes("No file handle available")) {
-				FileNotifications.showNoFileHandle(filename);
+				FileNotifications.showNoFileHandle("file");
 			} else if (message.includes("File not found")) {
-				FileNotifications.showFileNotFound(filename);
+				FileNotifications.showFileNotFound("file");
 			} else if (message.includes("Permission denied")) {
-				FileNotifications.showPermissionDenied(filename);
+				FileNotifications.showPermissionDenied("file");
 			} else {
-				NotificationService.showError(
-					`Failed to refresh "${filename}": ${message}`
-				);
+				NotificationService.showError(`Failed to refresh: ${message}`);
 			}
 		}
 	}
@@ -523,38 +580,44 @@ export class KonficuratorApp {
 	/**
 	 * Handle reload from disk operation - select and replace storage file with disk version
 	 */
-	private async handleReloadFromDisk(filename: string): Promise<void> {
+	private async handleReloadFromDisk(fileId: string): Promise<void> {
 		try {
-			const fileData = this.loadedFiles.find((f) => f.name === filename);
+			const fileData = this.loadedFiles.find((f) => f.id === fileId);
 			if (!fileData) {
-				throw new Error(`File ${filename} not found`);
+				throw new Error(`File not found`);
 			}
 
-			NotificationService.showLoading(`Selecting ${filename} from disk...`);
+			NotificationService.showLoading(
+				`Selecting ${fileData.name} from disk...`
+			);
 
 			// Use file picker to select the specific file from disk
-			const newFiles = await this.fileHandler.selectFiles([]);
+			const newFiles = await this.fileHandler.selectFiles(
+				fileData.group,
+				[],
+				this.groupColors.get(fileData.group)
+			);
 
 			// Find the file with matching name
-			const matchingFile = newFiles.find((f) => f.name === filename);
+			const matchingFile = newFiles.find((f) => f.name === fileData.name);
 
-                        if (!matchingFile) {
-                                NotificationService.hideLoading();
-                                NotificationService.showInfo(
-                                        createIconLabel(
-                                                "folder",
-                                                `No file named "${filename}" was selected. Please select the correct file to reload.`,
-                                                { size: 18 }
-                                        )
-                                );
-                                return;
-                        }
+			if (!matchingFile) {
+				NotificationService.hideLoading();
+				NotificationService.showInfo(
+					createIconLabel(
+						"folder",
+						`No file named "${fileData.name}" was selected. Please select the correct file to reload.`,
+						{ size: 18 }
+					)
+				);
+				return;
+			}
 
 			// Process the new file
 			await this.processFile(matchingFile);
 
 			// Replace the old file in loaded files array
-			const fileIndex = this.loadedFiles.findIndex((f) => f.name === filename);
+			const fileIndex = this.loadedFiles.findIndex((f) => f.id === fileId);
 			if (fileIndex !== -1) {
 				this.loadedFiles[fileIndex] = matchingFile;
 			}
@@ -568,13 +631,13 @@ export class KonficuratorApp {
 			NotificationService.hideLoading();
 
 			// Show success message
-                        NotificationService.showSuccess(
-                                createIconLabel(
-                                        "folder",
-                                        `"${filename}" successfully reloaded from disk with latest content and file handle.`,
-                                        { size: 18 }
-                                )
-                        );
+			NotificationService.showSuccess(
+				createIconLabel(
+					"folder",
+					`"${fileData.name}" successfully reloaded from disk with latest content and file handle.`,
+					{ size: 18 }
+				)
+			);
 		} catch (error) {
 			NotificationService.hideLoading();
 			const message = error instanceof Error ? error.message : "Unknown error";
@@ -582,12 +645,10 @@ export class KonficuratorApp {
 			if (error instanceof Error && error.name === "AbortError") {
 				// User cancelled file selection
 				NotificationService.showInfo(
-					`File selection cancelled. "${filename}" remains unchanged.`
+					`File selection cancelled. The file remains unchanged.`
 				);
 			} else {
-				NotificationService.showError(
-					`Failed to reload "${filename}" from disk: ${message}`
-				);
+				NotificationService.showError(`Failed to reload from disk: ${message}`);
 			}
 		}
 	}
@@ -652,59 +713,59 @@ export class KonficuratorApp {
 				NotificationService.hideLoading();
 
 				// Show permission warning if needed (after hideLoading)
-                                if (filesNeedingPermission.length > 0) {
-                                        NotificationService.showWarning(
-                                                createIconLabel(
-                                                        "alert-triangle",
-                                                        `${filesNeedingPermission.length} file(s) need permission to access. Please grant access using the cards above.`,
-                                                        { size: 18 }
-                                                )
-                                        );
-                                }
+				if (filesNeedingPermission.length > 0) {
+					NotificationService.showWarning(
+						createIconLabel(
+							"alert-triangle",
+							`${filesNeedingPermission.length} file(s) need permission to access. Please grant access using the cards above.`,
+							{ size: 18 }
+						)
+					);
+				}
 
-                                // Show detailed success message
-                                const fileNames = refreshedFiles.map((f) => f.name).join(", ");
-                                const messageItems: IconListItem[] = [
-                                        {
-                                                icon: "folder",
-                                                text: `Restored ${refreshedFiles.length} file(s): ${fileNames}`,
-                                        },
-                                ];
+				// Show detailed success message
+				const fileNames = refreshedFiles.map((f) => f.name).join(", ");
+				const messageItems: IconListItem[] = [
+					{
+						icon: "folder",
+						text: `Restored ${refreshedFiles.length} file(s): ${fileNames}`,
+					},
+				];
 
-                                if (grantedFiles > 0) {
-                                        messageItems.push({
-                                                icon: "check-circle",
-                                                text: `${grantedFiles} file(s) have disk access`,
-                                        });
-                                }
+				if (grantedFiles > 0) {
+					messageItems.push({
+						icon: "check-circle",
+						text: `${grantedFiles} file(s) have disk access`,
+					});
+				}
 
-                                if (autoRefreshedCount > 0) {
-                                        messageItems.push({
-                                                icon: "refresh-cw",
-                                                text: `Auto-refreshed ${autoRefreshedCount} file(s) from disk`,
-                                        });
-                                }
+				if (autoRefreshedCount > 0) {
+					messageItems.push({
+						icon: "refresh-cw",
+						text: `Auto-refreshed ${autoRefreshedCount} file(s) from disk`,
+					});
+				}
 
-                                // Only show info notification if no files need permission
-                                if (
-                                        permissionDeniedCount === 0 &&
-                                        filesNeedingPermission.length === 0
-                                ) {
-                                        NotificationService.showInfo(
-                                                createIconList(messageItems, { size: 18 })
-                                        );
-                                }
+				// Only show info notification if no files need permission
+				if (
+					permissionDeniedCount === 0 &&
+					filesNeedingPermission.length === 0
+				) {
+					NotificationService.showInfo(
+						createIconList(messageItems, { size: 18 })
+					);
+				}
 
 				return;
 			} else {
 				// No files in storage - show helpful message for first-time users
-                                NotificationService.showInfo(
-                                        createIconLabel(
-                                                "help-circle",
-                                                'No saved files found. Use the "Add" button to load configuration files from your computer.',
-                                                { size: 18 }
-                                        )
-                                );
+				NotificationService.showInfo(
+					createIconLabel(
+						"help-circle",
+						'No saved files found. Use the "Add" button to load configuration files from your computer.',
+						{ size: 18 }
+					)
+				);
 			}
 		} catch (error) {
 			console.warn(
@@ -741,13 +802,13 @@ export class KonficuratorApp {
 
 				// Show success message for restored files
 				const fileNames = storedFiles.map((f) => f.name).join(", ");
-                                NotificationService.showInfo(
-                                        createIconLabel(
-                                                "folder",
-                                                `Restored ${storedFiles.length} file(s) from previous session: ${fileNames}`,
-                                                { size: 18 }
-                                        )
-                                );
+				NotificationService.showInfo(
+					createIconLabel(
+						"folder",
+						`Restored ${storedFiles.length} file(s) from previous session: ${fileNames}`,
+						{ size: 18 }
+					)
+				);
 			}
 		} catch (error) {
 			console.warn("Failed to load persisted files:", error);
@@ -759,27 +820,27 @@ export class KonficuratorApp {
 	/**
 	 * Handle file removal
 	 */
-	private async handleFileRemove(filename: string): Promise<void> {
+	private async handleFileRemove(fileId: string): Promise<void> {
 		try {
-			const confirmed = await this.showRemoveConfirmation(filename);
+			const file = this.loadedFiles.find((f) => f.id === fileId);
+			if (!file) throw new Error("File not found");
+			const confirmed = await this.showRemoveConfirmation(file.name);
 			if (!confirmed) {
 				return;
 			}
 
 			// Remove from loaded files array
-			this.loadedFiles = this.loadedFiles.filter(
-				(file) => file.name !== filename
-			);
+			this.loadedFiles = this.loadedFiles.filter((f) => f.id !== fileId);
 
 			// Update storage
 			try {
-				await StorageService.removeFile(filename);
+				await StorageService.removeFile(fileId);
 			} catch (error) {
 				console.warn(
 					"Enhanced storage removal failed, falling back to legacy storage:",
 					error
 				);
-				StorageService.removeFile(filename);
+				StorageService.removeFile(fileId);
 			}
 
 			// Update UI
@@ -787,10 +848,99 @@ export class KonficuratorApp {
 			this.renderFileEditors();
 
 			// Show success message
-			FileNotifications.showFileRemoved(filename);
+			FileNotifications.showFileRemoved(file.name);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			NotificationService.showError(`Failed to remove file: ${message}`);
+		}
+	}
+
+	private getExistingGroups(): { name: string; color?: string }[] {
+		const seen = new Map<string, string | undefined>();
+		for (const f of this.loadedFiles) {
+			if (!seen.has(f.group))
+				seen.set(f.group, f.groupColor || this.groupColors.get(f.group));
+		}
+		return Array.from(seen.entries()).map(([name, color]) => {
+			const obj: any = { name };
+			if (color !== undefined) obj.color = color;
+			return obj as { name: string; color?: string };
+		});
+	}
+
+	private async handleGroupTitleClick(groupName: string): Promise<void> {
+		const currentColor =
+			this.groupColors.get(groupName) ||
+			this.loadedFiles.find((f) => f.group === groupName)?.groupColor;
+		const groupArg: any = { name: groupName };
+		if (currentColor !== undefined) groupArg.color = currentColor;
+		const result = await showEditGroupDialog(
+			groupArg as { name: string; color?: string }
+		);
+		if (!result) return;
+		switch (result.type) {
+			case "save": {
+				const { newName, color } = result;
+				// Update files
+				this.loadedFiles.forEach((f) => {
+					if (f.group === groupName) {
+						f.group = newName;
+						if (color) f.groupColor = color;
+					}
+				});
+				// Update color map
+				const existingColor = color || currentColor;
+				if (existingColor) {
+					this.groupColors.delete(groupName);
+					this.groupColors.set(newName, existingColor);
+				}
+				await this.saveToStorage();
+				this.updateFileInfo(this.loadedFiles);
+				this.renderFileEditors();
+				NotificationService.showSuccess(
+					`Group "${groupName}" renamed to "${newName}"`
+				);
+				break;
+			}
+			case "closeAll": {
+				this.loadedFiles.forEach((f) => {
+					if (f.group === groupName) f.isActive = false;
+				});
+				await this.saveToStorage();
+				this.updateFileInfo(this.loadedFiles);
+				this.renderFileEditors();
+				NotificationService.showInfo(
+					`Closed all files in group "${groupName}"`
+				);
+				break;
+			}
+			case "remove": {
+				const confirmed = confirm(
+					`Remove group "${groupName}" and all its files from the session? This does not delete files from disk.`
+				);
+				if (!confirmed) return;
+				const idsToRemove = this.loadedFiles
+					.filter((f) => f.group === groupName)
+					.map((f) => f.id);
+				this.loadedFiles = this.loadedFiles.filter(
+					(f) => f.group !== groupName
+				);
+				this.groupColors.delete(groupName);
+				for (const id of idsToRemove) {
+					try {
+						await StorageService.removeFile(id);
+					} catch {
+						/* ignore */
+					}
+				}
+				await this.saveToStorage();
+				this.updateFileInfo(this.loadedFiles);
+				this.renderFileEditors();
+				NotificationService.showSuccess(
+					`Removed group "${groupName}" (${idsToRemove.length} file(s))`
+				);
+				break;
+			}
 		}
 	}
 
