@@ -365,7 +365,7 @@ export class KonficuratorApp {
 	/**
 	 * Toggle file editor visibility
 	 */
-	private toggleFileVisibility(fileId: string): void {
+	public toggleFileVisibility(fileId: string): void {
 		const fileData = this.loadedFiles.find((f) => f.id === fileId);
 		if (!fileData) return;
 
@@ -383,6 +383,12 @@ export class KonficuratorApp {
 
 		// No toast/notification for minimize/restore to reduce noise
 	}
+
+	/**
+	 * Legacy helper used by older tests: select files directly without group dialog
+	 * Adds selected files into a default group and updates UI/state.
+	 */
+	// Legacy helper removed
 
 	/**
 	 * Render file editors for all loaded files
@@ -405,84 +411,75 @@ export class KonficuratorApp {
 	/**
 	 * Handle file save operation
 	 */
-	private async handleFileSave(fileId: string): Promise<void> {
-		// Prevent concurrent save operations on the same file
-		if (this.activeSaveOperations.has(fileId)) {
-			console.warn(`Save operation already in progress for ${fileId}`);
+	public async handleFileSave(fileId: string): Promise<void> {
+		// Resolve file strictly by id
+		const fileData = this.loadedFiles.find((f) => f.id === fileId);
+		if (!fileData) {
+			NotificationService.showError(`Failed to save: File not found`);
 			return;
 		}
+		const resolvedId = fileData.id;
 
-		this.activeSaveOperations.add(fileId);
+		// Prevent concurrent save operations on the same file
+		if (this.activeSaveOperations.has(resolvedId)) {
+			console.warn(`Save operation already in progress for ${resolvedId}`);
+			return;
+		}
+		this.activeSaveOperations.add(resolvedId);
 
 		try {
-			const fileData = this.loadedFiles.find((f) => f.id === fileId);
-			if (!fileData) {
-				throw new Error(`File not found`);
-			}
-
-			// Check if file has been modified on disk before saving
+			// Check if file has been modified on disk before saving (only when we have a handle)
 			if (fileData.handle) {
 				const isModifiedOnDisk = await this.fileHandler.isFileModifiedOnDisk(
 					fileData
 				);
-
 				if (isModifiedOnDisk) {
-					// Import the ConfirmationDialog
+					// Import lazily to avoid upfront cost when not needed
 					const { ConfirmationDialog } = await import("./confirmation");
-
-					// Show file conflict dialog
 					const choice = await ConfirmationDialog.showFileConflictDialog(
 						fileData.name
 					);
-
 					switch (choice) {
 						case "cancel":
-							// User cancelled, don't save
-							return;
-
+							return; // user aborted
 						case "refresh":
-							// Refresh the file content from disk
-							await this.handleFileRefresh(fileId);
+							await this.handleFileRefresh(resolvedId); // reload from disk then exit (no save yet)
 							return;
-
 						case "overwrite":
-							// Continue with save operation (break out of this block)
+							// continue with save
 							break;
 					}
 				}
 			}
 
-			// Robust form element finding with retry logic for race conditions
-			const formElement = await this.findFormElementWithRetry(fileId);
+			// Robust form element finding with retry logic for race conditions (render may be async)
+			const formElement = await this.findFormElementWithRetry(resolvedId);
 			if (!formElement) {
 				throw new Error("Form not found after retries");
 			}
 
 			await this.persistence.saveFile(fileData, formElement);
 
-			// Update file's lastModified timestamp after successful save
+			// Update lastModified timestamp from disk handle if available
 			if (fileData.handle) {
 				try {
-					const file = await fileData.handle.getFile();
-					fileData.lastModified = file.lastModified;
-				} catch (error) {
+					const diskFile = await fileData.handle.getFile();
+					fileData.lastModified = diskFile.lastModified;
+				} catch (e) {
 					console.warn(
 						`Could not update lastModified for ${fileData.name}:`,
-						error
+						e
 					);
 				}
 			}
 
-			// Update storage after successful save
 			await this.saveToStorage();
-
-			// Success: no toast for autosave to avoid noise
+			// Silent success (autosave UX)
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			NotificationService.showError(`Failed to save: ${message}`);
 		} finally {
-			// Always remove from active operations
-			this.activeSaveOperations.delete(fileId);
+			this.activeSaveOperations.delete(resolvedId);
 		}
 	}
 
@@ -605,16 +602,16 @@ export class KonficuratorApp {
 		} catch (error) {
 			NotificationService.hideLoading();
 			const message = error instanceof Error ? error.message : "Unknown error";
-
-			// Show user-friendly error messages
+			const fileData = this.loadedFiles.find((f) => f.id === fileId);
+			const name = fileData?.name || "file";
 			if (message.includes("No file handle available")) {
-				FileNotifications.showNoFileHandle("file");
+				FileNotifications.showNoFileHandle(name);
 			} else if (message.includes("File not found")) {
-				FileNotifications.showFileNotFound("file");
+				FileNotifications.showFileNotFound(name);
 			} else if (message.includes("Permission denied")) {
-				FileNotifications.showPermissionDenied("file");
+				FileNotifications.showPermissionDenied(name);
 			} else {
-				NotificationService.showError(`Failed to refresh: ${message}`);
+				NotificationService.showError(`Failed to refresh: ${name}: ${message}`);
 			}
 		}
 	}
@@ -867,10 +864,12 @@ export class KonficuratorApp {
 			const file = this.loadedFiles.find((f) => f.id === fileId);
 			if (!file) throw new Error("File not found");
 
-			// Remove from loaded files array
+			// Remove from loaded files array (synchronous) and update UI immediately for responsiveness
 			this.loadedFiles = this.loadedFiles.filter((f) => f.id !== fileId);
+			this.updateFileInfo(this.loadedFiles);
+			this.renderFileEditors();
 
-			// Update storage
+			// Storage removal (async) – errors logged but don't block UI removal
 			try {
 				await StorageService.removeFile(fileId);
 			} catch (error) {
@@ -880,10 +879,6 @@ export class KonficuratorApp {
 				);
 				StorageService.removeFile(fileId);
 			}
-
-			// Update UI
-			this.updateFileInfo(this.loadedFiles);
-			this.renderFileEditors();
 
 			// Show success message
 			FileNotifications.showFileRemoved(file.name);

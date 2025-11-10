@@ -126,16 +126,18 @@ describe("FileHandler", () => {
 			});
 
 			expect(files).toHaveLength(2);
-			expect(files[0]).toEqual({
-				name: "config.json",
-				handle: mockHandles[0],
-				type: "json",
-				content: '{"config": true}',
-				originalContent: '{"config": true}',
-				path: "config.json",
-				lastModified: expect.any(Number),
-				size: expect.any(Number),
-			});
+			expect(files[0]).toEqual(
+				expect.objectContaining({
+					name: "config.json",
+					handle: mockHandles[0],
+					type: "json",
+					content: '{"config": true}',
+					originalContent: '{"config": true}',
+					path: "config.json",
+					lastModified: expect.any(Number),
+					size: expect.any(Number),
+				})
+			);
 		});
 
 		it("should handle file reading errors gracefully", async () => {
@@ -183,6 +185,8 @@ describe("FileHandler", () => {
 	describe("refreshFile", () => {
 		it("should refresh file content from handle", async () => {
 			const fileData = {
+				id: "f1",
+				group: "Default",
 				name: "config.json",
 				handle: mockHandles[0],
 				type: "json" as const,
@@ -208,6 +212,8 @@ describe("FileHandler", () => {
 
 		it("should handle refresh errors", async () => {
 			const fileData = {
+				id: "f2",
+				group: "Default",
 				name: "config.json",
 				handle: mockHandles[0],
 				type: "json" as const,

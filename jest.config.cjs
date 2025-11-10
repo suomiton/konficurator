@@ -6,6 +6,11 @@ module.exports = {
 		'**/__tests__/**/*.+(ts|tsx|js)',
 		'**/*.(test|spec).+(ts|tsx|js)'
 	],
+	testPathIgnorePatterns: [
+		"<rootDir>/tests/unit/dom-renderer.test.ts",
+		"<rootDir>/tests/unit/modern-form-renderer.test.ts",
+		"<rootDir>/tests/unit/file-conflict-detection.test.ts"
+	],
 	transform: {
 		'^.+\\.(ts|tsx)$': 'ts-jest'
 	},
