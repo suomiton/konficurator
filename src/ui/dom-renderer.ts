@@ -639,28 +639,7 @@ function renderFileActionButtons(
 /**
  * Renders save button container
  */
-export function renderSaveContainer(fileId: string): HTMLElement {
-	const container = createElement({
-		tag: "div",
-		className: "save-container",
-		attributes: { "data-id": fileId },
-	});
-
-	const saveButton = createButton({
-		tag: "button",
-		className: "btn btn-success btn-small",
-		type: "button",
-		attributes: { "data-id": fileId },
-	});
-	saveButton.appendChild(
-		createIcon("save", { size: 18, className: "btn-icon" })
-	);
-	saveButton.appendChild(document.createTextNode(" Save Changes"));
-
-	container.appendChild(saveButton);
-
-	return container;
-}
+// Save button removed; instant save UX active
 
 /**
  * Renders error notification

@@ -9,7 +9,6 @@ import {
 	renderFormField,
 	renderFormContainer,
 	renderFileHeader,
-	renderSaveContainer,
 	renderErrorNotification,
 	renderErrorMessage,
 	FormElementRenderOptions,
@@ -17,7 +16,6 @@ import {
 import {
 	setupFieldEventListeners,
 	setupFileActionEventListeners,
-	setupSaveEventListeners,
 	setupFormEventListeners,
 	FormEventHandlers,
 } from "./event-handlers";
@@ -109,10 +107,7 @@ export class ModernFormRenderer implements IRenderer {
 
 		container.appendChild(form);
 
-		// Render save button
-		const saveContainer = renderSaveContainer(fileData.id);
-		setupSaveEventListeners(saveContainer, fileData.id, this.eventHandlers);
-		container.appendChild(saveContainer);
+		// Save button removed: instant persistence handled via onFieldChange externally
 
 		return container;
 	}

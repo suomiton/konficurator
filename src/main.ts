@@ -27,7 +27,9 @@ export class KonficuratorApp {
 
 	constructor() {
 		this.fileHandler = new FileHandler();
-		this.renderer = new ModernFormRenderer();
+		this.renderer = new ModernFormRenderer({
+			onFileFieldChange: (fileId) => this.scheduleAutosave(fileId),
+		});
 		this.persistence = new FilePersistence();
 
 		this.init();
@@ -143,6 +145,19 @@ export class KonficuratorApp {
 				const group = target.getAttribute("data-group");
 				if (group) this.handleGroupTitleClick(group);
 			}
+		});
+
+		// Autosave binding: listen globally for field changes dispatched via custom events
+		document.addEventListener("konficurator:fileFieldChanged", (e) => {
+			const detail = (e as CustomEvent).detail as {
+				fileId: string;
+				path: string;
+				value: any;
+				fieldType: string;
+			};
+			if (!detail?.fileId) return;
+			// Schedule debounced save for this file
+			this.scheduleAutosave(detail.fileId);
 		});
 	}
 
@@ -293,9 +308,6 @@ export class KonficuratorApp {
 				textContent: groupName,
 				attributes: { "data-group": groupName, type: "button" },
 			});
-			if (color) {
-				(header as HTMLElement).style.borderBottom = `3px solid ${color}`;
-			}
 			header.appendChild(title);
 
 			const groupList = createElement({
@@ -464,8 +476,7 @@ export class KonficuratorApp {
 			// Update storage after successful save
 			await this.saveToStorage();
 
-			// Show success message
-			FileNotifications.showSaveSuccess(fileData.name);
+			// Success: no toast for autosave to avoid noise
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			NotificationService.showError(`Failed to save: ${message}`);
@@ -473,6 +484,26 @@ export class KonficuratorApp {
 			// Always remove from active operations
 			this.activeSaveOperations.delete(fileId);
 		}
+	}
+
+	// Debounced instant save support
+	private pendingAutosaveTimers: Map<string, number> = new Map();
+
+	public scheduleAutosave(fileId: string, delay: number = 600): void {
+		// Clear any existing timer for this file
+		const existing = this.pendingAutosaveTimers.get(fileId);
+		if (existing) {
+			clearTimeout(existing);
+		}
+		const timer = window.setTimeout(async () => {
+			this.pendingAutosaveTimers.delete(fileId);
+			try {
+				await this.handleFileSave(fileId);
+			} catch (e) {
+				console.warn("Autosave failed", e);
+			}
+		}, delay);
+		this.pendingAutosaveTimers.set(fileId, timer);
 	}
 
 	/**

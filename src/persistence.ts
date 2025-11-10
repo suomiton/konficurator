@@ -1,7 +1,11 @@
 import { IPersistence, FileData } from "./interfaces";
 import { ParserFactory } from "./parsers";
 import { NotificationService } from "./ui/notifications";
-import { SupportedFileType, getMimeTypeForFileType, getExtensionsForFileType } from "./utils/fileTypeUtils";
+import {
+	SupportedFileType,
+	getMimeTypeForFileType,
+	getExtensionsForFileType,
+} from "./utils/fileTypeUtils";
 
 // Import WASM parser for non-destructive updates
 import init, { update_value } from "../parser-wasm/pkg/parser_core.js";
@@ -77,7 +81,7 @@ export class FilePersistence implements IPersistence {
 			// Write to file
 			if (fileData.handle) {
 				// Use existing handle if available
-                                const fileHandler = await import("./fileHandler");
+				const fileHandler = await import("./fileHandler");
 				const handler = new fileHandler.FileHandler();
 				await handler.writeFile(fileData.handle, updatedContent);
 			} else {
@@ -91,7 +95,7 @@ export class FilePersistence implements IPersistence {
 			// Update originalContent to the new file content for future edits
 			fileData.originalContent = updatedContent;
 
-			NotificationService.showSuccess(`Successfully saved ${fileData.name}`);
+			// Silent success to avoid noisy toasts during autosave
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			NotificationService.showError(
@@ -303,7 +307,8 @@ export class FilePersistence implements IPersistence {
 					{
 						description: `${fileType.toUpperCase()} files`,
 						accept: {
-							[getMimeTypeForFileType(fileType)]: getExtensionsForFileType(fileType)
+							[getMimeTypeForFileType(fileType)]:
+								getExtensionsForFileType(fileType),
 						},
 					},
 				],

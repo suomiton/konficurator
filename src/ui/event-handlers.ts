@@ -7,6 +7,12 @@ import { FormFieldData } from "./form-data";
 
 export interface FormEventHandlers {
 	onFieldChange?: (path: string, value: any, fieldType: string) => void;
+	onFileFieldChange?: (
+		fileId: string,
+		path: string,
+		value: any,
+		fieldType: string
+	) => void;
 	onArrayItemAdd?: (path: string) => void;
 	onArrayItemRemove?: (path: string, index: number) => void;
 	onFileRemove?: (fileName: string) => void;
@@ -14,7 +20,7 @@ export interface FormEventHandlers {
 	onFileRefresh?: (fileName: string) => void;
 	onFileMinimize?: (fileName: string) => void;
 	onFileReload?: (fileName: string) => void;
-	onFileSave?: (fileName: string) => void;
+	// onFileSave removed: instant save model in place
 }
 
 /**
@@ -25,19 +31,47 @@ export function setupFieldEventListeners(
 	fieldData: FormFieldData,
 	handlers: FormEventHandlers
 ): void {
-	const { onFieldChange } = handlers;
-	if (!onFieldChange) return;
+	const { onFieldChange, onFileFieldChange } = handlers;
+	if (!onFieldChange && !onFileFieldChange) return;
 
 	switch (fieldData.type) {
 		case "text":
 		case "number":
-			setupInputEventListeners(element, fieldData, onFieldChange);
+			setupInputEventListeners(element, fieldData, (value, type) => {
+				onFieldChange?.(fieldData.path, value, type);
+				// fileId travels via closest file-editor
+				const container = element.closest(
+					".file-editor[data-id]"
+				) as HTMLElement | null;
+				if (container) {
+					const fid = container.getAttribute("data-id")!;
+					onFileFieldChange?.(fid, fieldData.path, value, type);
+				}
+			});
 			break;
 		case "boolean":
-			setupCheckboxEventListeners(element, fieldData, onFieldChange);
+			setupCheckboxEventListeners(element, fieldData, (value, type) => {
+				onFieldChange?.(fieldData.path, value, type);
+				const container = element.closest(
+					".file-editor[data-id]"
+				) as HTMLElement | null;
+				if (container) {
+					const fid = container.getAttribute("data-id")!;
+					onFileFieldChange?.(fid, fieldData.path, value, type);
+				}
+			});
 			break;
 		case "xml-value":
-			setupTextareaEventListeners(element, fieldData, onFieldChange);
+			setupTextareaEventListeners(element, fieldData, (value, type) => {
+				onFieldChange?.(fieldData.path, value, type);
+				const container = element.closest(
+					".file-editor[data-id]"
+				) as HTMLElement | null;
+				if (container) {
+					const fid = container.getAttribute("data-id")!;
+					onFileFieldChange?.(fid, fieldData.path, value, type);
+				}
+			});
 			break;
 		case "array":
 			setupArrayEventListeners(element, fieldData, handlers);
@@ -54,7 +88,7 @@ export function setupFieldEventListeners(
 function setupInputEventListeners(
 	element: HTMLElement,
 	fieldData: FormFieldData,
-	onFieldChange: (path: string, value: any, fieldType: string) => void
+	callback: (value: any, fieldType: string) => void
 ): void {
 	const input = element.querySelector("input") as HTMLInputElement;
 	if (!input) return;
@@ -71,7 +105,7 @@ function setupInputEventListeners(
 						? parseFloat(input.value)
 						: ""
 					: input.value;
-			onFieldChange(fieldData.path, value, fieldData.type);
+			callback(value, fieldData.type);
 		}, 300); // 300ms debounce
 	});
 
@@ -84,7 +118,7 @@ function setupInputEventListeners(
 					? parseFloat(input.value)
 					: ""
 				: input.value;
-		onFieldChange(fieldData.path, value, fieldData.type);
+		callback(value, fieldData.type);
 	});
 }
 
@@ -94,7 +128,7 @@ function setupInputEventListeners(
 function setupCheckboxEventListeners(
 	element: HTMLElement,
 	fieldData: FormFieldData,
-	onFieldChange: (path: string, value: any, fieldType: string) => void
+	callback: (value: any, fieldType: string) => void
 ): void {
 	const checkbox = element.querySelector(
 		'input[type="checkbox"]'
@@ -102,7 +136,7 @@ function setupCheckboxEventListeners(
 	if (!checkbox) return;
 
 	checkbox.addEventListener("change", () => {
-		onFieldChange(fieldData.path, checkbox.checked, fieldData.type);
+		callback(checkbox.checked, fieldData.type);
 	});
 }
 
@@ -112,7 +146,7 @@ function setupCheckboxEventListeners(
 function setupTextareaEventListeners(
 	element: HTMLElement,
 	fieldData: FormFieldData,
-	onFieldChange: (path: string, value: any, fieldType: string) => void
+	callback: (value: any, fieldType: string) => void
 ): void {
 	const textarea = element.querySelector("textarea") as HTMLTextAreaElement;
 	if (!textarea) return;
@@ -122,13 +156,13 @@ function setupTextareaEventListeners(
 	textarea.addEventListener("input", () => {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => {
-			onFieldChange(fieldData.path, textarea.value, fieldData.type);
+			callback(textarea.value, fieldData.type);
 		}, 300);
 	});
 
 	textarea.addEventListener("blur", () => {
 		clearTimeout(timeoutId);
-		onFieldChange(fieldData.path, textarea.value, fieldData.type);
+		callback(textarea.value, fieldData.type);
 	});
 }
 
@@ -209,21 +243,7 @@ export function setupFileActionEventListeners(
 /**
  * Sets up event listeners for save button
  */
-export function setupSaveEventListeners(
-	saveContainer: HTMLElement,
-	fileName: string,
-	handlers: FormEventHandlers
-): void {
-	const { onFileSave } = handlers;
-	if (!onFileSave) return;
-
-	const saveButton = saveContainer.querySelector("button") as HTMLButtonElement;
-	if (saveButton) {
-		saveButton.addEventListener("click", () => {
-			onFileSave(fileName);
-		});
-	}
-}
+// Save button listeners removed: changes are persisted on field change
 
 /**
  * Sets up form submit prevention (since we handle changes via individual field events)
