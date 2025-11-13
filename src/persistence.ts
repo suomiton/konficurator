@@ -29,6 +29,32 @@ export class FilePersistence implements IPersistence {
 	}
 
 	/**
+	 * Save entire file content from a raw editable source without reformatting
+	 */
+	async saveRaw(fileData: FileData, rawText: string): Promise<void> {
+		try {
+			// Write to file or prompt save-as
+			if (fileData.handle) {
+				const fileHandler = await import("./fileHandler");
+				const handler = new fileHandler.FileHandler();
+				await handler.writeFile(fileData.handle, rawText);
+			} else {
+				await this.saveAsNewFile(fileData.name, rawText, fileData.type);
+			}
+
+			// Re-parse to update in-memory structure, but keep formatting by
+			// assigning rawText as originalContent directly.
+			const parser = ParserFactory.createParser(fileData.type, rawText);
+			fileData.content = parser.parse(rawText);
+			fileData.originalContent = rawText;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			NotificationService.showError(`Failed to save ${fileData.name}: ${message}`);
+			throw error;
+		}
+	}
+
+	/**
 	 * Saves file with updated form data using WASM non-destructive updates
 	 */
 	async saveFile(

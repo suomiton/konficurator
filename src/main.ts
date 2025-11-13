@@ -24,6 +24,8 @@ export class KonficuratorApp {
 	private loadedFiles: FileData[] = [];
 	private activeSaveOperations: Set<string> = new Set();
 	private groupColors: Map<string, string> = new Map();
+	private rawEditMode: Set<string> = new Set();
+	private pendingRawAutosaveTimers: Map<string, number> = new Map();
 
 	constructor() {
 		this.fileHandler = new FileHandler();
@@ -131,6 +133,15 @@ export class KonficuratorApp {
 			if (minimizeBtn) {
 				const id = minimizeBtn.getAttribute("data-id");
 				if (id) this.toggleFileVisibility(id);
+				return;
+			}
+
+			const rawToggleBtn = target.closest(
+				".toggle-raw-btn"
+			) as HTMLElement | null;
+			if (rawToggleBtn) {
+				const id = rawToggleBtn.getAttribute("data-id");
+				if (id) this.toggleRawMode(id);
 				return;
 			}
 
@@ -405,7 +416,116 @@ export class KonficuratorApp {
 			.forEach((fileData) => {
 				const editorElement = this.renderer.renderFileEditor(fileData);
 				container.appendChild(editorElement);
+
+				// Adjust raw/edit values button label based on mode
+				const rawBtn = editorElement.querySelector(
+					".toggle-raw-btn"
+				) as HTMLButtonElement | null;
+				const isRaw = this.rawEditMode.has(fileData.id);
+				if (rawBtn) {
+					rawBtn.textContent = isRaw ? "Edit Values" : "Edit Raw";
+					rawBtn.title = isRaw ? "Edit Values" : "Edit Raw";
+					rawBtn.setAttribute("aria-label", isRaw ? "Edit Values" : "Edit Raw");
+				}
+
+				// If raw mode, replace form with raw editor view
+				if (isRaw) {
+					this.mountRawEditor(editorElement as HTMLElement, fileData);
+				}
 			});
+	}
+
+	private mountRawEditor(editorElement: HTMLElement, fileData: FileData): void {
+		// Remove existing form if present
+		const form = editorElement.querySelector("form");
+		if (form && form.parentElement) {
+			form.parentElement.removeChild(form);
+		}
+
+		// If a raw editor already exists, don't duplicate
+		let raw = editorElement.querySelector(
+			".raw-editor"
+		) as HTMLDivElement | null;
+		if (!raw) {
+			raw = document.createElement("div");
+			raw.className = "raw-editor";
+			raw.setAttribute("data-id", fileData.id);
+			raw.setAttribute("contenteditable", "true");
+			raw.style.whiteSpace = "pre";
+			raw.style.fontFamily = "monospace";
+			raw.style.minHeight = "10rem";
+			raw.style.border = "1px solid var(--color-border, #ccc)";
+			raw.style.padding = "8px";
+			// Use originalContent to preserve formatting exactly
+			raw.textContent = fileData.originalContent || "";
+
+			// Debounced autosave on input
+			raw.addEventListener("input", () => {
+				this.scheduleRawAutosave(fileData.id);
+			});
+			// Flush on blur
+			raw.addEventListener("blur", () => {
+				this.scheduleRawAutosave(fileData.id, 0);
+			});
+
+			const fieldsContainer = editorElement.querySelector(".form-fields");
+			if (fieldsContainer && fieldsContainer.parentElement) {
+				fieldsContainer.parentElement.appendChild(raw);
+			} else {
+				editorElement.appendChild(raw);
+			}
+		}
+	}
+
+	public toggleRawMode(fileId: string): void {
+		if (this.rawEditMode.has(fileId)) this.rawEditMode.delete(fileId);
+		else this.rawEditMode.add(fileId);
+		// Re-render to reflect mode switch and button label
+		this.renderFileEditors();
+	}
+
+	private scheduleRawAutosave(fileId: string, delay: number = 600): void {
+		const existing = this.pendingRawAutosaveTimers.get(fileId);
+		if (existing) clearTimeout(existing);
+		const timer = window.setTimeout(async () => {
+			this.pendingRawAutosaveTimers.delete(fileId);
+			try {
+				await this.handleRawSave(fileId);
+			} catch (e) {
+				console.warn("Raw autosave failed", e);
+			}
+		}, delay);
+		this.pendingRawAutosaveTimers.set(fileId, timer);
+	}
+
+	private async handleRawSave(fileId: string): Promise<void> {
+		const fileData = this.loadedFiles.find((f) => f.id === fileId);
+		if (!fileData) return;
+		// Find corresponding raw editor and read content
+		const editorElement = document.querySelector(
+			`div.file-editor[data-id="${fileId}"]`
+		) as HTMLElement | null;
+		if (!editorElement) return;
+		const raw = editorElement.querySelector(
+			".raw-editor"
+		) as HTMLDivElement | null;
+		if (!raw) return;
+		const rawText = raw.textContent ?? "";
+
+		try {
+			await this.persistence.saveRaw(fileData, rawText);
+			// Try update lastModified
+			if (fileData.handle) {
+				try {
+					const f = await fileData.handle.getFile();
+					fileData.lastModified = f.lastModified;
+				} catch {}
+			}
+			await this.saveToStorage();
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			NotificationService.showError(`Failed to save raw: ${message}`);
+		}
 	}
 
 	/**

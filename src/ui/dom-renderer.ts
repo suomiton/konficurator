@@ -584,6 +584,20 @@ function renderFileActionButtons(
 		className: "file-action-buttons",
 	});
 
+	// Left-most: Toggle raw editor button
+	const rawToggleButton = createButton({
+		tag: "button",
+		className: "btn btn-secondary btn-small toggle-raw-btn",
+		type: "button",
+		attributes: {
+			"data-id": fileId,
+			title: "Edit Raw",
+			"aria-label": "Edit Raw",
+		},
+		textContent: "Edit Raw",
+	});
+	actionButtons.appendChild(rawToggleButton);
+
 	// Reload button only shown if we don't yet have a persistent file handle
 	if (!hasHandle) {
 		const reloadButton = createButton({

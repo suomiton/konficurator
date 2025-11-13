@@ -96,29 +96,46 @@ function setupInputEventListeners(
 	// Handle input changes with debouncing for better performance
 	let timeoutId: NodeJS.Timeout;
 
+	// Track last emitted value to avoid redundant events
+	const normalize = () =>
+		fieldData.type === "number"
+			? input.value
+				? String(parseFloat(input.value))
+				: ""
+			: String(input.value ?? "");
+	input.dataset.lastValue = normalize();
+
 	input.addEventListener("input", () => {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => {
-			const value =
-				fieldData.type === "number"
-					? input.value
-						? parseFloat(input.value)
-						: ""
-					: input.value;
-			callback(value, fieldData.type);
+			const currentNorm = normalize();
+			if (currentNorm !== (input.dataset.lastValue || "")) {
+				input.dataset.lastValue = currentNorm;
+				const value =
+					fieldData.type === "number"
+						? currentNorm === ""
+							? ""
+							: parseFloat(currentNorm)
+						: currentNorm;
+				callback(value, fieldData.type);
+			}
 		}, 300); // 300ms debounce
 	});
 
 	// Handle immediate changes on blur for better UX
 	input.addEventListener("blur", () => {
 		clearTimeout(timeoutId);
-		const value =
-			fieldData.type === "number"
-				? input.value
-					? parseFloat(input.value)
-					: ""
-				: input.value;
-		callback(value, fieldData.type);
+		const currentNorm = normalize();
+		if (currentNorm !== (input.dataset.lastValue || "")) {
+			input.dataset.lastValue = currentNorm;
+			const value =
+				fieldData.type === "number"
+					? currentNorm === ""
+						? ""
+						: parseFloat(currentNorm)
+					: currentNorm;
+			callback(value, fieldData.type);
+		}
 	});
 }
 
@@ -135,8 +152,15 @@ function setupCheckboxEventListeners(
 	) as HTMLInputElement;
 	if (!checkbox) return;
 
+	// Initialize last state
+	checkbox.dataset.lastChecked = checkbox.checked ? "1" : "0";
+
 	checkbox.addEventListener("change", () => {
-		callback(checkbox.checked, fieldData.type);
+		const current = checkbox.checked ? "1" : "0";
+		if (current !== (checkbox.dataset.lastChecked || "")) {
+			checkbox.dataset.lastChecked = current;
+			callback(checkbox.checked, fieldData.type);
+		}
 	});
 }
 
@@ -153,16 +177,28 @@ function setupTextareaEventListeners(
 
 	let timeoutId: NodeJS.Timeout;
 
+	// Track last emitted value to avoid redundant events
+	const normalize = () => String(textarea.value ?? "");
+	textarea.dataset.lastValue = normalize();
+
 	textarea.addEventListener("input", () => {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => {
-			callback(textarea.value, fieldData.type);
+			const currentNorm = normalize();
+			if (currentNorm !== (textarea.dataset.lastValue || "")) {
+				textarea.dataset.lastValue = currentNorm;
+				callback(currentNorm, fieldData.type);
+			}
 		}, 300);
 	});
 
 	textarea.addEventListener("blur", () => {
 		clearTimeout(timeoutId);
-		callback(textarea.value, fieldData.type);
+		const currentNorm = normalize();
+		if (currentNorm !== (textarea.dataset.lastValue || "")) {
+			textarea.dataset.lastValue = currentNorm;
+			callback(currentNorm, fieldData.type);
+		}
 	});
 }
 
