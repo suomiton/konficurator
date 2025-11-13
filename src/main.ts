@@ -26,6 +26,7 @@ export class KonficuratorApp {
 	private groupColors: Map<string, string> = new Map();
 	private rawEditMode: Set<string> = new Set();
 	private pendingRawAutosaveTimers: Map<string, number> = new Map();
+	private pendingValidationTimers: Map<string, number> = new Map();
 
 	constructor() {
 		this.fileHandler = new FileHandler();
@@ -169,6 +170,8 @@ export class KonficuratorApp {
 			if (!detail?.fileId) return;
 			// Schedule debounced save for this file
 			this.scheduleAutosave(detail.fileId);
+			// Schedule validation (form mode)
+			this.scheduleValidation(detail.fileId, "form");
 		});
 	}
 
@@ -451,21 +454,18 @@ export class KonficuratorApp {
 			raw.className = "raw-editor";
 			raw.setAttribute("data-id", fileData.id);
 			raw.setAttribute("contenteditable", "true");
-			raw.style.whiteSpace = "pre";
-			raw.style.fontFamily = "monospace";
-			raw.style.minHeight = "10rem";
-			raw.style.border = "1px solid var(--color-border, #ccc)";
-			raw.style.padding = "8px";
 			// Use originalContent to preserve formatting exactly
 			raw.textContent = fileData.originalContent || "";
 
 			// Debounced autosave on input
 			raw.addEventListener("input", () => {
 				this.scheduleRawAutosave(fileData.id);
+				this.scheduleValidation(fileData.id, "raw");
 			});
 			// Flush on blur
 			raw.addEventListener("blur", () => {
 				this.scheduleRawAutosave(fileData.id, 0);
+				this.scheduleValidation(fileData.id, "raw", 0);
 			});
 
 			const fieldsContainer = editorElement.querySelector(".form-fields");
@@ -475,6 +475,93 @@ export class KonficuratorApp {
 				editorElement.appendChild(raw);
 			}
 		}
+	}
+
+	private scheduleValidation(
+		fileId: string,
+		mode: "raw" | "form",
+		delay: number = 400
+	): void {
+		const key = `${mode}:${fileId}`;
+		const existing = this.pendingValidationTimers.get(key);
+		if (existing) clearTimeout(existing);
+		const timer = window.setTimeout(async () => {
+			this.pendingValidationTimers.delete(key);
+			try {
+				if (mode === "raw") await this.handleValidateRaw(fileId);
+				else await this.handleValidateForm(fileId);
+			} catch (e) {
+				console.warn("Validation failed", e);
+			}
+		}, delay);
+		this.pendingValidationTimers.set(key, timer);
+	}
+
+	private async handleValidateForm(fileId: string): Promise<void> {
+		const fileData = this.loadedFiles.find((f) => f.id === fileId);
+		if (!fileData) return;
+		const form = await this.findFormElementWithRetry(fileId);
+		if (!form) return;
+		try {
+			const updated = await this.persistence.previewUpdatedContent(
+				fileData,
+				form
+			);
+			// Try parsing updated content
+			const parser = ParserFactory.createParser(fileData.type, updated);
+			parser.parse(updated);
+			this.setValidationState(fileId, true);
+		} catch (error) {
+			const msg = error instanceof Error ? error.message : String(error);
+			this.setValidationState(fileId, false, msg);
+		}
+	}
+
+	private async handleValidateRaw(fileId: string): Promise<void> {
+		const fileData = this.loadedFiles.find((f) => f.id === fileId);
+		if (!fileData) return;
+		const editor = document.querySelector(
+			`div.file-editor[data-id="${fileId}"]`
+		) as HTMLElement | null;
+		if (!editor) return;
+		const raw = editor.querySelector(".raw-editor") as HTMLDivElement | null;
+		if (!raw) return;
+		const text = raw.textContent ?? "";
+		try {
+			const parser = ParserFactory.createParser(fileData.type, text);
+			parser.parse(text);
+			this.setValidationState(fileId, true);
+		} catch (error) {
+			const msg = error instanceof Error ? error.message : String(error);
+			this.setValidationState(fileId, false, msg);
+		}
+	}
+
+	private setValidationState(
+		fileId: string,
+		isValid: boolean,
+		message?: string
+	): void {
+		const editor = document.querySelector(
+			`div.file-editor[data-id="${fileId}"]`
+		) as HTMLElement | null;
+		if (!editor) return;
+		let badge = editor.querySelector(
+			".validation-badge"
+		) as HTMLDivElement | null;
+		if (!badge) {
+			badge = document.createElement("div");
+			badge.className = "validation-badge";
+			const header = editor.querySelector(".file-editor-header");
+			if (header && header.parentElement) {
+				header.parentElement.insertBefore(badge, header.nextSibling);
+			} else {
+				editor.insertBefore(badge, editor.firstChild);
+			}
+		}
+		badge.textContent = isValid ? "Valid" : `Invalid: ${message ?? ""}`;
+		badge.classList.toggle("is-valid", isValid);
+		badge.classList.toggle("is-invalid", !isValid);
 	}
 
 	public toggleRawMode(fileId: string): void {

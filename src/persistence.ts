@@ -29,6 +29,31 @@ export class FilePersistence implements IPersistence {
 	}
 
 	/**
+	 * Compute updated content (without writing) based on current form values using WASM non-destructive updates.
+	 * Returns the updated raw content string for validation/previews.
+	 */
+	async previewUpdatedContent(
+		fileData: FileData,
+		formElement: HTMLFormElement
+	): Promise<string> {
+		await this.ensureWasmInitialized();
+		let updatedContent = fileData.originalContent || "";
+		const fieldChanges = this.extractFieldChanges(
+			formElement,
+			fileData.content
+		);
+		for (const change of fieldChanges) {
+			updatedContent = update_value(
+				fileData.type,
+				updatedContent,
+				change.path,
+				change.newValue
+			);
+		}
+		return updatedContent;
+	}
+
+	/**
 	 * Save entire file content from a raw editable source without reformatting
 	 */
 	async saveRaw(fileData: FileData, rawText: string): Promise<void> {
@@ -49,7 +74,9 @@ export class FilePersistence implements IPersistence {
 			fileData.originalContent = rawText;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
-			NotificationService.showError(`Failed to save ${fileData.name}: ${message}`);
+			NotificationService.showError(
+				`Failed to save ${fileData.name}: ${message}`
+			);
 			throw error;
 		}
 	}
