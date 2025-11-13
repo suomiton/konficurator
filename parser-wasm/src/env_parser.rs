@@ -56,6 +56,13 @@ mod lexer {
         pub quote: Option<Quote>,
     }
 
+    #[derive(Debug, Clone)]
+    pub struct LexError {
+        pub msg: String,
+        pub line: usize,
+        pub column: usize,
+    }
+
     /// Split buffer into `Line`s *without* allocating.
     fn iter_lines(buf: &str) -> impl Iterator<Item = Line<'_>> {
         let mut bytes = buf.as_bytes();
@@ -90,17 +97,25 @@ mod lexer {
     }
 
     /// Core tokenisation logic – returns Vec of raw entries; ignores comments/blank lines.
-    pub fn lex(buf: &str) -> Result<Vec<EntryRaw>, String> {
+    pub fn lex_with_pos(buf: &str) -> Result<Vec<EntryRaw>, LexError> {
         let mut offset = 0; // running byte offset in the original buffer
         let mut out = Vec::<EntryRaw>::new();
+        let mut line_no: usize = 1;
 
         for line in iter_lines(buf) {
             let slice = line.bytes; // still contains EOL
             let trimmed = trim_ws(slice);
 
+            // count leading whitespace to compute accurate columns
+            let mut lead_ws = 0usize;
+            while lead_ws < slice.len() && is_space(slice[lead_ws]) {
+                lead_ws += 1;
+            }
+
             if trimmed.is_empty() || trimmed[0] == b'#' {
                 // blank / comment
                 offset += slice.len();
+                line_no += 1;
                 continue;
             }
 
@@ -122,7 +137,11 @@ mod lexer {
 
             // '='
             if idx >= trimmed.len() || trimmed[idx] != b'=' {
-                return Err("missing '=' separator".into());
+                return Err(LexError {
+                    msg: "missing '=' separator".into(),
+                    line: line_no,
+                    column: lead_ws + idx + 1,
+                });
             }
             idx += 1; // past '='
             let _after_eq = idx;
@@ -147,7 +166,11 @@ mod lexer {
                     j += 1;
                 }
                 if j >= trimmed.len() {
-                    return Err("unterminated quoted value".into());
+                    return Err(LexError {
+                        msg: "unterminated quoted value".into(),
+                        line: line_no,
+                        column: lead_ws + j + 1,
+                    });
                 }
                 val_end = j + 1; // include the closing quote
             } else {
@@ -185,8 +208,17 @@ mod lexer {
             });
 
             offset += slice.len();
+            line_no += 1;
         }
         Ok(out)
+    }
+
+    // Backward-compatible wrapper that drops position info
+    pub fn lex(buf: &str) -> Result<Vec<EntryRaw>, String> {
+        match lex_with_pos(buf) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(e.msg),
+        }
     }
 
     // ───── helpers ─────
@@ -287,4 +319,61 @@ impl BytePreservingParser for EnvParser {
             None => Err(format!("key '{}' not found", key)),
         }
     }
+}
+
+// Positional validation for ENV, returning first error with line/column
+#[derive(Debug, Clone)]
+pub struct PosError {
+    pub msg: String,
+    pub line: usize,
+    pub column: usize,
+}
+
+pub fn validate_with_pos(content: &str) -> Result<(), PosError> {
+    // First stage: lexical errors (missing '=', unterminated quotes) with line/column
+    let raw = match lexer::lex_with_pos(content) {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(PosError {
+                msg: e.msg,
+                line: e.line,
+                column: e.column,
+            })
+        }
+    };
+
+    // Second stage: duplicate key detection with position of the second occurrence
+    let mut seen = std::collections::HashSet::new();
+    for r in &raw {
+        let key = &content[r.key_span.start..r.key_span.end];
+        let key_trim = key.trim();
+        if !seen.insert(key_trim.to_owned()) {
+            let (line, column) = offset_to_line_col(content, r.key_span.start);
+            return Err(PosError {
+                msg: format!("duplicate key '{}'", key_trim),
+                line,
+                column,
+            });
+        }
+    }
+
+    Ok(())
+}
+
+// Utility: compute line and column from byte offset (1-based)
+fn offset_to_line_col(buf: &str, offset: usize) -> (usize, usize) {
+    let mut line = 1usize;
+    let mut col = 1usize;
+    for (idx, ch) in buf.char_indices() {
+        if idx >= offset {
+            break;
+        }
+        if ch == '\n' {
+            line += 1;
+            col = 1;
+        } else {
+            col += 1;
+        }
+    }
+    (line, col)
 }

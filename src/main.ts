@@ -3,6 +3,8 @@ import { ParserFactory } from "./parsers";
 import { ModernFormRenderer } from "./ui/modern-form-renderer";
 import { FilePersistence } from "./persistence";
 import { FileData } from "./interfaces";
+import initWasm from "../parser-wasm/pkg/parser_core.js";
+import * as ParserCore from "../parser-wasm/pkg/parser_core.js";
 import { StorageService } from "./handleStorage";
 import { NotificationService, FileNotifications } from "./ui/notifications";
 import { PermissionManager } from "./permissionManager";
@@ -27,6 +29,18 @@ export class KonficuratorApp {
 	private rawEditMode: Set<string> = new Set();
 	private pendingRawAutosaveTimers: Map<string, number> = new Map();
 	private pendingValidationTimers: Map<string, number> = new Map();
+	private wasmReady: boolean = false;
+	private lastValidationMeta: Map<
+		string,
+		{
+			valid: boolean;
+			message: string | undefined;
+			line: number | undefined;
+			column: number | undefined;
+			start: number | undefined;
+			end: number | undefined;
+		}
+	> = new Map();
 
 	constructor() {
 		this.fileHandler = new FileHandler();
@@ -434,8 +448,50 @@ export class KonficuratorApp {
 				// If raw mode, replace form with raw editor view
 				if (isRaw) {
 					this.mountRawEditor(editorElement as HTMLElement, fileData);
+					// Re-apply last error decoration if present
+					const meta = this.lastValidationMeta.get(fileData.id);
+					if (meta && !meta.valid) {
+						this.applyRawValidationDecorations(
+							fileData.id,
+							editorElement as HTMLElement,
+							meta
+						);
+					}
 				}
 			});
+	}
+
+	private applyRawValidationDecorations(
+		fileId: string,
+		editorElement: HTMLElement,
+		meta: {
+			valid: boolean;
+			message: string | undefined;
+			line: number | undefined;
+			column: number | undefined;
+			start: number | undefined;
+			end: number | undefined;
+		}
+	): void {
+		const raw = editorElement.querySelector(
+			".raw-editor"
+		) as HTMLDivElement | null;
+		if (!raw) return;
+		raw.classList.toggle("has-error", !meta.valid);
+		raw.classList.toggle("is-valid", !!meta.valid);
+		if (!meta.valid && meta.line && this.rawEditMode.has(fileId)) {
+			const text = raw.textContent || "";
+			const lines = text.split(/\n/);
+			const targetLine = Math.max(
+				1,
+				Math.min(lines.length, Math.floor(meta.line))
+			);
+			const cs = window.getComputedStyle(raw);
+			const lh = parseFloat(cs.lineHeight || "0") || 18;
+			const paddingTop = parseFloat(cs.paddingTop || "0") || 8;
+			const targetTop = targetLine * lh - paddingTop - lh;
+			raw.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+		}
 	}
 
 	private mountRawEditor(editorElement: HTMLElement, fileData: FileData): void {
@@ -503,11 +559,37 @@ export class KonficuratorApp {
 		const form = await this.findFormElementWithRetry(fileId);
 		if (!form) return;
 		try {
+			if (!this.wasmReady) {
+				await initWasm();
+				this.wasmReady = true;
+			}
 			const updated = await this.persistence.previewUpdatedContent(
 				fileData,
 				form
 			);
-			// Try parsing updated content
+			// First, perform WASM syntax validation
+			const wasmValidateFn = (ParserCore as any).validate as
+				| ((t: string, c: string) => any)
+				| undefined;
+			const syntaxRes = wasmValidateFn
+				? wasmValidateFn(fileData.type, updated)
+				: { valid: true };
+			if (!syntaxRes?.valid) {
+				this.setValidationState(
+					fileId,
+					false,
+					syntaxRes?.message || "Invalid",
+					undefined,
+					{
+						line: syntaxRes.line,
+						column: syntaxRes.column,
+						start: syntaxRes.start,
+						end: syntaxRes.end,
+					}
+				);
+				return;
+			}
+			// Parse in JS for form-level data (unchanged)
 			const parser = ParserFactory.createParser(fileData.type, updated);
 			parser.parse(updated);
 			this.setValidationState(fileId, true);
@@ -528,6 +610,33 @@ export class KonficuratorApp {
 		if (!raw) return;
 		const text = raw.textContent ?? "";
 		try {
+			if (!this.wasmReady) {
+				await initWasm();
+				this.wasmReady = true;
+			}
+			// First run WASM syntax validation
+			const wasmValidateFn = (ParserCore as any).validate as
+				| ((t: string, c: string) => any)
+				| undefined;
+			const syntaxRes = wasmValidateFn
+				? wasmValidateFn(fileData.type, text)
+				: { valid: true };
+			if (!syntaxRes?.valid) {
+				this.setValidationState(
+					fileId,
+					false,
+					syntaxRes?.message || "Invalid",
+					undefined,
+					{
+						line: syntaxRes.line,
+						column: syntaxRes.column,
+						start: syntaxRes.start,
+						end: syntaxRes.end,
+					}
+				);
+				return;
+			}
+			// Parse with JS for schema validation
 			const parser = ParserFactory.createParser(fileData.type, text);
 			parser.parse(text);
 			this.setValidationState(fileId, true);
@@ -540,7 +649,9 @@ export class KonficuratorApp {
 	private setValidationState(
 		fileId: string,
 		isValid: boolean,
-		message?: string
+		message?: string,
+		details?: string[],
+		meta?: { line?: number; column?: number; start?: number; end?: number }
 	): void {
 		const editor = document.querySelector(
 			`div.file-editor[data-id="${fileId}"]`
@@ -559,9 +670,68 @@ export class KonficuratorApp {
 				editor.insertBefore(badge, editor.firstChild);
 			}
 		}
-		badge.textContent = isValid ? "Valid" : `Invalid: ${message ?? ""}`;
+		// Build badge content: tiny icon + text; set tooltip with full details if available
+		badge.innerHTML = "";
+		const icon = document.createElement("span");
+		icon.className = "validation-badge__icon";
+		const text = document.createElement("span");
+		text.className = "validation-badge__text";
+		text.textContent = isValid
+			? "Valid"
+			: message
+			? `Invalid (${message})`
+			: "Invalid";
+		badge.appendChild(icon);
+		badge.appendChild(text);
+		if (!isValid) {
+			const parts: string[] = [];
+			if (meta?.line != null && meta?.column != null) {
+				parts.push(`Line ${meta.line}, Col ${meta.column}`);
+			}
+			if (details && details.length) {
+				parts.push(...details.slice(0, 5));
+			}
+			if (parts.length) badge.title = parts.join("\n");
+			else badge.removeAttribute("title");
+		} else {
+			badge.removeAttribute("title");
+		}
 		badge.classList.toggle("is-valid", isValid);
 		badge.classList.toggle("is-invalid", !isValid);
+
+		// If in raw mode and we have a line, gently scroll to show the line region
+		const raw = editor.querySelector(".raw-editor") as HTMLDivElement | null;
+		if (raw) {
+			// Toggle visual state classes on raw editor
+			raw.classList.toggle("has-error", !isValid);
+			raw.classList.toggle("is-valid", isValid);
+
+			// Smooth-scroll to error line if available and in raw mode
+			if (!isValid && this.rawEditMode.has(fileId) && meta?.line) {
+				const text = raw.textContent || "";
+				const lines = text.split(/\n/);
+				const targetLine = Math.max(
+					1,
+					Math.min(lines.length, Math.floor(meta.line))
+				);
+				// Compute line height from computed styles for better accuracy
+				const cs = window.getComputedStyle(raw);
+				const lh = parseFloat(cs.lineHeight || "0") || 18;
+				const paddingTop = parseFloat(cs.paddingTop || "0") || 8;
+				const targetTop = targetLine * lh - paddingTop - lh;
+				raw.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+			}
+		}
+
+		// Persist last validation meta
+		this.lastValidationMeta.set(fileId, {
+			valid: isValid,
+			message,
+			line: meta?.line,
+			column: meta?.column,
+			start: meta?.start,
+			end: meta?.end,
+		});
 	}
 
 	public toggleRawMode(fileId: string): void {

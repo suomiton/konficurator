@@ -227,6 +227,33 @@ SPACED=   "value with space"
     assert_eq!(&src[span2.start..span2.end], r#""first\nsecond""#);
 }
 
+// ───── ENV positions via validate_with_pos ─────
+
+#[test]
+fn env_missing_equals_positions() {
+    let src = "FOO 123\nBAR=ok\n";
+    let err = crate::env_parser::validate_with_pos(src).unwrap_err();
+    assert!(err.msg.contains("missing '='"));
+    assert_eq!(err.line, 1);
+    assert!(err.column >= 1);
+}
+
+#[test]
+fn env_unterminated_quote_positions() {
+    let src = "FOO=\"abc\nBAR=ok\n";
+    let err = crate::env_parser::validate_with_pos(src).unwrap_err();
+    assert!(err.msg.contains("unterminated quoted value"));
+    assert_eq!(err.line, 1);
+}
+
+#[test]
+fn env_duplicate_key_positions() {
+    let src = "FOO=1\nBAR=2\nFOO=3\n";
+    let err = crate::env_parser::validate_with_pos(src).unwrap_err();
+    assert!(err.msg.contains("duplicate key"));
+    assert_eq!(err.line, 3);
+}
+
 // ───── Shared ─────
 
 #[test]

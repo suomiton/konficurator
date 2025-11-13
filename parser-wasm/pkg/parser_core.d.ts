@@ -1,6 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export function update_value(file_type: string, content: string, path: any, new_val: string): string;
+export function validate(file_type: string, content: string): any;
 export function main(): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -8,9 +9,12 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly update_value: (a: number, b: number, c: number, d: number, e: any, f: number, g: number) => [number, number, number, number];
+  readonly validate: (a: number, b: number, c: number, d: number) => any;
   readonly main: () => void;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbindgen_exn_store: (a: number) => void;
+  readonly __externref_table_alloc: () => number;
   readonly __wbindgen_externrefs: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
