@@ -9,6 +9,8 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 mod env_parser;
 mod json_lexer;
 mod json_parser;
+mod multi_validation;
+mod schema;
 mod xml_parser;
 
 #[cfg(test)]
@@ -16,6 +18,10 @@ mod tests;
 
 pub use env_parser::EnvParser;
 pub use json_parser::JsonParser;
+use multi_validation::{
+    infer_json_span, validate_json_multi, validate_xml_multi, DetailedError, MultiValidationResult,
+    MAX_MULTI_ERRORS,
+};
 pub use xml_parser::XmlParser;
 
 /// Span represents a byte range in the original content
@@ -141,6 +147,7 @@ pub fn validate(file_type: &str, content: &str) -> JsValue {
                 let line = e.line();
                 let column = e.column();
                 let start = compute_offset_from_line_col(content, line as usize, column as usize);
+                let span = infer_json_span(content, start);
                 let _ = js_sys::Reflect::set(
                     &obj,
                     &JsValue::from_str("message"),
@@ -159,12 +166,12 @@ pub fn validate(file_type: &str, content: &str) -> JsValue {
                 let _ = js_sys::Reflect::set(
                     &obj,
                     &JsValue::from_str("start"),
-                    &JsValue::from_f64(start as f64),
+                    &JsValue::from_f64(span.start as f64),
                 );
                 let _ = js_sys::Reflect::set(
                     &obj,
                     &JsValue::from_str("end"),
-                    &JsValue::from_f64(start as f64),
+                    &JsValue::from_f64(span.end as f64),
                 );
             }
         },
@@ -266,7 +273,159 @@ pub fn validate(file_type: &str, content: &str) -> JsValue {
     obj.into()
 }
 
-fn compute_offset_from_line_col(content: &str, line: usize, column: usize) -> usize {
+#[wasm_bindgen]
+pub fn validate_multi(file_type: &str, content: &str, max_errors: Option<u32>) -> JsValue {
+    let ty = file_type.to_lowercase();
+    let cap = max_errors.unwrap_or(3).clamp(1, MAX_MULTI_ERRORS as u32) as usize;
+    let result = match ty.as_str() {
+        "json" => validate_json_multi(content, cap),
+        "xml" | "config" => validate_xml_multi(content, cap),
+        "env" => env_multi_result(content),
+        other => unsupported_multi_result(other),
+    };
+    multi_result_to_js(result.with_limit(cap))
+}
+
+#[wasm_bindgen]
+pub fn validate_schema(content: &str, schema: &str, options: Option<JsValue>) -> JsValue {
+    schema::validate_schema_inline(content, schema, options)
+}
+
+#[wasm_bindgen]
+pub fn validate_schema_with_id(
+    content: &str,
+    schema_id: &str,
+    options: Option<JsValue>,
+) -> JsValue {
+    schema::validate_schema_with_id(content, schema_id, options)
+}
+
+#[wasm_bindgen]
+pub fn register_schema(schema_id: &str, schema: &str) -> Result<(), JsValue> {
+    schema::register_schema(schema_id, schema)
+}
+
+fn multi_result_to_js(result: MultiValidationResult) -> JsValue {
+    let obj = js_sys::Object::new();
+    let _ = js_sys::Reflect::set(
+        &obj,
+        &JsValue::from_str("valid"),
+        &JsValue::from_bool(result.valid),
+    );
+
+    let errors = Array::new();
+    for err in &result.errors {
+        errors.push(&detailed_error_to_js(err));
+    }
+    let _ = js_sys::Reflect::set(&obj, &JsValue::from_str("errors"), &errors);
+
+    if let Some(summary) = &result.summary {
+        let summary_obj = js_sys::Object::new();
+        set_summary_fields(&summary_obj, summary);
+        let _ = js_sys::Reflect::set(&obj, &JsValue::from_str("summary"), &summary_obj);
+    }
+
+    obj.into()
+}
+
+fn detailed_error_to_js(err: &DetailedError) -> JsValue {
+    let obj = js_sys::Object::new();
+    let _ = js_sys::Reflect::set(
+        &obj,
+        &JsValue::from_str("message"),
+        &JsValue::from_str(&err.message),
+    );
+    if let Some(code) = err.code {
+        let _ = js_sys::Reflect::set(&obj, &JsValue::from_str("code"), &JsValue::from_str(code));
+    }
+    let _ = js_sys::Reflect::set(
+        &obj,
+        &JsValue::from_str("line"),
+        &JsValue::from_f64(err.line as f64),
+    );
+    let _ = js_sys::Reflect::set(
+        &obj,
+        &JsValue::from_str("column"),
+        &JsValue::from_f64(err.column as f64),
+    );
+    let _ = js_sys::Reflect::set(
+        &obj,
+        &JsValue::from_str("start"),
+        &JsValue::from_f64(err.span.start as f64),
+    );
+    let _ = js_sys::Reflect::set(
+        &obj,
+        &JsValue::from_str("end"),
+        &JsValue::from_f64(err.span.end as f64),
+    );
+    obj.into()
+}
+
+fn set_summary_fields(obj: &js_sys::Object, summary: &DetailedError) {
+    let _ = js_sys::Reflect::set(
+        obj,
+        &JsValue::from_str("message"),
+        &JsValue::from_str(&summary.message),
+    );
+    let _ = js_sys::Reflect::set(
+        obj,
+        &JsValue::from_str("line"),
+        &JsValue::from_f64(summary.line as f64),
+    );
+    let _ = js_sys::Reflect::set(
+        obj,
+        &JsValue::from_str("column"),
+        &JsValue::from_f64(summary.column as f64),
+    );
+    let _ = js_sys::Reflect::set(
+        obj,
+        &JsValue::from_str("start"),
+        &JsValue::from_f64(summary.span.start as f64),
+    );
+    let _ = js_sys::Reflect::set(
+        obj,
+        &JsValue::from_str("end"),
+        &JsValue::from_f64(summary.span.end as f64),
+    );
+}
+
+fn env_multi_result(content: &str) -> MultiValidationResult {
+    match env_parser::validate_with_pos(content) {
+        Ok(_) => MultiValidationResult::success(),
+        Err(e) => {
+            let start = compute_offset_from_line_col(content, e.line as usize, e.column as usize);
+            let summary = DetailedError {
+                message: e.msg,
+                code: None,
+                line: e.line as usize,
+                column: e.column as usize,
+                span: Span::new(start, start),
+            };
+            invalid_summary_result(summary)
+        }
+    }
+}
+
+fn unsupported_multi_result(file_type: &str) -> MultiValidationResult {
+    let summary = DetailedError {
+        message: format!("Unsupported file type: {}", file_type),
+        code: None,
+        line: 1,
+        column: 1,
+        span: Span::new(0, 0),
+    };
+    invalid_summary_result(summary)
+}
+
+fn invalid_summary_result(summary: DetailedError) -> MultiValidationResult {
+    MultiValidationResult {
+        valid: false,
+        summary: Some(summary.clone()),
+        errors: vec![summary],
+    }
+}
+
+pub(crate) fn compute_offset_from_line_col(content: &str, line: usize, column: usize) -> usize {
     // Lines/columns are 1-based per serde_json/xmlparser conventions
     let mut current_line = 1usize;
     let mut offset = 0usize;
@@ -301,6 +460,24 @@ fn compute_offset_from_line_col(content: &str, line: usize, column: usize) -> us
     }
     // Fallback to last known offset
     offset
+}
+
+pub(crate) fn compute_line_col_from_offset(content: &str, offset: usize) -> (usize, usize) {
+    let clamped = offset.min(content.len());
+    let mut line = 1usize;
+    let mut column = 1usize;
+    for (idx, ch) in content.char_indices() {
+        if idx >= clamped {
+            return (line, column);
+        }
+        if ch == '\n' {
+            line += 1;
+            column = 1;
+        } else {
+            column += 1;
+        }
+    }
+    (line, column)
 }
 
 pub fn is_json_literal(s: &str) -> bool {

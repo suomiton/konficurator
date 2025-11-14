@@ -10,10 +10,54 @@ import { NotificationService, FileNotifications } from "./ui/notifications";
 import { PermissionManager } from "./permissionManager";
 import { createElement } from "./ui/dom-factory";
 import { createIconLabel, createIconList, IconListItem } from "./ui/icon";
+import { SchemaRegistry } from "./validation/schemaRegistry";
 import {
 	showAddFilesDialog,
 	showEditGroupDialog,
 } from "./ui/group-file-dialog";
+
+type SchemaValidationError = {
+	message: string;
+	keyword?: string;
+	instancePath: string;
+	schemaPath?: string;
+	line?: number;
+	column?: number;
+	start?: number;
+	end?: number;
+};
+
+interface SchemaValidationResult {
+	valid: boolean;
+	errors?: SchemaValidationError[];
+}
+
+// With exactOptionalPropertyTypes enabled, assigning `undefined` explicitly to an optional property
+// that is just `type? : T` produces an error (expects the property to be either omitted or T).
+// We widen each optional to `T | undefined` so code paths that set `prop: valueOrUndefined` remain valid.
+type ValidationErrorDetail = {
+	message?: string | undefined;
+	code?: string | undefined;
+	line?: number | undefined;
+	column?: number | undefined;
+	start?: number | undefined;
+	end?: number | undefined;
+};
+
+type ValidationMetaInput = ValidationErrorDetail & {
+	errors?: Array<SchemaValidationError | ValidationErrorDetail> | undefined;
+};
+
+type ValidationStateMeta = ValidationMetaInput & {
+	valid: boolean;
+	message?: string | undefined;
+};
+
+type SyntaxValidationResult = {
+	valid: boolean;
+	summary?: ValidationErrorDetail;
+	errors: ValidationErrorDetail[];
+};
 
 /**
  * Main Application Controller
@@ -29,18 +73,9 @@ export class KonficuratorApp {
 	private rawEditMode: Set<string> = new Set();
 	private pendingRawAutosaveTimers: Map<string, number> = new Map();
 	private pendingValidationTimers: Map<string, number> = new Map();
+	private schemaCache: Map<string, string> = new Map();
 	private wasmReady: boolean = false;
-	private lastValidationMeta: Map<
-		string,
-		{
-			valid: boolean;
-			message: string | undefined;
-			line: number | undefined;
-			column: number | undefined;
-			start: number | undefined;
-			end: number | undefined;
-		}
-	> = new Map();
+	private lastValidationMeta: Map<string, ValidationStateMeta> = new Map();
 
 	constructor() {
 		this.fileHandler = new FileHandler();
@@ -464,14 +499,7 @@ export class KonficuratorApp {
 	private applyRawValidationDecorations(
 		fileId: string,
 		editorElement: HTMLElement,
-		meta: {
-			valid: boolean;
-			message: string | undefined;
-			line: number | undefined;
-			column: number | undefined;
-			start: number | undefined;
-			end: number | undefined;
-		}
+		meta: ValidationStateMeta
 	): void {
 		const raw = editorElement.querySelector(
 			".raw-editor"
@@ -553,6 +581,146 @@ export class KonficuratorApp {
 		this.pendingValidationTimers.set(key, timer);
 	}
 
+	private runSyntaxValidation(
+		fileType: string,
+		content: string
+	): SyntaxValidationResult {
+		const wasmValidateMulti = (ParserCore as any).validate_multi as
+			| ((t: string, c: string, maxErrors?: number) => any)
+			| undefined;
+		if (typeof wasmValidateMulti === "function") {
+			const result = wasmValidateMulti(fileType, content, 3);
+			return {
+				valid: !!result?.valid,
+				summary: result?.summary,
+				errors: Array.isArray(result?.errors) ? result.errors : [],
+			};
+		}
+		const legacyValidate = (ParserCore as any).validate as
+			| ((t: string, c: string) => any)
+			| undefined;
+		if (!legacyValidate) {
+			return { valid: true, errors: [] };
+		}
+		const legacyResult = legacyValidate(fileType, content);
+		if (legacyResult?.valid) {
+			return { valid: true, errors: [] };
+		}
+		const fallback: ValidationErrorDetail = {
+			message: legacyResult?.message || "Invalid",
+			line: legacyResult?.line,
+			column: legacyResult?.column,
+			start: legacyResult?.start,
+			end: legacyResult?.end,
+		};
+		return {
+			valid: false,
+			summary: fallback,
+			errors: fallback.message ? [fallback] : [],
+		};
+	}
+
+	private async runSchemaValidation(
+		fileData: FileData,
+		content: string
+	): Promise<SchemaValidationResult | null> {
+		if (fileData.type !== "json") return null;
+		const schemaMatch = SchemaRegistry.getForFile(fileData);
+		if (!schemaMatch) return null;
+
+		const validateWithId = (ParserCore as any).validate_schema_with_id as
+			| ((
+					c: string,
+					id: string,
+					options?: Record<string, unknown>
+			  ) => SchemaValidationResult)
+			| undefined;
+		const registerSchema = (ParserCore as any).register_schema as
+			| ((id: string, schema: string) => void)
+			| undefined;
+		const validateInline = (ParserCore as any).validate_schema as
+			| ((
+					c: string,
+					schema: string,
+					options?: Record<string, unknown>
+			  ) => SchemaValidationResult)
+			| undefined;
+
+		const wrapError = (error: unknown): SchemaValidationResult => ({
+			valid: false,
+			errors: [
+				{
+					message: error instanceof Error ? error.message : String(error),
+					instancePath: "",
+				},
+			],
+		});
+
+		const serializedSchema = (() => {
+			try {
+				return JSON.stringify(schemaMatch.schema);
+			} catch (error) {
+				console.warn("Failed to serialize schema", error);
+				return null;
+			}
+		})();
+		if (!serializedSchema) {
+			return wrapError(new Error("Schema serialization failed"));
+		}
+
+		const wasmOptions = { maxErrors: 50, collectPositions: true };
+		if (validateWithId && registerSchema) {
+			const cached = this.schemaCache.get(schemaMatch.key);
+			if (cached !== serializedSchema) {
+				try {
+					registerSchema(schemaMatch.key, serializedSchema);
+					this.schemaCache.set(schemaMatch.key, serializedSchema);
+				} catch (error) {
+					console.warn(
+						`Schema registration failed for ${schemaMatch.key}`,
+						error
+					);
+					return wrapError(error);
+				}
+			}
+			try {
+				return validateWithId(content, schemaMatch.key, wasmOptions);
+			} catch (error) {
+				console.warn(`Schema validation failed for ${schemaMatch.key}`, error);
+				return wrapError(error);
+			}
+		}
+		if (validateInline) {
+			try {
+				return validateInline(content, serializedSchema, wasmOptions);
+			} catch (error) {
+				console.warn("Schema validation failed", error);
+				return wrapError(error);
+			}
+		}
+		return null;
+	}
+
+	private applySchemaValidationState(
+		fileId: string,
+		result: SchemaValidationResult
+	): void {
+		const first = result.errors?.[0];
+		this.setValidationState(
+			fileId,
+			result.valid,
+			first?.message || "Schema validation failed",
+			undefined,
+			{
+				line: first?.line,
+				column: first?.column,
+				start: first?.start,
+				end: first?.end,
+				errors: result.errors,
+			}
+		);
+	}
+
 	private async handleValidateForm(fileId: string): Promise<void> {
 		const fileData = this.loadedFiles.find((f) => f.id === fileId);
 		if (!fileData) return;
@@ -567,26 +735,27 @@ export class KonficuratorApp {
 				fileData,
 				form
 			);
-			// First, perform WASM syntax validation
-			const wasmValidateFn = (ParserCore as any).validate as
-				| ((t: string, c: string) => any)
-				| undefined;
-			const syntaxRes = wasmValidateFn
-				? wasmValidateFn(fileData.type, updated)
-				: { valid: true };
-			if (!syntaxRes?.valid) {
+			const syntaxMeta = this.runSyntaxValidation(fileData.type, updated);
+			if (!syntaxMeta.valid) {
+				const primary = syntaxMeta.summary ?? syntaxMeta.errors[0];
 				this.setValidationState(
 					fileId,
 					false,
-					syntaxRes?.message || "Invalid",
+					primary?.message || "Invalid",
 					undefined,
 					{
-						line: syntaxRes.line,
-						column: syntaxRes.column,
-						start: syntaxRes.start,
-						end: syntaxRes.end,
+						line: primary?.line,
+						column: primary?.column,
+						start: primary?.start,
+						end: primary?.end,
+						errors: syntaxMeta.errors,
 					}
 				);
+				return;
+			}
+			const schemaResult = await this.runSchemaValidation(fileData, updated);
+			if (schemaResult && !schemaResult.valid) {
+				this.applySchemaValidationState(fileId, schemaResult);
 				return;
 			}
 			// Parse in JS for form-level data (unchanged)
@@ -614,29 +783,30 @@ export class KonficuratorApp {
 				await initWasm();
 				this.wasmReady = true;
 			}
-			// First run WASM syntax validation
-			const wasmValidateFn = (ParserCore as any).validate as
-				| ((t: string, c: string) => any)
-				| undefined;
-			const syntaxRes = wasmValidateFn
-				? wasmValidateFn(fileData.type, text)
-				: { valid: true };
-			if (!syntaxRes?.valid) {
+			const syntaxMeta = this.runSyntaxValidation(fileData.type, text);
+			if (!syntaxMeta.valid) {
+				const primary = syntaxMeta.summary ?? syntaxMeta.errors[0];
 				this.setValidationState(
 					fileId,
 					false,
-					syntaxRes?.message || "Invalid",
+					primary?.message || "Invalid",
 					undefined,
 					{
-						line: syntaxRes.line,
-						column: syntaxRes.column,
-						start: syntaxRes.start,
-						end: syntaxRes.end,
+						line: primary?.line,
+						column: primary?.column,
+						start: primary?.start,
+						end: primary?.end,
+						errors: syntaxMeta.errors,
 					}
 				);
 				return;
 			}
-			// Parse with JS for schema validation
+			const schemaResult = await this.runSchemaValidation(fileData, text);
+			if (schemaResult && !schemaResult.valid) {
+				this.applySchemaValidationState(fileId, schemaResult);
+				return;
+			}
+			// Parse with JS for downstream consumers (form renderer, etc.)
 			const parser = ParserFactory.createParser(fileData.type, text);
 			parser.parse(text);
 			this.setValidationState(fileId, true);
@@ -651,7 +821,7 @@ export class KonficuratorApp {
 		isValid: boolean,
 		message?: string,
 		details?: string[],
-		meta?: { line?: number; column?: number; start?: number; end?: number }
+		meta?: ValidationMetaInput
 	): void {
 		const editor = document.querySelector(
 			`div.file-editor[data-id="${fileId}"]`
@@ -690,6 +860,19 @@ export class KonficuratorApp {
 			}
 			if (details && details.length) {
 				parts.push(...details.slice(0, 5));
+			}
+			const extraErrors = meta?.errors?.slice(0, 3) ?? [];
+			if (extraErrors.length) {
+				extraErrors.forEach((err) => {
+					const loc =
+						err.line != null && err.column != null
+							? ` (Line ${err.line}, Col ${err.column})`
+							: "";
+					parts.push(`${err.message || "Invalid"}${loc}`);
+				});
+				if ((meta?.errors?.length || 0) > extraErrors.length) {
+					parts.push(`View all (${meta?.errors?.length})`);
+				}
 			}
 			if (parts.length) badge.title = parts.join("\n");
 			else badge.removeAttribute("title");
@@ -731,6 +914,7 @@ export class KonficuratorApp {
 			column: meta?.column,
 			start: meta?.start,
 			end: meta?.end,
+			errors: meta?.errors,
 		});
 	}
 

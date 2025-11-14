@@ -2,6 +2,10 @@
 /* eslint-disable */
 export function update_value(file_type: string, content: string, path: any, new_val: string): string;
 export function validate(file_type: string, content: string): any;
+export function validate_multi(file_type: string, content: string, max_errors?: number | null): any;
+export function validate_schema(content: string, schema: string, options?: any | null): any;
+export function validate_schema_with_id(content: string, schema_id: string, options?: any | null): any;
+export function register_schema(schema_id: string, schema: string): void;
 export function main(): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -10,6 +14,10 @@ export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly update_value: (a: number, b: number, c: number, d: number, e: any, f: number, g: number) => [number, number, number, number];
   readonly validate: (a: number, b: number, c: number, d: number) => any;
+  readonly validate_multi: (a: number, b: number, c: number, d: number, e: number) => any;
+  readonly validate_schema: (a: number, b: number, c: number, d: number, e: number) => any;
+  readonly validate_schema_with_id: (a: number, b: number, c: number, d: number, e: number) => any;
+  readonly register_schema: (a: number, b: number, c: number, d: number) => [number, number];
   readonly main: () => void;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

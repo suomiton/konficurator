@@ -1,3 +1,4 @@
+use crate::schema::{validate_schema_for_tests, SchemaValidationOptions};
 use crate::{BytePreservingParser, EnvParser, JsonParser, Span, XmlParser};
 
 // ───── JSON ─────
@@ -103,6 +104,24 @@ fn json_security_session_timeout_case() {
     assert_eq!(&src[span2.start..span2.end], "100");
 }
 
+#[test]
+fn json_multi_error_collection() {
+    let src = r#"{
+  "name": "value,
+  "age" 42,
+  "items": [1 2, 3,]
+}"#;
+    let result = crate::multi_validation::validate_json_multi(src, 3);
+    assert!(!result.valid);
+    assert!(!result.errors.is_empty());
+    let codes: Vec<&str> = result.errors.iter().filter_map(|err| err.code).collect();
+    assert!(codes.iter().any(|c| *c == "json.unterminated_string"));
+    assert!(
+        codes.iter().any(|c| *c == "json.missing_colon")
+            || codes.iter().any(|c| *c == "json.missing_comma")
+    );
+}
+
 // ───── XML ─────
 
 #[test]
@@ -176,6 +195,18 @@ fn xml_deeply_nested_realworld() {
         .find_value_span(src, &["config".into(), "app".into(), "port".into()])
         .unwrap();
     assert_eq!(&src[span.start..span.end], "3000");
+}
+
+#[test]
+fn xml_multi_error_collection() {
+    let src = r#"<root>
+  <item attr="unterminated>
+  <child></roo>
+  <broken <tag/>
+</root>"#;
+    let result = crate::multi_validation::validate_xml_multi(src, 3);
+    assert!(!result.valid);
+    assert!(result.errors.len() >= 2);
 }
 
 // ───── ENV ─────
@@ -335,4 +366,63 @@ fn json_literal_detection() {
     assert!(!crate::is_json_literal("not json"));
     assert!(!crate::is_json_literal("[invalid"));
     assert!(!crate::is_json_literal("{'single': quotes}"));
+}
+
+// ───── Schema validation ─────
+
+#[test]
+fn schema_reports_type_error_with_positions() {
+    let schema = r#"{
+        "type": "object",
+        "properties": {
+            "port": { "type": "integer" }
+        }
+    }"#;
+    let json = r#"{ "port": "8080" }"#;
+    let outcome = validate_schema_for_tests(schema, json, None);
+    assert!(!outcome.valid);
+    let err = outcome.errors.first().expect("one error");
+    assert_eq!(err.keyword.as_deref(), Some("type"));
+    assert_eq!(err.instance_path, "/port");
+    assert!(err.line.is_some());
+    assert!(err.column.is_some());
+    assert!(err.start.is_some());
+    assert!(err.end.is_some());
+}
+
+#[test]
+fn schema_required_error_falls_back_to_parent_span() {
+    let schema = r#"{
+        "type": "object",
+        "properties": {
+            "host": { "type": "string" }
+        },
+        "required": ["host"]
+    }"#;
+    let json = r#"{ "port": 3000 }"#;
+    let outcome = validate_schema_for_tests(schema, json, None);
+    assert!(!outcome.valid);
+    let err = outcome.errors.first().expect("one error");
+    assert_eq!(err.keyword.as_deref(), Some("required"));
+    // Required errors point to the object containing the missing key
+    assert!(err.instance_path.is_empty() || err.instance_path == "/");
+    assert!(err.line.is_some());
+    assert!(err.start.is_some());
+}
+
+#[test]
+fn schema_collect_positions_flag_can_be_disabled() {
+    let schema = r#"{
+        "type": "object",
+        "properties": { "enabled": { "type": "boolean" } }
+    }"#;
+    let json = r#"{ "enabled": "yes" }"#;
+    let mut opts = SchemaValidationOptions::default();
+    opts.collect_positions = false;
+    let outcome = validate_schema_for_tests(schema, json, Some(opts));
+    assert!(!outcome.valid);
+    let err = outcome.errors.first().expect("one error");
+    assert_eq!(err.keyword.as_deref(), Some("type"));
+    assert!(err.line.is_none());
+    assert!(err.start.is_none());
 }
