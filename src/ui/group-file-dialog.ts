@@ -148,7 +148,7 @@ export type EditGroupDialogResult =
  */
 export function showEditGroupDialog(group: {
 	name: string;
-	color?: string;
+	color?: GroupAccentId;
 }): Promise<EditGroupDialogResult | null> {
 	return new Promise((resolve) => {
 		const overlay = createElement({ tag: "div", className: "modal-overlay" });

@@ -5,18 +5,15 @@ import { createElement } from "./dom-factory";
 export interface FileListViewOptions {
         containerId?: string;
         onToggleFile: (fileId: string) => void;
-        onAddFiles: () => void;
 }
 
 export class FileListView {
         private readonly containerId: string;
         private readonly onToggleFile: (fileId: string) => void;
-        private readonly onAddFiles: () => void;
 
         constructor(options: FileListViewOptions) {
                 this.containerId = options.containerId ?? "fileInfo";
                 this.onToggleFile = options.onToggleFile;
-                this.onAddFiles = options.onAddFiles;
         }
 
         render(files: FileData[], groupColors: Map<string, GroupAccentId>): void {
@@ -95,7 +92,6 @@ export class FileListView {
                                 title: "Add configuration file",
                         },
                 });
-                addTag.addEventListener("click", () => this.onAddFiles());
                 fileList.appendChild(addTag);
 
                 listContainer.innerHTML = "";

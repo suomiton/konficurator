@@ -13,7 +13,7 @@ import {
 } from "./ui/group-file-dialog";
 import { FileListView } from "./ui/file-list-view";
 import { GroupAccentId, normalizeGroupAccent } from "./theme/groupColors";
-import { FileEditorController } from "./controllers/file-editor-controller";
+import { FileEditorController, ValidationMetaInput } from "./controllers/file-editor-controller";
 import { findFormElementWithRetry } from "./ui/form-utils";
 
 /**
@@ -38,7 +38,6 @@ export class KonficuratorApp {
                 this.persistence = new FilePersistence();
                 this.fileListView = new FileListView({
                         onToggleFile: (fileId) => this.toggleFileVisibility(fileId),
-                        onAddFiles: () => this.handleAddFilesWithGrouping(),
                 });
                 this.editorController = new FileEditorController({
                         renderer: this.renderer,
@@ -66,7 +65,25 @@ export class KonficuratorApp {
                 this.checkBrowserSupport();
                 // Ensure the file list (with the Add button) is visible even when there are no files yet
                 this.updateFileInfo(this.loadedFiles);
+                this.renderFileEditors();
+        }
+
+        public renderFileEditors(): void {
                 this.editorController.renderEditors(this.loadedFiles);
+        }
+
+	public toggleRawMode(fileId: string): void {
+                this.editorController.toggleRawMode(fileId);
+        }
+
+	public setValidationState(
+		fileId: string,
+		isValid: boolean,
+		message?: string,
+		details?: string[],
+		meta?: ValidationMetaInput
+	): void {
+		this.editorController.applyValidationState(fileId, isValid, message, details, meta);
         }
 
 	/**
@@ -106,7 +123,7 @@ export class KonficuratorApp {
 
 			// Update UI and storage
 			this.updateFileInfo(this.loadedFiles);
-			this.editorController.renderEditors(this.loadedFiles);
+			this.renderFileEditors();
 			await this.saveToStorage();
 		});
 
@@ -223,7 +240,7 @@ export class KonficuratorApp {
                         );
 
 			// Always restore current editors immediately (prevent flicker / hidden state)
-			this.editorController.renderEditors(this.loadedFiles);
+			this.renderFileEditors();
 			this.updateFileInfo(this.loadedFiles);
 
 			if (newFiles.length === 0) {
@@ -239,7 +256,7 @@ export class KonficuratorApp {
 			this.loadedFiles.push(...newFiles);
 			await this.saveToStorage();
 			this.updateFileInfo(this.loadedFiles);
-			this.editorController.renderEditors(this.loadedFiles);
+			this.renderFileEditors();
 
 			FileNotifications.showFilesLoaded(
 				newFiles.length,
@@ -249,7 +266,7 @@ export class KonficuratorApp {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			NotificationService.showError(`Failed to load files: ${message}`);
 			// Ensure UI restored even on error
-			this.editorController.renderEditors(this.loadedFiles);
+			this.renderFileEditors();
 			this.updateFileInfo(this.loadedFiles);
 		} finally {
 			NotificationService.hideLoading();
@@ -323,7 +340,7 @@ export class KonficuratorApp {
 
 		// Update UI to reflect the change
 		this.updateFileInfo(this.loadedFiles);
-		this.editorController.renderEditors(this.loadedFiles);
+		this.renderFileEditors();
 
 		// Update storage to persist the state
 		this.saveToStorage().catch((error) => {
@@ -462,7 +479,7 @@ export class KonficuratorApp {
 			await this.saveToStorage();
 
 			// Re-render the specific file editor
-			this.editorController.renderEditors(this.loadedFiles);
+			this.renderFileEditors();
 
 			NotificationService.hideLoading();
 
@@ -534,7 +551,7 @@ export class KonficuratorApp {
 			await this.saveToStorage();
 
 			// Re-render the specific file editor
-			this.editorController.renderEditors(this.loadedFiles);
+			this.renderFileEditors();
 
 			NotificationService.hideLoading();
 
@@ -607,7 +624,7 @@ export class KonficuratorApp {
                         }
 
                         this.updateFileInfo(this.loadedFiles);
-                        this.editorController.renderEditors(this.loadedFiles);
+                        this.renderFileEditors();
                         NotificationService.hideLoading();
 
                         if (filesNeedingPermission.length > 0) {
@@ -655,7 +672,7 @@ export class KonficuratorApp {
 			// Remove from loaded files array (synchronous) and update UI immediately for responsiveness
 			this.loadedFiles = this.loadedFiles.filter((f) => f.id !== fileId);
 			this.updateFileInfo(this.loadedFiles);
-			this.editorController.renderEditors(this.loadedFiles);
+			this.renderFileEditors();
 
                         // Storage removal (async) – errors logged but don't block UI removal
                         try {
@@ -690,10 +707,11 @@ export class KonficuratorApp {
                         this.groupColors.get(groupName) ||
                         this.loadedFiles.find((f) => f.group === groupName)?.groupColor;
                 const normalizedColor = normalizeGroupAccent(currentColor);
-                const result = await showEditGroupDialog({
-                        name: groupName,
-                        color: normalizedColor,
-                });
+		const dialogInput: { name: string; color?: GroupAccentId } = { name: groupName };
+		if (normalizedColor !== undefined) {
+			dialogInput.color = normalizedColor;
+		}
+		const result = await showEditGroupDialog(dialogInput);
 		if (!result) return;
 		switch (result.type) {
 			case "save": {
@@ -713,7 +731,7 @@ export class KonficuratorApp {
 				}
 				await this.saveToStorage();
 				this.updateFileInfo(this.loadedFiles);
-				this.editorController.renderEditors(this.loadedFiles);
+				this.renderFileEditors();
 				NotificationService.showSuccess(
 					`Group "${groupName}" renamed to "${newName}"`
 				);
@@ -725,7 +743,7 @@ export class KonficuratorApp {
 				});
 				await this.saveToStorage();
 				this.updateFileInfo(this.loadedFiles);
-				this.editorController.renderEditors(this.loadedFiles);
+				this.renderFileEditors();
 				NotificationService.showInfo(
 					`Closed all files in group "${groupName}"`
 				);
@@ -752,7 +770,7 @@ export class KonficuratorApp {
 				}
 				await this.saveToStorage();
 				this.updateFileInfo(this.loadedFiles);
-				this.editorController.renderEditors(this.loadedFiles);
+				this.renderFileEditors();
 				NotificationService.showSuccess(
 					`Removed group "${groupName}" (${idsToRemove.length} file(s))`
 				);

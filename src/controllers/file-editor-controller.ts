@@ -40,8 +40,8 @@ type ValidationErrorDetail = {
         end?: number | undefined;
 };
 
-type ValidationMetaInput = ValidationErrorDetail & {
-        errors?: Array<SchemaValidationError | ValidationErrorDetail> | undefined;
+export type ValidationMetaInput = ValidationErrorDetail & {
+	errors?: Array<SchemaValidationError | ValidationErrorDetail> | undefined;
 };
 
 type ValidationStateMeta = ValidationMetaInput & {
@@ -403,9 +403,19 @@ export class FileEditorController {
                 }
         }
 
-        private setValidationState(
-                fileId: string,
-                isValid: boolean,
+	public applyValidationState(
+		fileId: string,
+		isValid: boolean,
+		message?: string,
+		details?: string[],
+		meta?: ValidationMetaInput
+	): void {
+		this.setValidationState(fileId, isValid, message, details, meta);
+	}
+
+	private setValidationState(
+		fileId: string,
+		isValid: boolean,
                 message?: string,
                 details?: string[],
                 meta?: ValidationMetaInput
