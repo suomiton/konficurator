@@ -8,13 +8,14 @@ import * as ParserCore from "../parser-wasm/pkg/parser_core.js";
 import { StorageService } from "./handleStorage";
 import { NotificationService, FileNotifications } from "./ui/notifications";
 import { PermissionManager } from "./permissionManager";
-import { createElement } from "./ui/dom-factory";
 import { createIconLabel, createIconList, IconListItem } from "./ui/icon";
 import { SchemaRegistry } from "./validation/schemaRegistry";
 import {
-	showAddFilesDialog,
-	showEditGroupDialog,
+        showAddFilesDialog,
+        showEditGroupDialog,
 } from "./ui/group-file-dialog";
+import { FileListView } from "./ui/file-list-view";
+import { GroupAccentId, normalizeGroupAccent } from "./theme/groupColors";
 
 type SchemaValidationError = {
 	message: string;
@@ -67,24 +68,29 @@ export class KonficuratorApp {
 	private fileHandler: FileHandler;
 	private renderer: ModernFormRenderer;
 	private persistence: FilePersistence;
-	private loadedFiles: FileData[] = [];
-	private activeSaveOperations: Set<string> = new Set();
-	private groupColors: Map<string, string> = new Map();
-	private rawEditMode: Set<string> = new Set();
-	private pendingRawAutosaveTimers: Map<string, number> = new Map();
-	private pendingValidationTimers: Map<string, number> = new Map();
-	private schemaCache: Map<string, string> = new Map();
-	private wasmReady: boolean = false;
-	private lastValidationMeta: Map<string, ValidationStateMeta> = new Map();
+        private loadedFiles: FileData[] = [];
+        private activeSaveOperations: Set<string> = new Set();
+        private groupColors: Map<string, GroupAccentId> = new Map();
+        private rawEditMode: Set<string> = new Set();
+        private pendingRawAutosaveTimers: Map<string, number> = new Map();
+        private pendingValidationTimers: Map<string, number> = new Map();
+        private schemaCache: Map<string, string> = new Map();
+        private wasmReady: boolean = false;
+        private lastValidationMeta: Map<string, ValidationStateMeta> = new Map();
+        private fileListView: FileListView;
 
-	constructor() {
-		this.fileHandler = new FileHandler();
-		this.renderer = new ModernFormRenderer({
-			onFileFieldChange: (fileId) => this.scheduleAutosave(fileId),
-		});
-		this.persistence = new FilePersistence();
+        constructor() {
+                this.fileHandler = new FileHandler();
+                this.renderer = new ModernFormRenderer({
+                        onFileFieldChange: (fileId) => this.scheduleAutosave(fileId),
+                });
+                this.persistence = new FilePersistence();
+                this.fileListView = new FileListView({
+                        onToggleFile: (fileId) => this.toggleFileVisibility(fileId),
+                        onAddFiles: () => this.handleAddFilesWithGrouping(),
+                });
 
-		this.init();
+                this.init();
 
 		// Initialize file loading with error handling
 		this.loadPersistedFiles().catch((error) => {
@@ -116,7 +122,8 @@ export class KonficuratorApp {
 			const customEvent = event as CustomEvent;
 			const { file } = customEvent.detail as { file: FileData };
 
-			await this.processFile(file);
+                        await this.processFile(file);
+                        this.applyGroupAccent(file.group, file.groupColor);
 
 			// Update existing file (by id) or add new one while preserving visibility state
 			const existingIndex = this.loadedFiles.findIndex((f) => f.id === file.id);
@@ -242,20 +249,20 @@ export class KonficuratorApp {
 	private async handleAddFilesWithGrouping(): Promise<void> {
 		try {
 			// Show group picker dialog
-			const existingGroups = this.getExistingGroups();
-			const selection = await showAddFilesDialog(existingGroups);
-			if (!selection) return;
-			const { group, color } = selection;
-			if (color) this.groupColors.set(group, color);
+                        const existingGroups = this.getExistingGroups();
+                        const selection = await showAddFilesDialog(existingGroups);
+                        if (!selection) return;
+                        const { group, color } = selection;
+                        const normalizedColor = this.applyGroupAccent(group, color);
 
-			NotificationService.showLoading("Selecting files...");
-			// Only consider duplicates within the target group
-			const existingInGroup = this.loadedFiles.filter((f) => f.group === group);
-			const newFiles = await this.fileHandler.selectFiles(
-				group,
-				existingInGroup,
-				color || this.groupColors.get(group)
-			);
+                        NotificationService.showLoading("Selecting files...");
+                        // Only consider duplicates within the target group
+                        const existingInGroup = this.loadedFiles.filter((f) => f.group === group);
+                        const newFiles = await this.fileHandler.selectFiles(
+                                group,
+                                existingInGroup,
+                                normalizedColor || this.groupColors.get(group)
+                        );
 
 			// Always restore current editors immediately (prevent flicker / hidden state)
 			this.renderFileEditors();
@@ -315,115 +322,36 @@ export class KonficuratorApp {
 	/**
 	 * Update file info display
 	 */
-	private updateFileInfo(files: FileData[]): void {
-		const fileInfo = document.getElementById("fileInfo");
-		if (!fileInfo) return;
+        private updateFileInfo(files: FileData[]): void {
+                this.syncGroupColorCache(files);
+                this.fileListView.render(files, this.groupColors);
+        }
 
-		// Static CSS now loaded from styles/groups.css (no inline injection)
+        private syncGroupColorCache(files: FileData[]): void {
+                const activeGroups = new Set<string>();
+                files.forEach((file) => {
+                        activeGroups.add(file.group);
+                        if (file.groupColor) {
+                                this.groupColors.set(file.group, file.groupColor);
+                        }
+                });
+                Array.from(this.groupColors.keys()).forEach((group) => {
+                        if (!activeGroups.has(group)) {
+                                this.groupColors.delete(group);
+                        }
+                });
+        }
 
-		// Use dedicated list container to avoid removing the Add file button
-		let listContainer = document.getElementById("fileInfoListContainer");
-		if (!listContainer) {
-			listContainer = createElement({
-				tag: "div",
-				className: "file-list-container",
-				attributes: { id: "fileInfoListContainer" },
-			});
-			fileInfo.appendChild(listContainer);
-		}
-
-		const fileList = createElement({
-			tag: "div",
-			className: "file-list",
-		});
-
-		// Group by group name
-		const groups = new Map<string, FileData[]>();
-		files.forEach((f) => {
-			const arr = groups.get(f.group) || [];
-			arr.push(f);
-			groups.set(f.group, arr);
-		});
-
-		groups.forEach((groupFiles, groupName) => {
-			const color =
-				this.groupColors.get(groupName) || groupFiles[0]?.groupColor;
-			if (color) this.groupColors.set(groupName, color!);
-
-			const groupContainer = createElement({
-				tag: "div",
-				className: "file-group",
-			});
-			// Apply group border color if available
-			// Apply group color to file entry border if available
-			if (color) {
-				(groupContainer as HTMLElement).style.borderColor = color;
-			}
-
-			const header = createElement({
-				tag: "div",
-				className: "file-group-header",
-			});
-			// Group title button (remains clickable)
-			const title = createElement({
-				tag: "button",
-				className: "file-group-title",
-				textContent: groupName,
-				attributes: { "data-group": groupName, type: "button" },
-			});
-			header.appendChild(title);
-
-			const groupList = createElement({
-				tag: "div",
-				className: "file-group-list",
-			});
-			groupFiles.forEach((file) => {
-				const fileTag = createElement({
-					tag: "span",
-					className: "file-tag",
-					attributes: { "data-id": file.id },
-				});
-				if (file.isActive === false) fileTag.classList.add("inactive");
-				fileTag.textContent = file.name;
-				if (color) {
-					(fileTag as HTMLElement).style.borderColor = color;
-				}
-
-				const baseTooltip = file.handle
-					? "File loaded from disk - can be refreshed"
-					: "File restored from storage - use reload button to get latest version";
-				fileTag.title = `${baseTooltip}. Click to ${
-					file.isActive === false ? "show" : "hide"
-				} editor.`;
-				fileTag.addEventListener("click", () =>
-					this.toggleFileVisibility(file.id)
-				);
-				groupList.appendChild(fileTag);
-			});
-
-			groupContainer.appendChild(header);
-			groupContainer.appendChild(groupList);
-			fileList.appendChild(groupContainer);
-		});
-
-		// Add dynamic "Add file" pseudo-tag at end
-		const addTag = createElement({
-			tag: "button",
-			className: "file-tag add-file-tag",
-			attributes: {
-				id: "selectFiles",
-				type: "button",
-				title: "Add configuration file",
-			},
-			textContent: "+ Add",
-		});
-		fileList.appendChild(addTag);
-
-		// Replace only the list container contents
-		listContainer.innerHTML = "";
-		listContainer.appendChild(fileList);
-		fileInfo.classList.add("visible");
-	}
+        private applyGroupAccent(
+                group: string,
+                color?: string | GroupAccentId
+        ): GroupAccentId | undefined {
+                const accent = normalizeGroupAccent(color);
+                if (accent) {
+                        this.groupColors.set(group, accent);
+                }
+                return accent;
+        }
 
 	/**
 	 * Toggle file editor visibility
@@ -1449,28 +1377,28 @@ export class KonficuratorApp {
 		}
 	}
 
-	private getExistingGroups(): { name: string; color?: string }[] {
-		const seen = new Map<string, string | undefined>();
-		for (const f of this.loadedFiles) {
-			if (!seen.has(f.group))
-				seen.set(f.group, f.groupColor || this.groupColors.get(f.group));
-		}
-		return Array.from(seen.entries()).map(([name, color]) => {
-			const obj: any = { name };
-			if (color !== undefined) obj.color = color;
-			return obj as { name: string; color?: string };
-		});
-	}
+        private getExistingGroups(): { name: string; color?: GroupAccentId }[] {
+                const seen = new Map<string, GroupAccentId | undefined>();
+                for (const f of this.loadedFiles) {
+                        if (!seen.has(f.group))
+                                seen.set(f.group, f.groupColor || this.groupColors.get(f.group));
+                }
+                return Array.from(seen.entries()).map(([name, color]) => {
+                        const obj: { name: string; color?: GroupAccentId } = { name };
+                        if (color !== undefined) obj.color = color;
+                        return obj;
+                });
+        }
 
 	private async handleGroupTitleClick(groupName: string): Promise<void> {
-		const currentColor =
-			this.groupColors.get(groupName) ||
-			this.loadedFiles.find((f) => f.group === groupName)?.groupColor;
-		const groupArg: any = { name: groupName };
-		if (currentColor !== undefined) groupArg.color = currentColor;
-		const result = await showEditGroupDialog(
-			groupArg as { name: string; color?: string }
-		);
+                const currentColor =
+                        this.groupColors.get(groupName) ||
+                        this.loadedFiles.find((f) => f.group === groupName)?.groupColor;
+                const normalizedColor = normalizeGroupAccent(currentColor);
+                const result = await showEditGroupDialog({
+                        name: groupName,
+                        color: normalizedColor,
+                });
 		if (!result) return;
 		switch (result.type) {
 			case "save": {
@@ -1483,7 +1411,7 @@ export class KonficuratorApp {
 					}
 				});
 				// Update color map
-				const existingColor = color || currentColor;
+                                const existingColor = color || normalizedColor;
 				if (existingColor) {
 					this.groupColors.delete(groupName);
 					this.groupColors.set(newName, existingColor);

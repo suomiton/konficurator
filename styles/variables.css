@@ -39,7 +39,9 @@
 	--color-warning: var(--color-selective-yellow);
 	--color-accent: var(--color-ui-orange);
 	--color-success: #2a9d8f;
-	--color-danger: #d62828;
+        --color-danger: #d62828;
+
+        --group-accent-default: var(--color-blue-green);
 
 	/* Spacing & layout */
 	--gutter-unit: 8px;

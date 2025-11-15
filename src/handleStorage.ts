@@ -15,12 +15,13 @@
  */
 
 import { FileData } from "./interfaces";
+import { GroupAccentId, normalizeGroupAccent } from "./theme/groupColors";
 
 export interface StoredFileV2 {
-	id: string;
-	name: string;
-	group: string;
-	groupColor?: string;
+        id: string;
+        name: string;
+        group: string;
+        groupColor?: GroupAccentId | string;
 	type: "json" | "xml" | "config" | "env";
 	lastModified: number;
 	content: string;
@@ -154,9 +155,10 @@ export class StorageService {
 				isActive: r.isActive !== undefined ? r.isActive : true,
 			} as FileData;
 
-			if (r.groupColor !== undefined) {
-				(fd as any).groupColor = r.groupColor;
-			}
+                        if (r.groupColor !== undefined) {
+                                const accent = normalizeGroupAccent(r.groupColor);
+                                if (accent) (fd as any).groupColor = accent;
+                        }
 			if (r.path) fd.path = r.path;
 
 			if (r.handle) {

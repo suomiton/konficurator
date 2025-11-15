@@ -15,6 +15,7 @@ The frontend is written in TypeScript and compiled without a framework. Componen
   - **Field data builders** (`src/ui/form-data.ts`) that derive the correct input configuration for nested objects, arrays, and primitives.
   - **Event wiring** (`src/ui/event-handlers.ts`) that registers per-field change handlers, save buttons, and file-level actions.
 - Error states (parse failures, unsupported structures) are surfaced via `renderErrorNotification` and `renderErrorMessage` helpers, ensuring the UI communicates parsing issues immediately.
+- The grouped file list is rendered through `FileListView` (`src/ui/file-list-view.ts`) so that the controller simply feeds state while presentation logic stays isolated.
 
 ## Notifications and dialogs
 
@@ -29,3 +30,4 @@ The frontend is written in TypeScript and compiled without a framework. Componen
 ## Styles and layout
 
 - Global styles live under `styles/`, while icons and inline labels are produced through `src/ui/icon.ts` so markup stays consistent. The UI emphasises accessibility by relying on semantic HTML elements combined with CSS classes.
+- Accent colours for file groups are centrally defined in `src/theme/groupColors.ts` and consumed in CSS via `styles/accents.css`, keeping inline styles out of the TypeScript controllers.

@@ -43,13 +43,11 @@ export class ModernFormRenderer implements IRenderer {
 			attributes: { "data-id": fileData.id },
 		});
 
-		// Apply group color to the editor container border if available
-		if (fileData.groupColor) {
-			(
-				container as HTMLElement
-			).style.border = `2px solid ${fileData.groupColor}`;
-			(container as HTMLElement).style.borderRadius = "8px";
-		}
+                if (fileData.groupColor) {
+                        container.setAttribute("data-accent", fileData.groupColor);
+                } else {
+                        container.removeAttribute("data-accent");
+                }
 
 		// Render header
 		const header = renderFileHeader(
