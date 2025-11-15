@@ -6,6 +6,7 @@ The frontend is written in TypeScript and compiled without a framework. Componen
 
 - `KonficuratorApp` (`src/main.ts`) coordinates all services. It attaches global listeners for file selection, save actions, refresh triggers, and permission events emitted by reconnect cards.
 - The controller keeps an in-memory array of `FileData` entries, updates IndexedDB via `StorageService`, and orchestrates rendering by delegating to `ModernFormRenderer`.
+- Editor-specific behaviour (raw mode, validation, autosave) lives in `FileEditorController` (`src/controllers/file-editor-controller.ts`). The controller exposes a small API so the app simply feeds it file state and storage callbacks.
 
 ## Rendering pipeline
 
