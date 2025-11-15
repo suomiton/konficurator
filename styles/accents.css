@@ -1,0 +1,63 @@
+/* Accent utilities keep inline styles out of TypeScript */
+[data-accent] {
+        --group-accent-color: var(--group-accent-default);
+}
+
+[data-accent="sky"] {
+        --group-accent-color: var(--color-sky-blue);
+}
+
+[data-accent="blueGreen"] {
+        --group-accent-color: var(--color-blue-green);
+}
+
+[data-accent="prussian"] {
+        --group-accent-color: var(--color-prussian-blue);
+}
+
+[data-accent="yellow"] {
+        --group-accent-color: var(--color-selective-yellow);
+}
+
+[data-accent="orange"] {
+        --group-accent-color: var(--color-ui-orange);
+}
+
+[data-accent="teal"] {
+        --group-accent-color: var(--color-success);
+}
+
+[data-accent="danger"] {
+        --group-accent-color: var(--color-danger);
+}
+
+[data-accent="slate"] {
+        --group-accent-color: var(--color-gray-600);
+}
+
+.file-group[data-accent] {
+        border-color: var(--group-accent-color);
+        box-shadow: 0 0 0 1px var(--group-accent-color);
+}
+
+.file-tag[data-accent] {
+        border-color: var(--group-accent-color);
+}
+
+.file-tag[data-accent]:hover {
+        background: var(--color-gray-100);
+}
+
+.file-editor[data-accent] {
+        border-color: var(--group-accent-color);
+        border-width: 2px;
+        box-shadow: var(--shadow-soft);
+}
+
+.file-editor[data-accent] .file-editor-header {
+        border-bottom-color: var(--group-accent-color);
+}
+
+.file-editor[data-accent] .file-type {
+        color: var(--group-accent-color);
+}

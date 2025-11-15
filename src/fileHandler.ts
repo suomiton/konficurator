@@ -1,4 +1,5 @@
 import { IFileHandler, FileData } from "./interfaces";
+import { GroupAccentId } from "./theme/groupColors";
 import { determineFileType } from "./utils/fileTypeUtils";
 
 // Lightweight UUID generator (fallback if crypto.randomUUID unavailable)
@@ -23,11 +24,11 @@ export class FileHandler implements IFileHandler {
 	 * Opens file picker and allows user to select multiple configuration files.
 	 * Backward compatible signature: if first argument is an array, treat as existing files (group defaults to "default").
 	 */
-	async selectFiles(
-		groupOrExisting: string | FileData[] = "default",
-		existingFilesInGroup: FileData[] = [],
-		groupColor?: string
-	): Promise<FileData[]> {
+        async selectFiles(
+                groupOrExisting: string | FileData[] = "default",
+                existingFilesInGroup: FileData[] = [],
+                groupColor?: GroupAccentId
+        ): Promise<FileData[]> {
 		try {
 			// Check if File System Access API is supported
 			if (!window.showOpenFilePicker) {

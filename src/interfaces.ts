@@ -1,4 +1,5 @@
 // Core interfaces for the application following Interface Segregation Principle
+import { GroupAccentId } from "./theme/groupColors";
 
 export interface FileData {
 	id: string; // Stable internal identifier (not tied to filename)
@@ -8,7 +9,7 @@ export interface FileData {
 	content: any; // Parsed content
 	originalContent: string; // Raw string content for storage/saving
 	group: string; // Logical grouping (allows same filename across groups)
-	groupColor?: string; // Optional color assigned to the group for UI coding
+        groupColor?: GroupAccentId; // Optional accent assigned to the group for UI coding
 	path?: string; // File path information when available
 	lastModified?: number; // Last modified timestamp
 	size?: number; // File size in bytes
@@ -34,11 +35,11 @@ export interface IFileHandler {
 	 * Backward compatible: if first argument is an array, it's treated as existing files and group defaults to "default".
 	 * New usage: pass a group name as first argument, optionally existing group files and groupColor.
 	 */
-	selectFiles(
-		groupOrExisting?: string | FileData[],
-		existingFilesInGroup?: FileData[],
-		groupColor?: string
-	): Promise<FileData[]>;
+        selectFiles(
+                groupOrExisting?: string | FileData[],
+                existingFilesInGroup?: FileData[],
+                groupColor?: GroupAccentId
+        ): Promise<FileData[]>;
 	readFile(handle: FileSystemFileHandle): Promise<string>;
 	writeFile(handle: FileSystemFileHandle, content: string): Promise<void>;
 	refreshFile(fileData: FileData): Promise<FileData>;

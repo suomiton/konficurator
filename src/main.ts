@@ -3,61 +3,18 @@ import { ParserFactory } from "./parsers";
 import { ModernFormRenderer } from "./ui/modern-form-renderer";
 import { FilePersistence } from "./persistence";
 import { FileData } from "./interfaces";
-import initWasm from "../parser-wasm/pkg/parser_core.js";
-import * as ParserCore from "../parser-wasm/pkg/parser_core.js";
 import { StorageService } from "./handleStorage";
 import { NotificationService, FileNotifications } from "./ui/notifications";
 import { PermissionManager } from "./permissionManager";
-import { createElement } from "./ui/dom-factory";
 import { createIconLabel, createIconList, IconListItem } from "./ui/icon";
-import { SchemaRegistry } from "./validation/schemaRegistry";
 import {
-	showAddFilesDialog,
-	showEditGroupDialog,
+        showAddFilesDialog,
+        showEditGroupDialog,
 } from "./ui/group-file-dialog";
-
-type SchemaValidationError = {
-	message: string;
-	keyword?: string;
-	instancePath: string;
-	schemaPath?: string;
-	line?: number;
-	column?: number;
-	start?: number;
-	end?: number;
-};
-
-interface SchemaValidationResult {
-	valid: boolean;
-	errors?: SchemaValidationError[];
-}
-
-// With exactOptionalPropertyTypes enabled, assigning `undefined` explicitly to an optional property
-// that is just `type? : T` produces an error (expects the property to be either omitted or T).
-// We widen each optional to `T | undefined` so code paths that set `prop: valueOrUndefined` remain valid.
-type ValidationErrorDetail = {
-	message?: string | undefined;
-	code?: string | undefined;
-	line?: number | undefined;
-	column?: number | undefined;
-	start?: number | undefined;
-	end?: number | undefined;
-};
-
-type ValidationMetaInput = ValidationErrorDetail & {
-	errors?: Array<SchemaValidationError | ValidationErrorDetail> | undefined;
-};
-
-type ValidationStateMeta = ValidationMetaInput & {
-	valid: boolean;
-	message?: string | undefined;
-};
-
-type SyntaxValidationResult = {
-	valid: boolean;
-	summary?: ValidationErrorDetail;
-	errors: ValidationErrorDetail[];
-};
+import { FileListView } from "./ui/file-list-view";
+import { GroupAccentId, normalizeGroupAccent } from "./theme/groupColors";
+import { FileEditorController, ValidationMetaInput } from "./controllers/file-editor-controller";
+import { findFormElementWithRetry } from "./ui/form-utils";
 
 /**
  * Main Application Controller
@@ -65,26 +22,31 @@ type SyntaxValidationResult = {
  */
 export class KonficuratorApp {
 	private fileHandler: FileHandler;
-	private renderer: ModernFormRenderer;
-	private persistence: FilePersistence;
-	private loadedFiles: FileData[] = [];
-	private activeSaveOperations: Set<string> = new Set();
-	private groupColors: Map<string, string> = new Map();
-	private rawEditMode: Set<string> = new Set();
-	private pendingRawAutosaveTimers: Map<string, number> = new Map();
-	private pendingValidationTimers: Map<string, number> = new Map();
-	private schemaCache: Map<string, string> = new Map();
-	private wasmReady: boolean = false;
-	private lastValidationMeta: Map<string, ValidationStateMeta> = new Map();
+        private renderer: ModernFormRenderer;
+        private persistence: FilePersistence;
+        private loadedFiles: FileData[] = [];
+        private activeSaveOperations: Set<string> = new Set();
+        private groupColors: Map<string, GroupAccentId> = new Map();
+        private fileListView: FileListView;
+        private editorController: FileEditorController;
 
-	constructor() {
-		this.fileHandler = new FileHandler();
-		this.renderer = new ModernFormRenderer({
-			onFileFieldChange: (fileId) => this.scheduleAutosave(fileId),
-		});
-		this.persistence = new FilePersistence();
+        constructor() {
+                this.fileHandler = new FileHandler();
+                this.renderer = new ModernFormRenderer({
+                        onFileFieldChange: (fileId) => this.scheduleAutosave(fileId),
+                });
+                this.persistence = new FilePersistence();
+                this.fileListView = new FileListView({
+                        onToggleFile: (fileId) => this.toggleFileVisibility(fileId),
+                });
+                this.editorController = new FileEditorController({
+                        renderer: this.renderer,
+                        persistence: this.persistence,
+                        getFiles: () => this.loadedFiles,
+                        saveToStorage: () => this.saveToStorage(),
+                });
 
-		this.init();
+                this.init();
 
 		// Initialize file loading with error handling
 		this.loadPersistedFiles().catch((error) => {
@@ -99,11 +61,30 @@ export class KonficuratorApp {
 	 * Initialize the application
 	 */
 	private init(): void {
-		this.setupEventListeners();
-		this.checkBrowserSupport();
-		// Ensure the file list (with the Add button) is visible even when there are no files yet
-		this.updateFileInfo(this.loadedFiles);
-	}
+                this.setupEventListeners();
+                this.checkBrowserSupport();
+                // Ensure the file list (with the Add button) is visible even when there are no files yet
+                this.updateFileInfo(this.loadedFiles);
+                this.renderFileEditors();
+        }
+
+        public renderFileEditors(): void {
+                this.editorController.renderEditors(this.loadedFiles);
+        }
+
+	public toggleRawMode(fileId: string): void {
+                this.editorController.toggleRawMode(fileId);
+        }
+
+	public setValidationState(
+		fileId: string,
+		isValid: boolean,
+		message?: string,
+		details?: string[],
+		meta?: ValidationMetaInput
+	): void {
+		this.editorController.applyValidationState(fileId, isValid, message, details, meta);
+        }
 
 	/**
 	 * Set up event listeners
@@ -116,7 +97,8 @@ export class KonficuratorApp {
 			const customEvent = event as CustomEvent;
 			const { file } = customEvent.detail as { file: FileData };
 
-			await this.processFile(file);
+                        await this.processFile(file);
+                        this.applyGroupAccent(file.group, file.groupColor);
 
 			// Update existing file (by id) or add new one while preserving visibility state
 			const existingIndex = this.loadedFiles.findIndex((f) => f.id === file.id);
@@ -186,14 +168,14 @@ export class KonficuratorApp {
 				return;
 			}
 
-			const rawToggleBtn = target.closest(
-				".toggle-raw-btn"
-			) as HTMLElement | null;
-			if (rawToggleBtn) {
-				const id = rawToggleBtn.getAttribute("data-id");
-				if (id) this.toggleRawMode(id);
-				return;
-			}
+                        const rawToggleBtn = target.closest(
+                                ".toggle-raw-btn"
+                        ) as HTMLElement | null;
+                        if (rawToggleBtn) {
+                                const id = rawToggleBtn.getAttribute("data-id");
+                                if (id) this.editorController.toggleRawMode(id);
+                                return;
+                        }
 
 			const saveBtn = target.closest(".btn") as HTMLElement | null;
 			if (saveBtn && saveBtn.textContent?.includes("Save")) {
@@ -218,10 +200,10 @@ export class KonficuratorApp {
 			};
 			if (!detail?.fileId) return;
 			// Schedule debounced save for this file
-			this.scheduleAutosave(detail.fileId);
-			// Schedule validation (form mode)
-			this.scheduleValidation(detail.fileId, "form");
-		});
+                        this.scheduleAutosave(detail.fileId);
+                        // Schedule validation (form mode)
+                        this.editorController.requestValidation(detail.fileId, "form");
+                });
 	}
 
 	/**
@@ -242,20 +224,20 @@ export class KonficuratorApp {
 	private async handleAddFilesWithGrouping(): Promise<void> {
 		try {
 			// Show group picker dialog
-			const existingGroups = this.getExistingGroups();
-			const selection = await showAddFilesDialog(existingGroups);
-			if (!selection) return;
-			const { group, color } = selection;
-			if (color) this.groupColors.set(group, color);
+                        const existingGroups = this.getExistingGroups();
+                        const selection = await showAddFilesDialog(existingGroups);
+                        if (!selection) return;
+                        const { group, color } = selection;
+                        const normalizedColor = this.applyGroupAccent(group, color);
 
-			NotificationService.showLoading("Selecting files...");
-			// Only consider duplicates within the target group
-			const existingInGroup = this.loadedFiles.filter((f) => f.group === group);
-			const newFiles = await this.fileHandler.selectFiles(
-				group,
-				existingInGroup,
-				color || this.groupColors.get(group)
-			);
+                        NotificationService.showLoading("Selecting files...");
+                        // Only consider duplicates within the target group
+                        const existingInGroup = this.loadedFiles.filter((f) => f.group === group);
+                        const newFiles = await this.fileHandler.selectFiles(
+                                group,
+                                existingInGroup,
+                                normalizedColor || this.groupColors.get(group)
+                        );
 
 			// Always restore current editors immediately (prevent flicker / hidden state)
 			this.renderFileEditors();
@@ -315,115 +297,36 @@ export class KonficuratorApp {
 	/**
 	 * Update file info display
 	 */
-	private updateFileInfo(files: FileData[]): void {
-		const fileInfo = document.getElementById("fileInfo");
-		if (!fileInfo) return;
+        private updateFileInfo(files: FileData[]): void {
+                this.syncGroupColorCache(files);
+                this.fileListView.render(files, this.groupColors);
+        }
 
-		// Static CSS now loaded from styles/groups.css (no inline injection)
+        private syncGroupColorCache(files: FileData[]): void {
+                const activeGroups = new Set<string>();
+                files.forEach((file) => {
+                        activeGroups.add(file.group);
+                        if (file.groupColor) {
+                                this.groupColors.set(file.group, file.groupColor);
+                        }
+                });
+                Array.from(this.groupColors.keys()).forEach((group) => {
+                        if (!activeGroups.has(group)) {
+                                this.groupColors.delete(group);
+                        }
+                });
+        }
 
-		// Use dedicated list container to avoid removing the Add file button
-		let listContainer = document.getElementById("fileInfoListContainer");
-		if (!listContainer) {
-			listContainer = createElement({
-				tag: "div",
-				className: "file-list-container",
-				attributes: { id: "fileInfoListContainer" },
-			});
-			fileInfo.appendChild(listContainer);
-		}
-
-		const fileList = createElement({
-			tag: "div",
-			className: "file-list",
-		});
-
-		// Group by group name
-		const groups = new Map<string, FileData[]>();
-		files.forEach((f) => {
-			const arr = groups.get(f.group) || [];
-			arr.push(f);
-			groups.set(f.group, arr);
-		});
-
-		groups.forEach((groupFiles, groupName) => {
-			const color =
-				this.groupColors.get(groupName) || groupFiles[0]?.groupColor;
-			if (color) this.groupColors.set(groupName, color!);
-
-			const groupContainer = createElement({
-				tag: "div",
-				className: "file-group",
-			});
-			// Apply group border color if available
-			// Apply group color to file entry border if available
-			if (color) {
-				(groupContainer as HTMLElement).style.borderColor = color;
-			}
-
-			const header = createElement({
-				tag: "div",
-				className: "file-group-header",
-			});
-			// Group title button (remains clickable)
-			const title = createElement({
-				tag: "button",
-				className: "file-group-title",
-				textContent: groupName,
-				attributes: { "data-group": groupName, type: "button" },
-			});
-			header.appendChild(title);
-
-			const groupList = createElement({
-				tag: "div",
-				className: "file-group-list",
-			});
-			groupFiles.forEach((file) => {
-				const fileTag = createElement({
-					tag: "span",
-					className: "file-tag",
-					attributes: { "data-id": file.id },
-				});
-				if (file.isActive === false) fileTag.classList.add("inactive");
-				fileTag.textContent = file.name;
-				if (color) {
-					(fileTag as HTMLElement).style.borderColor = color;
-				}
-
-				const baseTooltip = file.handle
-					? "File loaded from disk - can be refreshed"
-					: "File restored from storage - use reload button to get latest version";
-				fileTag.title = `${baseTooltip}. Click to ${
-					file.isActive === false ? "show" : "hide"
-				} editor.`;
-				fileTag.addEventListener("click", () =>
-					this.toggleFileVisibility(file.id)
-				);
-				groupList.appendChild(fileTag);
-			});
-
-			groupContainer.appendChild(header);
-			groupContainer.appendChild(groupList);
-			fileList.appendChild(groupContainer);
-		});
-
-		// Add dynamic "Add file" pseudo-tag at end
-		const addTag = createElement({
-			tag: "button",
-			className: "file-tag add-file-tag",
-			attributes: {
-				id: "selectFiles",
-				type: "button",
-				title: "Add configuration file",
-			},
-			textContent: "+ Add",
-		});
-		fileList.appendChild(addTag);
-
-		// Replace only the list container contents
-		listContainer.innerHTML = "";
-		listContainer.appendChild(fileList);
-		fileInfo.classList.add("visible");
-	}
+        private applyGroupAccent(
+                group: string,
+                color?: string | GroupAccentId
+        ): GroupAccentId | undefined {
+                const accent = normalizeGroupAccent(color);
+                if (accent) {
+                        this.groupColors.set(group, accent);
+                }
+                return accent;
+        }
 
 	/**
 	 * Toggle file editor visibility
@@ -452,522 +355,6 @@ export class KonficuratorApp {
 	 * Adds selected files into a default group and updates UI/state.
 	 */
 	// Legacy helper removed
-
-	/**
-	 * Render file editors for all loaded files
-	 */
-	private renderFileEditors(): void {
-		const container = document.getElementById("editorContainer");
-		if (!container) return;
-
-		container.innerHTML = "";
-
-		// Only render editors for active files (isActive is true or undefined)
-		this.loadedFiles
-			.filter((fileData) => fileData.isActive !== false)
-			.forEach((fileData) => {
-				const editorElement = this.renderer.renderFileEditor(fileData);
-				container.appendChild(editorElement);
-
-				// Adjust raw/edit values button label based on mode
-				const rawBtn = editorElement.querySelector(
-					".toggle-raw-btn"
-				) as HTMLButtonElement | null;
-				const isRaw = this.rawEditMode.has(fileData.id);
-				if (rawBtn) {
-					rawBtn.textContent = isRaw ? "Edit Values" : "Edit Raw";
-					rawBtn.title = isRaw ? "Edit Values" : "Edit Raw";
-					rawBtn.setAttribute("aria-label", isRaw ? "Edit Values" : "Edit Raw");
-				}
-
-				// If raw mode, replace form with raw editor view
-				if (isRaw) {
-					this.mountRawEditor(editorElement as HTMLElement, fileData);
-					// Re-apply last error decoration if present
-					const meta = this.lastValidationMeta.get(fileData.id);
-					if (meta && !meta.valid) {
-						this.applyRawValidationDecorations(
-							fileData.id,
-							editorElement as HTMLElement,
-							meta
-						);
-					}
-				}
-			});
-	}
-
-	private applyRawValidationDecorations(
-		fileId: string,
-		editorElement: HTMLElement,
-		meta: ValidationStateMeta
-	): void {
-		const raw = editorElement.querySelector(
-			".raw-editor"
-		) as HTMLDivElement | null;
-		if (!raw) return;
-		raw.classList.toggle("has-error", !meta.valid);
-		raw.classList.toggle("is-valid", !!meta.valid);
-		if (!meta.valid && meta.line && this.rawEditMode.has(fileId)) {
-			const text = raw.textContent || "";
-			const lines = text.split(/\n/);
-			const targetLine = Math.max(
-				1,
-				Math.min(lines.length, Math.floor(meta.line))
-			);
-			const cs = window.getComputedStyle(raw);
-			const lh = parseFloat(cs.lineHeight || "0") || 18;
-			const paddingTop = parseFloat(cs.paddingTop || "0") || 8;
-			const targetTop = targetLine * lh - paddingTop - lh;
-			raw.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
-		}
-	}
-
-	private mountRawEditor(editorElement: HTMLElement, fileData: FileData): void {
-		// Remove existing form if present
-		const form = editorElement.querySelector("form");
-		if (form && form.parentElement) {
-			form.parentElement.removeChild(form);
-		}
-
-		// If a raw editor already exists, don't duplicate
-		let raw = editorElement.querySelector(
-			".raw-editor"
-		) as HTMLDivElement | null;
-		if (!raw) {
-			raw = document.createElement("div");
-			raw.className = "raw-editor";
-			raw.setAttribute("data-id", fileData.id);
-			raw.setAttribute("contenteditable", "true");
-			// Use originalContent to preserve formatting exactly
-			raw.textContent = fileData.originalContent || "";
-
-			// Debounced autosave on input
-			raw.addEventListener("input", () => {
-				this.scheduleRawAutosave(fileData.id);
-				this.scheduleValidation(fileData.id, "raw");
-			});
-			// Flush on blur
-			raw.addEventListener("blur", () => {
-				this.scheduleRawAutosave(fileData.id, 0);
-				this.scheduleValidation(fileData.id, "raw", 0);
-			});
-
-			const fieldsContainer = editorElement.querySelector(".form-fields");
-			if (fieldsContainer && fieldsContainer.parentElement) {
-				fieldsContainer.parentElement.appendChild(raw);
-			} else {
-				editorElement.appendChild(raw);
-			}
-		}
-	}
-
-	private scheduleValidation(
-		fileId: string,
-		mode: "raw" | "form",
-		delay: number = 400
-	): void {
-		const key = `${mode}:${fileId}`;
-		const existing = this.pendingValidationTimers.get(key);
-		if (existing) clearTimeout(existing);
-		const timer = window.setTimeout(async () => {
-			this.pendingValidationTimers.delete(key);
-			try {
-				if (mode === "raw") await this.handleValidateRaw(fileId);
-				else await this.handleValidateForm(fileId);
-			} catch (e) {
-				console.warn("Validation failed", e);
-			}
-		}, delay);
-		this.pendingValidationTimers.set(key, timer);
-	}
-
-	private runSyntaxValidation(
-		fileType: string,
-		content: string
-	): SyntaxValidationResult {
-		const wasmValidateMulti = (ParserCore as any).validate_multi as
-			| ((t: string, c: string, maxErrors?: number) => any)
-			| undefined;
-		if (typeof wasmValidateMulti === "function") {
-			const result = wasmValidateMulti(fileType, content, 3);
-			return {
-				valid: !!result?.valid,
-				summary: result?.summary,
-				errors: Array.isArray(result?.errors) ? result.errors : [],
-			};
-		}
-		const legacyValidate = (ParserCore as any).validate as
-			| ((t: string, c: string) => any)
-			| undefined;
-		if (!legacyValidate) {
-			return { valid: true, errors: [] };
-		}
-		const legacyResult = legacyValidate(fileType, content);
-		if (legacyResult?.valid) {
-			return { valid: true, errors: [] };
-		}
-		const fallback: ValidationErrorDetail = {
-			message: legacyResult?.message || "Invalid",
-			line: legacyResult?.line,
-			column: legacyResult?.column,
-			start: legacyResult?.start,
-			end: legacyResult?.end,
-		};
-		return {
-			valid: false,
-			summary: fallback,
-			errors: fallback.message ? [fallback] : [],
-		};
-	}
-
-	private async runSchemaValidation(
-		fileData: FileData,
-		content: string
-	): Promise<SchemaValidationResult | null> {
-		if (fileData.type !== "json") return null;
-		const schemaMatch = SchemaRegistry.getForFile(fileData);
-		if (!schemaMatch) return null;
-
-		const validateWithId = (ParserCore as any).validate_schema_with_id as
-			| ((
-					c: string,
-					id: string,
-					options?: Record<string, unknown>
-			  ) => SchemaValidationResult)
-			| undefined;
-		const registerSchema = (ParserCore as any).register_schema as
-			| ((id: string, schema: string) => void)
-			| undefined;
-		const validateInline = (ParserCore as any).validate_schema as
-			| ((
-					c: string,
-					schema: string,
-					options?: Record<string, unknown>
-			  ) => SchemaValidationResult)
-			| undefined;
-
-		const wrapError = (error: unknown): SchemaValidationResult => ({
-			valid: false,
-			errors: [
-				{
-					message: error instanceof Error ? error.message : String(error),
-					instancePath: "",
-				},
-			],
-		});
-
-		const serializedSchema = (() => {
-			try {
-				return JSON.stringify(schemaMatch.schema);
-			} catch (error) {
-				console.warn("Failed to serialize schema", error);
-				return null;
-			}
-		})();
-		if (!serializedSchema) {
-			return wrapError(new Error("Schema serialization failed"));
-		}
-
-		const wasmOptions = { maxErrors: 50, collectPositions: true };
-		if (validateWithId && registerSchema) {
-			const cached = this.schemaCache.get(schemaMatch.key);
-			if (cached !== serializedSchema) {
-				try {
-					registerSchema(schemaMatch.key, serializedSchema);
-					this.schemaCache.set(schemaMatch.key, serializedSchema);
-				} catch (error) {
-					console.warn(
-						`Schema registration failed for ${schemaMatch.key}`,
-						error
-					);
-					return wrapError(error);
-				}
-			}
-			try {
-				return validateWithId(content, schemaMatch.key, wasmOptions);
-			} catch (error) {
-				console.warn(`Schema validation failed for ${schemaMatch.key}`, error);
-				return wrapError(error);
-			}
-		}
-		if (validateInline) {
-			try {
-				return validateInline(content, serializedSchema, wasmOptions);
-			} catch (error) {
-				console.warn("Schema validation failed", error);
-				return wrapError(error);
-			}
-		}
-		return null;
-	}
-
-	private applySchemaValidationState(
-		fileId: string,
-		result: SchemaValidationResult
-	): void {
-		const first = result.errors?.[0];
-		this.setValidationState(
-			fileId,
-			result.valid,
-			first?.message || "Schema validation failed",
-			undefined,
-			{
-				line: first?.line,
-				column: first?.column,
-				start: first?.start,
-				end: first?.end,
-				errors: result.errors,
-			}
-		);
-	}
-
-	private async handleValidateForm(fileId: string): Promise<void> {
-		const fileData = this.loadedFiles.find((f) => f.id === fileId);
-		if (!fileData) return;
-		const form = await this.findFormElementWithRetry(fileId);
-		if (!form) return;
-		try {
-			if (!this.wasmReady) {
-				await initWasm();
-				this.wasmReady = true;
-			}
-			const updated = await this.persistence.previewUpdatedContent(
-				fileData,
-				form
-			);
-			const syntaxMeta = this.runSyntaxValidation(fileData.type, updated);
-			if (!syntaxMeta.valid) {
-				const primary = syntaxMeta.summary ?? syntaxMeta.errors[0];
-				this.setValidationState(
-					fileId,
-					false,
-					primary?.message || "Invalid",
-					undefined,
-					{
-						line: primary?.line,
-						column: primary?.column,
-						start: primary?.start,
-						end: primary?.end,
-						errors: syntaxMeta.errors,
-					}
-				);
-				return;
-			}
-			const schemaResult = await this.runSchemaValidation(fileData, updated);
-			if (schemaResult && !schemaResult.valid) {
-				this.applySchemaValidationState(fileId, schemaResult);
-				return;
-			}
-			// Parse in JS for form-level data (unchanged)
-			const parser = ParserFactory.createParser(fileData.type, updated);
-			parser.parse(updated);
-			this.setValidationState(fileId, true);
-		} catch (error) {
-			const msg = error instanceof Error ? error.message : String(error);
-			this.setValidationState(fileId, false, msg);
-		}
-	}
-
-	private async handleValidateRaw(fileId: string): Promise<void> {
-		const fileData = this.loadedFiles.find((f) => f.id === fileId);
-		if (!fileData) return;
-		const editor = document.querySelector(
-			`div.file-editor[data-id="${fileId}"]`
-		) as HTMLElement | null;
-		if (!editor) return;
-		const raw = editor.querySelector(".raw-editor") as HTMLDivElement | null;
-		if (!raw) return;
-		const text = raw.textContent ?? "";
-		try {
-			if (!this.wasmReady) {
-				await initWasm();
-				this.wasmReady = true;
-			}
-			const syntaxMeta = this.runSyntaxValidation(fileData.type, text);
-			if (!syntaxMeta.valid) {
-				const primary = syntaxMeta.summary ?? syntaxMeta.errors[0];
-				this.setValidationState(
-					fileId,
-					false,
-					primary?.message || "Invalid",
-					undefined,
-					{
-						line: primary?.line,
-						column: primary?.column,
-						start: primary?.start,
-						end: primary?.end,
-						errors: syntaxMeta.errors,
-					}
-				);
-				return;
-			}
-			const schemaResult = await this.runSchemaValidation(fileData, text);
-			if (schemaResult && !schemaResult.valid) {
-				this.applySchemaValidationState(fileId, schemaResult);
-				return;
-			}
-			// Parse with JS for downstream consumers (form renderer, etc.)
-			const parser = ParserFactory.createParser(fileData.type, text);
-			parser.parse(text);
-			this.setValidationState(fileId, true);
-		} catch (error) {
-			const msg = error instanceof Error ? error.message : String(error);
-			this.setValidationState(fileId, false, msg);
-		}
-	}
-
-	private setValidationState(
-		fileId: string,
-		isValid: boolean,
-		message?: string,
-		details?: string[],
-		meta?: ValidationMetaInput
-	): void {
-		const editor = document.querySelector(
-			`div.file-editor[data-id="${fileId}"]`
-		) as HTMLElement | null;
-		if (!editor) return;
-		let badge = editor.querySelector(
-			".validation-badge"
-		) as HTMLDivElement | null;
-		if (!badge) {
-			badge = document.createElement("div");
-			badge.className = "validation-badge";
-			const header = editor.querySelector(".file-editor-header");
-			if (header && header.parentElement) {
-				header.parentElement.insertBefore(badge, header.nextSibling);
-			} else {
-				editor.insertBefore(badge, editor.firstChild);
-			}
-		}
-		// Build badge content: tiny icon + text; set tooltip with full details if available
-		badge.innerHTML = "";
-		const icon = document.createElement("span");
-		icon.className = "validation-badge__icon";
-		const text = document.createElement("span");
-		text.className = "validation-badge__text";
-		text.textContent = isValid
-			? "Valid"
-			: message
-			? `Invalid (${message})`
-			: "Invalid";
-		badge.appendChild(icon);
-		badge.appendChild(text);
-		if (!isValid) {
-			const parts: string[] = [];
-			if (meta?.line != null && meta?.column != null) {
-				parts.push(`Line ${meta.line}, Col ${meta.column}`);
-			}
-			if (details && details.length) {
-				parts.push(...details.slice(0, 5));
-			}
-			const extraErrors = meta?.errors?.slice(0, 3) ?? [];
-			if (extraErrors.length) {
-				extraErrors.forEach((err) => {
-					const loc =
-						err.line != null && err.column != null
-							? ` (Line ${err.line}, Col ${err.column})`
-							: "";
-					parts.push(`${err.message || "Invalid"}${loc}`);
-				});
-				if ((meta?.errors?.length || 0) > extraErrors.length) {
-					parts.push(`View all (${meta?.errors?.length})`);
-				}
-			}
-			if (parts.length) badge.title = parts.join("\n");
-			else badge.removeAttribute("title");
-		} else {
-			badge.removeAttribute("title");
-		}
-		badge.classList.toggle("is-valid", isValid);
-		badge.classList.toggle("is-invalid", !isValid);
-
-		// If in raw mode and we have a line, gently scroll to show the line region
-		const raw = editor.querySelector(".raw-editor") as HTMLDivElement | null;
-		if (raw) {
-			// Toggle visual state classes on raw editor
-			raw.classList.toggle("has-error", !isValid);
-			raw.classList.toggle("is-valid", isValid);
-
-			// Smooth-scroll to error line if available and in raw mode
-			if (!isValid && this.rawEditMode.has(fileId) && meta?.line) {
-				const text = raw.textContent || "";
-				const lines = text.split(/\n/);
-				const targetLine = Math.max(
-					1,
-					Math.min(lines.length, Math.floor(meta.line))
-				);
-				// Compute line height from computed styles for better accuracy
-				const cs = window.getComputedStyle(raw);
-				const lh = parseFloat(cs.lineHeight || "0") || 18;
-				const paddingTop = parseFloat(cs.paddingTop || "0") || 8;
-				const targetTop = targetLine * lh - paddingTop - lh;
-				raw.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
-			}
-		}
-
-		// Persist last validation meta
-		this.lastValidationMeta.set(fileId, {
-			valid: isValid,
-			message,
-			line: meta?.line,
-			column: meta?.column,
-			start: meta?.start,
-			end: meta?.end,
-			errors: meta?.errors,
-		});
-	}
-
-	public toggleRawMode(fileId: string): void {
-		if (this.rawEditMode.has(fileId)) this.rawEditMode.delete(fileId);
-		else this.rawEditMode.add(fileId);
-		// Re-render to reflect mode switch and button label
-		this.renderFileEditors();
-	}
-
-	private scheduleRawAutosave(fileId: string, delay: number = 600): void {
-		const existing = this.pendingRawAutosaveTimers.get(fileId);
-		if (existing) clearTimeout(existing);
-		const timer = window.setTimeout(async () => {
-			this.pendingRawAutosaveTimers.delete(fileId);
-			try {
-				await this.handleRawSave(fileId);
-			} catch (e) {
-				console.warn("Raw autosave failed", e);
-			}
-		}, delay);
-		this.pendingRawAutosaveTimers.set(fileId, timer);
-	}
-
-	private async handleRawSave(fileId: string): Promise<void> {
-		const fileData = this.loadedFiles.find((f) => f.id === fileId);
-		if (!fileData) return;
-		// Find corresponding raw editor and read content
-		const editorElement = document.querySelector(
-			`div.file-editor[data-id="${fileId}"]`
-		) as HTMLElement | null;
-		if (!editorElement) return;
-		const raw = editorElement.querySelector(
-			".raw-editor"
-		) as HTMLDivElement | null;
-		if (!raw) return;
-		const rawText = raw.textContent ?? "";
-
-		try {
-			await this.persistence.saveRaw(fileData, rawText);
-			// Try update lastModified
-			if (fileData.handle) {
-				try {
-					const f = await fileData.handle.getFile();
-					fileData.lastModified = f.lastModified;
-				} catch {}
-			}
-			await this.saveToStorage();
-		} catch (error) {
-			const message = error instanceof Error ? error.message : "Unknown error";
-			NotificationService.showError(`Failed to save raw: ${message}`);
-		}
-	}
 
 	/**
 	 * Handle file save operation
@@ -1014,7 +401,7 @@ export class KonficuratorApp {
 			}
 
 			// Robust form element finding with retry logic for race conditions (render may be async)
-			const formElement = await this.findFormElementWithRetry(resolvedId);
+                        const formElement = await findFormElementWithRetry(resolvedId);
 			if (!formElement) {
 				throw new Error("Form not found after retries");
 			}
@@ -1062,68 +449,6 @@ export class KonficuratorApp {
 			}
 		}, delay);
 		this.pendingAutosaveTimers.set(fileId, timer);
-	}
-
-	/**
-	 * Find form element with retry logic to handle potential race conditions
-	 */
-	private async findFormElementWithRetry(
-		fileId: string,
-		maxRetries: number = 3
-	): Promise<HTMLFormElement | null> {
-		for (let attempt = 1; attempt <= maxRetries; attempt++) {
-			// Find the main file editor container (not buttons or other elements with data-file)
-			const editorElement = document.querySelector(
-				`div.file-editor[data-id="${fileId}"]`
-			);
-			if (!editorElement) {
-				console.warn(
-					`Attempt ${attempt}: File editor container not found for ${fileId}`
-				);
-				if (attempt === maxRetries) {
-					// Final attempt: provide debugging info
-					const allEditorElements = document.querySelectorAll(
-						"div.file-editor[data-id]"
-					);
-					console.error(
-						`Available file editor elements: ${Array.from(allEditorElements)
-							.map((el) => el.getAttribute("data-id"))
-							.join(", ")}`
-					);
-					return null;
-				}
-				await new Promise((resolve) => setTimeout(resolve, 100)); // Wait 100ms before retry
-				continue;
-			}
-
-			// Find form element within the file editor container
-			const formElement = editorElement.querySelector(
-				"form"
-			) as HTMLFormElement;
-			if (!formElement) {
-				console.warn(
-					`Attempt ${attempt}: Form not found in file editor container for ${fileId}`
-				);
-				if (attempt === maxRetries) {
-					// Final attempt: provide debugging info
-					const children = Array.from(editorElement.children);
-					console.error(
-						`File editor container children: ${children
-							.map((c) => `${c.tagName}.${c.className}`)
-							.join(", ")}`
-					);
-					return null;
-				}
-				await new Promise((resolve) => setTimeout(resolve, 100)); // Wait 100ms before retry
-				continue;
-			}
-
-			// Success!
-			console.log(`Form found for ${fileId} on attempt ${attempt}`);
-			return formElement;
-		}
-
-		return null;
 	}
 
 	/**
@@ -1256,169 +581,88 @@ export class KonficuratorApp {
 	/**
 	 * Load persisted files from browser storage with automatic file refresh
 	 */
-	private async loadPersistedFiles(): Promise<void> {
-		// Try enhanced storage first
-		try {
-			const restoredFiles = await StorageService.loadFiles();
+        private async loadPersistedFiles(): Promise<void> {
+                try {
+                        const restoredFiles = await StorageService.loadFiles();
+                        if (!restoredFiles.length) {
+                                NotificationService.showInfo(
+                                        createIconLabel(
+                                                "help-circle",
+                                                'No saved files found. Use the "Add" button to load configuration files from your computer.',
+                                                { size: 18 }
+                                        )
+                                );
+                                return;
+                        }
 
-			if (restoredFiles.length > 0) {
-				NotificationService.showLoading(
-					`Loading ${restoredFiles.length} persisted file(s)...`
-				);
+                        NotificationService.showLoading(
+                                `Loading ${restoredFiles.length} persisted file(s)...`
+                        );
 
-				// Use PermissionManager to handle file restoration with proper permission management
-				const { restoredFiles: processedFiles, filesNeedingPermission } =
-					await PermissionManager.restoreSavedHandles(restoredFiles);
+                        const { restoredFiles: processedFiles, filesNeedingPermission } =
+                                await PermissionManager.restoreSavedHandles(restoredFiles);
+                        const refreshedFiles = await StorageService.autoRefreshFiles(processedFiles);
 
-				// Auto-refresh files that have valid handles and permissions
-				const refreshedFiles = await StorageService.autoRefreshFiles(
-					processedFiles
-				);
+                        let autoRefreshedCount = 0;
+                        let permissionDeniedCount = 0;
+                        let grantedFiles = 0;
 
-				let autoRefreshedCount = 0;
-				let permissionDeniedCount = 0;
-				let grantedFiles = 0;
+                        for (const fileData of refreshedFiles) {
+                                await this.processFile(fileData);
+                                if (fileData.isActive === undefined) {
+                                        fileData.isActive = true;
+                                }
+                                if (fileData.autoRefreshed) autoRefreshedCount++;
+                                if (fileData.permissionDenied) permissionDeniedCount++;
+                                if (fileData.handle && !fileData.permissionDenied) grantedFiles++;
 
-				// Process refreshed files and update UI
-				for (const fileData of refreshedFiles) {
-					await this.processFile(fileData);
-					// Ensure restored files are active by default if not explicitly set
-					if (fileData.isActive === undefined) {
-						fileData.isActive = true;
-					}
+                                const existingIndex = this.loadedFiles.findIndex(
+                                        (f) => f.name === fileData.name
+                                );
+                                if (existingIndex >= 0) this.loadedFiles[existingIndex] = fileData;
+                                else this.loadedFiles.push(fileData);
+                        }
 
-					if (fileData.autoRefreshed) {
-						autoRefreshedCount++;
-					}
-					if (fileData.permissionDenied) {
-						permissionDeniedCount++;
-					}
-					if (fileData.handle && !fileData.permissionDenied) {
-						grantedFiles++;
-					}
+                        this.updateFileInfo(this.loadedFiles);
+                        this.renderFileEditors();
+                        NotificationService.hideLoading();
 
-					// Update existing file or add new one
-					const existingIndex = this.loadedFiles.findIndex(
-						(f) => f.name === fileData.name
-					);
-					if (existingIndex >= 0) {
-						this.loadedFiles[existingIndex] = fileData;
-					} else {
-						this.loadedFiles.push(fileData);
-					}
-				}
+                        if (filesNeedingPermission.length > 0) {
+                                NotificationService.showWarning(
+                                        createIconLabel(
+                                                "alert-triangle",
+                                                `${filesNeedingPermission.length} file(s) need permission to access. Please grant access using the cards above.`,
+                                                { size: 18 }
+                                        )
+                                );
+                        }
 
-				this.updateFileInfo(this.loadedFiles);
-				this.renderFileEditors();
-				NotificationService.hideLoading();
+                        const fileNames = refreshedFiles.map((f) => f.name).join(", ");
+                        const messageItems: IconListItem[] = [
+                                { icon: "folder", text: `Restored ${refreshedFiles.length} file(s): ${fileNames}` },
+                        ];
+                        if (grantedFiles > 0) {
+                                messageItems.push({
+                                        icon: "check-circle",
+                                        text: `${grantedFiles} file(s) have disk access`,
+                                });
+                        }
+                        if (autoRefreshedCount > 0) {
+                                messageItems.push({
+                                        icon: "refresh-cw",
+                                        text: `Auto-refreshed ${autoRefreshedCount} file(s) from disk`,
+                                });
+                        }
+                        if (permissionDeniedCount === 0 && filesNeedingPermission.length === 0) {
+                                NotificationService.showInfo(createIconList(messageItems, { size: 18 }));
+                        }
+                } catch (error) {
+                        console.warn("Failed to load persisted files:", error);
+                }
+        }
 
-				// Show permission warning if needed (after hideLoading)
-				if (filesNeedingPermission.length > 0) {
-					NotificationService.showWarning(
-						createIconLabel(
-							"alert-triangle",
-							`${filesNeedingPermission.length} file(s) need permission to access. Please grant access using the cards above.`,
-							{ size: 18 }
-						)
-					);
-				}
-
-				// Show detailed success message
-				const fileNames = refreshedFiles.map((f) => f.name).join(", ");
-				const messageItems: IconListItem[] = [
-					{
-						icon: "folder",
-						text: `Restored ${refreshedFiles.length} file(s): ${fileNames}`,
-					},
-				];
-
-				if (grantedFiles > 0) {
-					messageItems.push({
-						icon: "check-circle",
-						text: `${grantedFiles} file(s) have disk access`,
-					});
-				}
-
-				if (autoRefreshedCount > 0) {
-					messageItems.push({
-						icon: "refresh-cw",
-						text: `Auto-refreshed ${autoRefreshedCount} file(s) from disk`,
-					});
-				}
-
-				// Only show info notification if no files need permission
-				if (
-					permissionDeniedCount === 0 &&
-					filesNeedingPermission.length === 0
-				) {
-					NotificationService.showInfo(
-						createIconList(messageItems, { size: 18 })
-					);
-				}
-
-				return;
-			} else {
-				// No files in storage - show helpful message for first-time users
-				NotificationService.showInfo(
-					createIconLabel(
-						"help-circle",
-						'No saved files found. Use the "Add" button to load configuration files from your computer.',
-						{ size: 18 }
-					)
-				);
-			}
-		} catch (error) {
-			console.warn(
-				"Enhanced storage failed, falling back to legacy storage:",
-				error
-			);
-		}
-
-		// Fallback to legacy storage
-		// if (!StorageService.isStorageAvailable()) {
-		// 	return;
-		// }
-
-		try {
-			const storedFiles = await StorageService.loadFiles();
-			if (storedFiles.length > 0) {
-				NotificationService.showLoading(
-					`Loading ${storedFiles.length} persisted file(s)...`
-				);
-
-				// Process stored files
-				for (const fileData of storedFiles) {
-					// Ensure restored files are active by default if not explicitly set
-					if (fileData.isActive === undefined) {
-						fileData.isActive = true;
-					}
-					await this.processFile(fileData);
-				}
-
-				this.loadedFiles = storedFiles;
-				this.updateFileInfo(storedFiles);
-				this.renderFileEditors();
-				NotificationService.hideLoading();
-
-				// Show success message for restored files
-				const fileNames = storedFiles.map((f) => f.name).join(", ");
-				NotificationService.showInfo(
-					createIconLabel(
-						"folder",
-						`Restored ${storedFiles.length} file(s) from previous session: ${fileNames}`,
-						{ size: 18 }
-					)
-				);
-			}
-		} catch (error) {
-			console.warn("Failed to load persisted files:", error);
-			// Clear corrupted storage
-			StorageService.clearAll();
-		}
-	}
-
-	/**
-	 * Handle file removal
+        /**
+         * Handle file removal
 	 */
 	private async handleFileRemove(fileId: string): Promise<void> {
 		try {
@@ -1430,16 +674,12 @@ export class KonficuratorApp {
 			this.updateFileInfo(this.loadedFiles);
 			this.renderFileEditors();
 
-			// Storage removal (async) – errors logged but don't block UI removal
-			try {
-				await StorageService.removeFile(fileId);
-			} catch (error) {
-				console.warn(
-					"Enhanced storage removal failed, falling back to legacy storage:",
-					error
-				);
-				StorageService.removeFile(fileId);
-			}
+                        // Storage removal (async) – errors logged but don't block UI removal
+                        try {
+                                await StorageService.removeFile(fileId);
+                        } catch (error) {
+                                console.warn("Failed to remove file from storage:", error);
+                        }
 
 			// Show success message
 			FileNotifications.showFileRemoved(file.name);
@@ -1449,28 +689,29 @@ export class KonficuratorApp {
 		}
 	}
 
-	private getExistingGroups(): { name: string; color?: string }[] {
-		const seen = new Map<string, string | undefined>();
-		for (const f of this.loadedFiles) {
-			if (!seen.has(f.group))
-				seen.set(f.group, f.groupColor || this.groupColors.get(f.group));
-		}
-		return Array.from(seen.entries()).map(([name, color]) => {
-			const obj: any = { name };
-			if (color !== undefined) obj.color = color;
-			return obj as { name: string; color?: string };
-		});
-	}
+        private getExistingGroups(): { name: string; color?: GroupAccentId }[] {
+                const seen = new Map<string, GroupAccentId | undefined>();
+                for (const f of this.loadedFiles) {
+                        if (!seen.has(f.group))
+                                seen.set(f.group, f.groupColor || this.groupColors.get(f.group));
+                }
+                return Array.from(seen.entries()).map(([name, color]) => {
+                        const obj: { name: string; color?: GroupAccentId } = { name };
+                        if (color !== undefined) obj.color = color;
+                        return obj;
+                });
+        }
 
 	private async handleGroupTitleClick(groupName: string): Promise<void> {
-		const currentColor =
-			this.groupColors.get(groupName) ||
-			this.loadedFiles.find((f) => f.group === groupName)?.groupColor;
-		const groupArg: any = { name: groupName };
-		if (currentColor !== undefined) groupArg.color = currentColor;
-		const result = await showEditGroupDialog(
-			groupArg as { name: string; color?: string }
-		);
+                const currentColor =
+                        this.groupColors.get(groupName) ||
+                        this.loadedFiles.find((f) => f.group === groupName)?.groupColor;
+                const normalizedColor = normalizeGroupAccent(currentColor);
+		const dialogInput: { name: string; color?: GroupAccentId } = { name: groupName };
+		if (normalizedColor !== undefined) {
+			dialogInput.color = normalizedColor;
+		}
+		const result = await showEditGroupDialog(dialogInput);
 		if (!result) return;
 		switch (result.type) {
 			case "save": {
@@ -1483,7 +724,7 @@ export class KonficuratorApp {
 					}
 				});
 				// Update color map
-				const existingColor = color || currentColor;
+                                const existingColor = color || normalizedColor;
 				if (existingColor) {
 					this.groupColors.delete(groupName);
 					this.groupColors.set(newName, existingColor);
@@ -1538,26 +779,14 @@ export class KonficuratorApp {
 		}
 	}
 
-	/**
-	 * Show confirmation dialog for file removal
-	 */
-
-	/**
-	 * Save files to storage when files change
-	 */
+        /**
+         * Save files to storage when files change
+         */
 	private async saveToStorage(): Promise<void> {
 		try {
-			// Try enhanced storage first
 			await StorageService.saveFiles(this.loadedFiles);
 		} catch (error) {
-			console.warn(
-				"Enhanced storage failed, falling back to legacy storage:",
-				error
-			);
-			// Fallback to legacy storage
-			// if (StorageService.isStorageAvailable()) {
-			// 	StorageService.saveFiles(this.loadedFiles);
-			// }
+			console.warn("Failed to persist files:", error);
 		}
 	}
 }
