@@ -87,7 +87,7 @@ export class FileEditorController {
                                 if (isRaw) {
                                         this.mountRawEditor(editorElement as HTMLElement, fileData);
                                         const meta = this.lastValidationMeta.get(fileData.id);
-                                        if (meta && !meta.valid) {
+                                        if (meta) {
                                                 this.applyRawValidationDecorations(
                                                         fileData.id,
                                                         editorElement as HTMLElement,
@@ -115,15 +115,19 @@ export class FileEditorController {
         private applyRawValidationDecorations(
                 fileId: string,
                 editorElement: HTMLElement,
-                meta: ValidationStateMeta
+                meta?: ValidationStateMeta
         ): void {
                 const raw = editorElement.querySelector(
                         ".raw-editor"
                 ) as HTMLDivElement | null;
                 if (!raw) return;
-                raw.classList.toggle("has-error", !meta.valid);
-                raw.classList.toggle("is-valid", !!meta.valid);
-                if (!meta.valid && meta.line && this.rawEditMode.has(fileId)) {
+
+                const isValid = meta?.valid !== false;
+                raw.classList.toggle("has-error", !isValid);
+                raw.classList.toggle("is-valid", isValid);
+                this.renderRawErrorMarkers(raw, isValid, meta);
+
+                if (!isValid && meta?.line && this.rawEditMode.has(fileId)) {
                         const text = raw.textContent || "";
                         const lines = text.split(/\n/);
                         const targetLine = Math.max(1, Math.min(lines.length, Math.floor(meta.line)));
@@ -133,6 +137,49 @@ export class FileEditorController {
                         const targetTop = targetLine * lh - paddingTop - lh;
                         raw.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
                 }
+        }
+
+        private renderRawErrorMarkers(
+                raw: HTMLDivElement,
+                isValid: boolean,
+                meta?: ValidationMetaInput | ValidationStateMeta
+        ): void {
+                raw.querySelectorAll(".raw-editor-error").forEach((node) => node.remove());
+                if (isValid || !meta) return;
+
+                const errorEntries: Array<SchemaValidationError | ValidationMetaInput> =
+                        meta.errors && meta.errors.length
+                                ? meta.errors
+                                : meta.line
+                                ? [meta]
+                                : [];
+                if (!errorEntries.length) return;
+
+                const cs = window.getComputedStyle(raw);
+                const lineHeight = parseFloat(cs.lineHeight || "0") || 18;
+                const paddingTop = parseFloat(cs.paddingTop || "0") || 8;
+
+                errorEntries.slice(0, 6).forEach((err) => {
+                        const lineNumber = err.line ?? meta.line;
+                        if (lineNumber == null) return;
+                        const targetLine = Math.max(1, Math.floor(lineNumber));
+                        const markerTop = paddingTop + (targetLine - 1) * lineHeight - lineHeight * 0.75;
+                        const marker = document.createElement("div");
+                        marker.className = "raw-editor-error";
+                        marker.style.top = `${Math.max(0, markerTop)}px`;
+
+                        const label = document.createElement("span");
+                        label.className = "raw-editor-error__label";
+                        label.textContent = `Line ${targetLine}`;
+                        marker.appendChild(label);
+
+                        const text = document.createElement("span");
+                        text.className = "raw-editor-error__message";
+                        text.textContent = err.message || meta.message || "Invalid value";
+                        marker.appendChild(text);
+
+                        raw.appendChild(marker);
+                });
         }
 
         private mountRawEditor(editorElement: HTMLElement, fileData: FileData): void {
@@ -413,87 +460,28 @@ export class FileEditorController {
 		this.setValidationState(fileId, isValid, message, details, meta);
 	}
 
-	private setValidationState(
-		fileId: string,
-		isValid: boolean,
+        private setValidationState(
+                fileId: string,
+                isValid: boolean,
                 message?: string,
-                details?: string[],
+                _details?: string[],
                 meta?: ValidationMetaInput
         ): void {
                 const editor = document.querySelector(
                         `div.file-editor[data-id="${fileId}"]`
                 ) as HTMLElement | null;
                 if (!editor) return;
-                let badge = editor.querySelector(
-                        ".validation-badge"
-                ) as HTMLDivElement | null;
-                if (!badge) {
-                        badge = document.createElement("div");
-                        badge.className = "validation-badge";
-                        const header = editor.querySelector(".file-editor-header");
-                        if (header && header.parentElement) {
-                                header.parentElement.insertBefore(badge, header.nextSibling);
-                        } else {
-                                editor.insertBefore(badge, editor.firstChild);
-                        }
-                }
-                badge.innerHTML = "";
-                const icon = document.createElement("span");
-                icon.className = "validation-badge__icon";
-                const text = document.createElement("span");
-                text.className = "validation-badge__text";
-                text.textContent = isValid
-                        ? "Valid"
-                        : message
-                        ? `Invalid (${message})`
-                        : "Invalid";
-                badge.appendChild(icon);
-                badge.appendChild(text);
-                if (!isValid) {
-                        const parts: string[] = [];
-                        if (meta?.line != null && meta?.column != null) {
-                                parts.push(`Line ${meta.line}, Col ${meta.column}`);
-                        }
-                        if (details && details.length) {
-                                parts.push(...details.slice(0, 5));
-                        }
-                        const extraErrors = meta?.errors?.slice(0, 3) ?? [];
-                        if (extraErrors.length) {
-                                extraErrors.forEach((err) => {
-                                        const loc =
-                                                err.line != null && err.column != null
-                                                        ? ` (Line ${err.line}, Col ${err.column})`
-                                                        : "";
-                                        parts.push(`${err.message || "Invalid"}${loc}`);
-                                });
-                                if ((meta?.errors?.length || 0) > extraErrors.length) {
-                                        parts.push(`View all (${meta?.errors?.length})`);
-                                }
-                        }
-                        if (parts.length) badge.title = parts.join("\n");
-                        else badge.removeAttribute("title");
-                } else {
-                        badge.removeAttribute("title");
-                }
-                badge.classList.toggle("is-valid", isValid);
-                badge.classList.toggle("is-invalid", !isValid);
 
-                const raw = editor.querySelector(".raw-editor") as HTMLDivElement | null;
-                if (raw) {
-                        raw.classList.toggle("has-error", !isValid);
-                        raw.classList.toggle("is-valid", isValid);
-
-                        if (!isValid && this.rawEditMode.has(fileId) && meta?.line) {
-                                const text = raw.textContent || "";
-                                const lines = text.split(/\n/);
-                                const targetLine = Math.max(1, Math.min(lines.length, Math.floor(meta.line)));
-                                const cs = window.getComputedStyle(raw);
-                                const lh = parseFloat(cs.lineHeight || "0") || 18;
-                                const paddingTop = parseFloat(cs.paddingTop || "0") || 8;
-                                const targetTop = targetLine * lh - paddingTop - lh;
-                                raw.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
-                        }
-                }
+                const stateMeta: ValidationStateMeta = {
+                        valid: isValid,
+                        message,
+                        line: meta?.line,
+                        column: meta?.column,
+                        start: meta?.start,
+                        end: meta?.end,
+                        errors: meta?.errors,
+                };
+                this.applyRawValidationDecorations(fileId, editor, stateMeta);
 
                 this.lastValidationMeta.set(fileId, {
                         valid: isValid,
