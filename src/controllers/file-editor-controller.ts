@@ -125,6 +125,11 @@ export class FileEditorController {
                 const isValid = meta?.valid !== false;
                 raw.classList.toggle("has-error", !isValid);
                 raw.classList.toggle("is-valid", isValid);
+                const wrapper = raw.closest(".raw-editor-wrapper");
+                if (wrapper) {
+                        wrapper.classList.toggle("has-error", !isValid);
+                        wrapper.classList.toggle("is-valid", isValid);
+                }
                 this.renderRawErrorMarkers(raw, isValid, meta);
 
                 if (!isValid && meta?.line && this.rawEditMode.has(fileId)) {
@@ -159,14 +164,22 @@ export class FileEditorController {
                 const lineHeight = parseFloat(cs.lineHeight || "0") || 18;
                 const paddingTop = parseFloat(cs.paddingTop || "0") || 8;
 
-                errorEntries.slice(0, 6).forEach((err) => {
+                const perLineOffsets = new Map<number, number>();
+                errorEntries.forEach((err) => {
                         const lineNumber = err.line ?? meta.line;
                         if (lineNumber == null) return;
                         const targetLine = Math.max(1, Math.floor(lineNumber));
-                        const markerTop = paddingTop + (targetLine - 1) * lineHeight - lineHeight * 0.75;
+                        const markerTop = paddingTop + (targetLine - 1) * lineHeight;
                         const marker = document.createElement("div");
                         marker.className = "raw-editor-error";
                         marker.style.top = `${Math.max(0, markerTop)}px`;
+                        const offsetIndex = perLineOffsets.get(targetLine) ?? 0;
+                        perLineOffsets.set(targetLine, offsetIndex + 1);
+                        const verticalOffset = 6 + offsetIndex * 20;
+                        marker.style.setProperty(
+                                "--raw-editor-error-offset",
+                                `${verticalOffset}px`
+                        );
 
                         const label = document.createElement("span");
                         label.className = "raw-editor-error__label";
@@ -192,6 +205,14 @@ export class FileEditorController {
                         ".raw-editor"
                 ) as HTMLDivElement | null;
                 if (!raw) {
+                        const wrapper = document.createElement("div");
+                        wrapper.className = "raw-editor-wrapper";
+                        wrapper.setAttribute("data-id", fileData.id);
+
+                        const gutter = document.createElement("div");
+                        gutter.className = "raw-editor-gutter";
+                        wrapper.appendChild(gutter);
+
                         raw = document.createElement("div");
                         raw.className = "raw-editor";
                         raw.setAttribute("data-id", fileData.id);
@@ -201,19 +222,52 @@ export class FileEditorController {
                         raw.addEventListener("input", () => {
                                 this.scheduleRawAutosave(fileData.id);
                                 this.scheduleValidation(fileData.id, "raw");
+                                this.updateRawLineNumbers(raw as HTMLDivElement);
                         });
                         raw.addEventListener("blur", () => {
                                 this.scheduleRawAutosave(fileData.id, 0);
                                 this.scheduleValidation(fileData.id, "raw", 0);
+                                this.updateRawLineNumbers(raw as HTMLDivElement);
                         });
+                        raw.addEventListener("scroll", () => {
+                                gutter.scrollTop = raw?.scrollTop ?? 0;
+                        });
+
+                        wrapper.appendChild(raw);
 
                         const fieldsContainer = editorElement.querySelector(".form-fields");
                         if (fieldsContainer && fieldsContainer.parentElement) {
-                                fieldsContainer.parentElement.appendChild(raw);
+                                fieldsContainer.parentElement.appendChild(wrapper);
                         } else {
-                                editorElement.appendChild(raw);
+                                editorElement.appendChild(wrapper);
                         }
                 }
+
+                if (raw) {
+                        this.updateRawLineNumbers(raw);
+                }
+        }
+
+        private updateRawLineNumbers(raw: HTMLDivElement): void {
+                const wrapper = raw.closest(".raw-editor-wrapper");
+                if (!wrapper) return;
+                const gutter = wrapper.querySelector(
+                        ".raw-editor-gutter"
+                ) as HTMLDivElement | null;
+                if (!gutter) return;
+
+                const text = raw.textContent ?? "";
+                const lineCount = Math.max(1, text.split(/\n/).length);
+                const existing = Number(gutter.dataset.lineCount ?? "0");
+                if (existing === lineCount) {
+                        gutter.scrollTop = raw.scrollTop;
+                        return;
+                }
+
+                const numbers = Array.from({ length: lineCount }, (_, index) => `${index + 1}`).join("\n");
+                gutter.textContent = numbers;
+                gutter.dataset.lineCount = String(lineCount);
+                gutter.scrollTop = raw.scrollTop;
         }
 
         private scheduleValidation(

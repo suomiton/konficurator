@@ -275,44 +275,98 @@
 }
 
 /* Raw editor and validation badge */
-.raw-editor {
-        white-space: pre;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-        min-height: calc(var(--gutter-8) + var(--gutter-4));
+.raw-editor-wrapper {
         border: 1px solid var(--color-border);
-        padding: var(--gutter-2);
-        background: var(--color-gray-50);
         border-radius: var(--radius-small);
-        position: relative;
-        overflow: auto;
+        background: var(--color-gray-50);
+        display: grid;
+        grid-template-columns: auto 1fr;
+        overflow: hidden;
 }
 
-.raw-editor.has-error {
+.raw-editor-wrapper.has-error {
         border-color: var(--color-danger);
         box-shadow: 0 0 0 2px rgba(214, 40, 40, 0.15);
 }
 
+.raw-editor-wrapper.is-valid {
+        border-color: var(--color-success);
+}
+
+.raw-editor-gutter {
+        background: var(--color-gray-100);
+        color: var(--color-text-muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 0.85rem;
+        line-height: 1.45;
+        padding: var(--gutter-2) var(--gutter-1);
+        text-align: right;
+        border-right: 1px solid var(--color-border);
+        min-width: 3.25rem;
+        user-select: none;
+        white-space: pre;
+        overflow-y: auto;
+        scrollbar-width: none;
+}
+
+.raw-editor-gutter::-webkit-scrollbar {
+        display: none;
+}
+
+.raw-editor {
+        white-space: pre;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        min-height: calc(var(--gutter-8) + var(--gutter-4));
+        padding: var(--gutter-2);
+        background: transparent;
+        position: relative;
+        overflow: auto;
+        line-height: 1.45;
+        font-size: 0.85rem;
+}
+
+.raw-editor:focus {
+        outline: none;
+}
+
+.raw-editor.has-error {
+        background: rgba(214, 40, 40, 0.03);
+}
+
 .raw-editor.is-valid {
-	border-color: var(--color-success);
+        background: rgba(44, 160, 28, 0.03);
 }
 
 .raw-editor-error {
         position: absolute;
         left: var(--gutter-2);
-        max-width: calc(100% - var(--gutter-4));
+        right: var(--gutter-2);
         display: inline-flex;
         align-items: center;
         gap: var(--gutter-1);
         padding: 2px var(--gutter-2);
         border-radius: var(--radius-small);
-        background: rgba(214, 40, 40, 0.1);
-        color: var(--color-danger);
+        background: rgba(214, 40, 40, 0.92);
+        color: var(--color-text-inverse);
         font-size: 0.75rem;
         font-weight: 500;
         pointer-events: none;
         z-index: 2;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-        backdrop-filter: blur(3px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.18);
+        transform: translateY(calc(-100% - var(--raw-editor-error-offset, 6px)));
+}
+
+.raw-editor-error::after {
+        content: "";
+        position: absolute;
+        left: 16px;
+        bottom: -5px;
+        width: 0;
+        height: 0;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 6px solid rgba(214, 40, 40, 0.92);
+        filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
 }
 
 .raw-editor-error__label {
