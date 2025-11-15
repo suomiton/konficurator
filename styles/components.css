@@ -276,58 +276,52 @@
 
 /* Raw editor and validation badge */
 .raw-editor {
-	white-space: pre;
-	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-	min-height: calc(var(--gutter-8) + var(--gutter-4));
-	border: 1px solid var(--color-border);
-	padding: var(--gutter-2);
-	background: var(--color-gray-50);
-	border-radius: var(--radius-small);
+        white-space: pre;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        min-height: calc(var(--gutter-8) + var(--gutter-4));
+        border: 1px solid var(--color-border);
+        padding: var(--gutter-2);
+        background: var(--color-gray-50);
+        border-radius: var(--radius-small);
+        position: relative;
+        overflow: auto;
 }
 
 .raw-editor.has-error {
-	border-color: var(--color-danger);
-	box-shadow: 0 0 0 2px rgba(214, 40, 40, 0.15);
+        border-color: var(--color-danger);
+        box-shadow: 0 0 0 2px rgba(214, 40, 40, 0.15);
 }
 
 .raw-editor.is-valid {
 	border-color: var(--color-success);
 }
 
-.validation-badge {
-	font-size: 0.75rem;
-	margin: var(--gutter-1) 0;
-	padding: 2px var(--gutter-2);
-	border-radius: var(--radius-small);
-	display: inline-block;
+.raw-editor-error {
+        position: absolute;
+        left: var(--gutter-2);
+        max-width: calc(100% - var(--gutter-4));
+        display: inline-flex;
+        align-items: center;
+        gap: var(--gutter-1);
+        padding: 2px var(--gutter-2);
+        border-radius: var(--radius-small);
+        background: rgba(214, 40, 40, 0.1);
+        color: var(--color-danger);
+        font-size: 0.75rem;
+        font-weight: 500;
+        pointer-events: none;
+        z-index: 2;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(3px);
 }
 
-.validation-badge.is-valid {
-	background: rgba(42, 157, 143, 0.15);
-	/* success tint */
-	color: var(--color-success);
+.raw-editor-error__label {
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 0.65rem;
+        font-weight: 600;
 }
 
-.validation-badge.is-invalid {
-	background: rgba(214, 40, 40, 0.12);
-	/* danger tint */
-	color: var(--color-danger);
-}
-
-/* Tiny circular status icon inside validation badge */
-.validation-badge__icon {
-	display: inline-block;
-	width: 0.75rem;
-	height: 0.75rem;
-	border-radius: 50%;
-	margin-right: var(--gutter-1);
-	background: currentColor;
-}
-
-.validation-badge.is-valid .validation-badge__icon {
-	background: var(--color-success);
-}
-
-.validation-badge.is-invalid .validation-badge__icon {
-	background: var(--color-danger);
+.raw-editor-error__message {
+        font-weight: 500;
 }
