@@ -74,6 +74,23 @@ export class FilePersistence implements IPersistence {
 			fileData.originalContent = rawText;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
+			const lowered = message.toLowerCase();
+			const isParseValidation =
+				lowered.startsWith("invalid json format") ||
+				lowered.startsWith("invalid xml format") ||
+				lowered.includes("failed to parse env file") ||
+				lowered.includes("invalid config format") ||
+				lowered.includes("unexpected token") ||
+				lowered.includes("bad control character");
+			// For validation/parse errors: suppress toast (file already written) and just log.
+			if (isParseValidation) {
+				console.warn(
+					`Raw save completed but parse failed for ${fileData.name}: ${message}`
+				);
+				// Preserve raw text even if parse fails
+				fileData.originalContent = rawText;
+				return; // swallow error
+			}
 			NotificationService.showError(
 				`Failed to save ${fileData.name}: ${message}`
 			);

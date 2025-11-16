@@ -19,15 +19,10 @@ export function determineFileType(
 	if (extension === "config") {
 		if (content) {
 			const trimmedContent = content.trim();
-			
-			// Try to detect JSON content
+
+			// Detect JSON content by leading token (do not require valid JSON)
 			if (trimmedContent.startsWith("{") || trimmedContent.startsWith("[")) {
-				try {
-					JSON.parse(trimmedContent);
-					return "json"; // It's JSON content in a .config file
-				} catch {
-					// Not valid JSON, continue with other checks
-				}
+				return "json";
 			}
 
 			// Try to detect XML content
@@ -64,12 +59,16 @@ export function determineFileType(
  * Checks if content looks like ENV format (key=value pairs)
  */
 function looksLikeEnvFormat(content: string): boolean {
-	const lines = content.split("\n").filter(line => line.trim() && !line.trim().startsWith("#"));
+	const lines = content
+		.split("\n")
+		.filter((line) => line.trim() && !line.trim().startsWith("#"));
 	if (lines.length === 0) return false;
-	
+
 	// Check if most lines follow key=value pattern
 	// Allow mixed case, underscores, dots (for properties files), and flexible naming
-	const envLikeLines = lines.filter(line => /^[a-zA-Z_][a-zA-Z0-9_.]*\s*=/.test(line.trim()));
+	const envLikeLines = lines.filter((line) =>
+		/^[a-zA-Z_][a-zA-Z0-9_.]*\s*=/.test(line.trim())
+	);
 	return envLikeLines.length > lines.length * 0.5; // At least 50% of lines should look like ENV
 }
 
@@ -100,7 +99,9 @@ export function getMimeTypeForFileType(fileType: SupportedFileType): string {
 /**
  * Gets file extensions for file type
  */
-export function getExtensionsForFileType(fileType: SupportedFileType): string[] {
+export function getExtensionsForFileType(
+	fileType: SupportedFileType
+): string[] {
 	switch (fileType) {
 		case "json":
 			return [".json"];

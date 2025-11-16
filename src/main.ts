@@ -8,12 +8,15 @@ import { NotificationService, FileNotifications } from "./ui/notifications";
 import { PermissionManager } from "./permissionManager";
 import { createIconLabel, createIconList, IconListItem } from "./ui/icon";
 import {
-        showAddFilesDialog,
-        showEditGroupDialog,
+	showAddFilesDialog,
+	showEditGroupDialog,
 } from "./ui/group-file-dialog";
 import { FileListView } from "./ui/file-list-view";
 import { GroupAccentId, normalizeGroupAccent } from "./theme/groupColors";
-import { FileEditorController, ValidationMetaInput } from "./controllers/file-editor-controller";
+import {
+	FileEditorController,
+	ValidationMetaInput,
+} from "./controllers/file-editor-controller";
 import { findFormElementWithRetry } from "./ui/form-utils";
 
 /**
@@ -22,31 +25,44 @@ import { findFormElementWithRetry } from "./ui/form-utils";
  */
 export class KonficuratorApp {
 	private fileHandler: FileHandler;
-        private renderer: ModernFormRenderer;
-        private persistence: FilePersistence;
-        private loadedFiles: FileData[] = [];
-        private activeSaveOperations: Set<string> = new Set();
-        private groupColors: Map<string, GroupAccentId> = new Map();
-        private fileListView: FileListView;
-        private editorController: FileEditorController;
+	private renderer: ModernFormRenderer;
+	private persistence: FilePersistence;
+	private loadedFiles: FileData[] = [];
+	private activeSaveOperations: Set<string> = new Set();
+	private groupColors: Map<string, GroupAccentId> = new Map();
+	private fileListView: FileListView;
+	private editorController: FileEditorController;
 
-        constructor() {
-                this.fileHandler = new FileHandler();
-                this.renderer = new ModernFormRenderer({
-                        onFileFieldChange: (fileId) => this.scheduleAutosave(fileId),
-                });
-                this.persistence = new FilePersistence();
-                this.fileListView = new FileListView({
-                        onToggleFile: (fileId) => this.toggleFileVisibility(fileId),
-                });
-                this.editorController = new FileEditorController({
-                        renderer: this.renderer,
-                        persistence: this.persistence,
-                        getFiles: () => this.loadedFiles,
-                        saveToStorage: () => this.saveToStorage(),
-                });
+	constructor() {
+		this.fileHandler = new FileHandler();
+		this.renderer = new ModernFormRenderer({
+			onFileFieldChange: (fileId) => this.scheduleAutosave(fileId),
+			onRawContentChange: (fileId, _raw) => {
+				// Debounced autosave and validation for raw mode
+				this.editorController.scheduleRawAutosave(fileId);
+				this.editorController.requestValidation(fileId, "raw");
+			},
+			onToggleView: (fileId, mode) => {
+				// Trigger immediate validation when switching modes
+				if (mode === "raw") {
+					// Reapply last known decorations immediately for responsiveness
+					this.editorController.reapplyLastDecorations(fileId);
+				}
+				this.editorController.requestValidation(fileId, mode, 0);
+			},
+		});
+		this.persistence = new FilePersistence();
+		this.fileListView = new FileListView({
+			onToggleFile: (fileId) => this.toggleFileVisibility(fileId),
+		});
+		this.editorController = new FileEditorController({
+			renderer: this.renderer,
+			persistence: this.persistence,
+			getFiles: () => this.loadedFiles,
+			saveToStorage: () => this.saveToStorage(),
+		});
 
-                this.init();
+		this.init();
 
 		// Initialize file loading with error handling
 		this.loadPersistedFiles().catch((error) => {
@@ -61,20 +77,27 @@ export class KonficuratorApp {
 	 * Initialize the application
 	 */
 	private init(): void {
-                this.setupEventListeners();
-                this.checkBrowserSupport();
-                // Ensure the file list (with the Add button) is visible even when there are no files yet
-                this.updateFileInfo(this.loadedFiles);
-                this.renderFileEditors();
-        }
+		this.setupEventListeners();
+		this.checkBrowserSupport();
+		// Ensure the file list (with the Add button) is visible even when there are no files yet
+		this.updateFileInfo(this.loadedFiles);
+		this.renderFileEditors();
+	}
 
-        public renderFileEditors(): void {
-                this.editorController.renderEditors(this.loadedFiles);
-        }
+	public renderFileEditors(): void {
+		this.editorController.renderEditors(this.loadedFiles);
+	}
 
+	// Raw mode toggle handled internally by ModernFormRenderer; expose helper for tests
 	public toggleRawMode(fileId: string): void {
-                this.editorController.toggleRawMode(fileId);
-        }
+		const editor = document.querySelector(
+			`div.file-editor[data-id="${fileId}"]`
+		) as HTMLElement | null;
+		const btn = editor?.querySelector(
+			".toggle-raw-btn"
+		) as HTMLButtonElement | null;
+		btn?.click();
+	}
 
 	public setValidationState(
 		fileId: string,
@@ -83,8 +106,14 @@ export class KonficuratorApp {
 		details?: string[],
 		meta?: ValidationMetaInput
 	): void {
-		this.editorController.applyValidationState(fileId, isValid, message, details, meta);
-        }
+		this.editorController.applyValidationState(
+			fileId,
+			isValid,
+			message,
+			details,
+			meta
+		);
+	}
 
 	/**
 	 * Set up event listeners
@@ -97,8 +126,8 @@ export class KonficuratorApp {
 			const customEvent = event as CustomEvent;
 			const { file } = customEvent.detail as { file: FileData };
 
-                        await this.processFile(file);
-                        this.applyGroupAccent(file.group, file.groupColor);
+			await this.processFile(file);
+			this.applyGroupAccent(file.group, file.groupColor);
 
 			// Update existing file (by id) or add new one while preserving visibility state
 			const existingIndex = this.loadedFiles.findIndex((f) => f.id === file.id);
@@ -168,14 +197,7 @@ export class KonficuratorApp {
 				return;
 			}
 
-                        const rawToggleBtn = target.closest(
-                                ".toggle-raw-btn"
-                        ) as HTMLElement | null;
-                        if (rawToggleBtn) {
-                                const id = rawToggleBtn.getAttribute("data-id");
-                                if (id) this.editorController.toggleRawMode(id);
-                                return;
-                        }
+			// Raw toggle is handled inside ModernFormRenderer
 
 			const saveBtn = target.closest(".btn") as HTMLElement | null;
 			if (saveBtn && saveBtn.textContent?.includes("Save")) {
@@ -200,10 +222,10 @@ export class KonficuratorApp {
 			};
 			if (!detail?.fileId) return;
 			// Schedule debounced save for this file
-                        this.scheduleAutosave(detail.fileId);
-                        // Schedule validation (form mode)
-                        this.editorController.requestValidation(detail.fileId, "form");
-                });
+			this.scheduleAutosave(detail.fileId);
+			// Schedule validation (form mode)
+			this.editorController.requestValidation(detail.fileId, "form");
+		});
 	}
 
 	/**
@@ -224,20 +246,20 @@ export class KonficuratorApp {
 	private async handleAddFilesWithGrouping(): Promise<void> {
 		try {
 			// Show group picker dialog
-                        const existingGroups = this.getExistingGroups();
-                        const selection = await showAddFilesDialog(existingGroups);
-                        if (!selection) return;
-                        const { group, color } = selection;
-                        const normalizedColor = this.applyGroupAccent(group, color);
+			const existingGroups = this.getExistingGroups();
+			const selection = await showAddFilesDialog(existingGroups);
+			if (!selection) return;
+			const { group, color } = selection;
+			const normalizedColor = this.applyGroupAccent(group, color);
 
-                        NotificationService.showLoading("Selecting files...");
-                        // Only consider duplicates within the target group
-                        const existingInGroup = this.loadedFiles.filter((f) => f.group === group);
-                        const newFiles = await this.fileHandler.selectFiles(
-                                group,
-                                existingInGroup,
-                                normalizedColor || this.groupColors.get(group)
-                        );
+			NotificationService.showLoading("Selecting files...");
+			// Only consider duplicates within the target group
+			const existingInGroup = this.loadedFiles.filter((f) => f.group === group);
+			const newFiles = await this.fileHandler.selectFiles(
+				group,
+				existingInGroup,
+				normalizedColor || this.groupColors.get(group)
+			);
 
 			// Always restore current editors immediately (prevent flicker / hidden state)
 			this.renderFileEditors();
@@ -297,36 +319,36 @@ export class KonficuratorApp {
 	/**
 	 * Update file info display
 	 */
-        private updateFileInfo(files: FileData[]): void {
-                this.syncGroupColorCache(files);
-                this.fileListView.render(files, this.groupColors);
-        }
+	private updateFileInfo(files: FileData[]): void {
+		this.syncGroupColorCache(files);
+		this.fileListView.render(files, this.groupColors);
+	}
 
-        private syncGroupColorCache(files: FileData[]): void {
-                const activeGroups = new Set<string>();
-                files.forEach((file) => {
-                        activeGroups.add(file.group);
-                        if (file.groupColor) {
-                                this.groupColors.set(file.group, file.groupColor);
-                        }
-                });
-                Array.from(this.groupColors.keys()).forEach((group) => {
-                        if (!activeGroups.has(group)) {
-                                this.groupColors.delete(group);
-                        }
-                });
-        }
+	private syncGroupColorCache(files: FileData[]): void {
+		const activeGroups = new Set<string>();
+		files.forEach((file) => {
+			activeGroups.add(file.group);
+			if (file.groupColor) {
+				this.groupColors.set(file.group, file.groupColor);
+			}
+		});
+		Array.from(this.groupColors.keys()).forEach((group) => {
+			if (!activeGroups.has(group)) {
+				this.groupColors.delete(group);
+			}
+		});
+	}
 
-        private applyGroupAccent(
-                group: string,
-                color?: string | GroupAccentId
-        ): GroupAccentId | undefined {
-                const accent = normalizeGroupAccent(color);
-                if (accent) {
-                        this.groupColors.set(group, accent);
-                }
-                return accent;
-        }
+	private applyGroupAccent(
+		group: string,
+		color?: string | GroupAccentId
+	): GroupAccentId | undefined {
+		const accent = normalizeGroupAccent(color);
+		if (accent) {
+			this.groupColors.set(group, accent);
+		}
+		return accent;
+	}
 
 	/**
 	 * Toggle file editor visibility
@@ -346,15 +368,7 @@ export class KonficuratorApp {
 		this.saveToStorage().catch((error) => {
 			console.warn("Failed to save file visibility state:", error);
 		});
-
-		// No toast/notification for minimize/restore to reduce noise
 	}
-
-	/**
-	 * Legacy helper used by older tests: select files directly without group dialog
-	 * Adds selected files into a default group and updates UI/state.
-	 */
-	// Legacy helper removed
 
 	/**
 	 * Handle file save operation
@@ -401,7 +415,7 @@ export class KonficuratorApp {
 			}
 
 			// Robust form element finding with retry logic for race conditions (render may be async)
-                        const formElement = await findFormElementWithRetry(resolvedId);
+			const formElement = await findFormElementWithRetry(resolvedId);
 			if (!formElement) {
 				throw new Error("Form not found after retries");
 			}
@@ -581,88 +595,95 @@ export class KonficuratorApp {
 	/**
 	 * Load persisted files from browser storage with automatic file refresh
 	 */
-        private async loadPersistedFiles(): Promise<void> {
-                try {
-                        const restoredFiles = await StorageService.loadFiles();
-                        if (!restoredFiles.length) {
-                                NotificationService.showInfo(
-                                        createIconLabel(
-                                                "help-circle",
-                                                'No saved files found. Use the "Add" button to load configuration files from your computer.',
-                                                { size: 18 }
-                                        )
-                                );
-                                return;
-                        }
+	private async loadPersistedFiles(): Promise<void> {
+		try {
+			const restoredFiles = await StorageService.loadFiles();
+			if (!restoredFiles.length) {
+				NotificationService.showInfo(
+					createIconLabel(
+						"help-circle",
+						'No saved files found. Use the "Add" button to load configuration files from your computer.',
+						{ size: 18 }
+					)
+				);
+				return;
+			}
 
-                        NotificationService.showLoading(
-                                `Loading ${restoredFiles.length} persisted file(s)...`
-                        );
+			NotificationService.showLoading(
+				`Loading ${restoredFiles.length} persisted file(s)...`
+			);
 
-                        const { restoredFiles: processedFiles, filesNeedingPermission } =
-                                await PermissionManager.restoreSavedHandles(restoredFiles);
-                        const refreshedFiles = await StorageService.autoRefreshFiles(processedFiles);
+			const { restoredFiles: processedFiles, filesNeedingPermission } =
+				await PermissionManager.restoreSavedHandles(restoredFiles);
+			const refreshedFiles = await StorageService.autoRefreshFiles(
+				processedFiles
+			);
 
-                        let autoRefreshedCount = 0;
-                        let permissionDeniedCount = 0;
-                        let grantedFiles = 0;
+			let autoRefreshedCount = 0;
+			let permissionDeniedCount = 0;
+			let grantedFiles = 0;
 
-                        for (const fileData of refreshedFiles) {
-                                await this.processFile(fileData);
-                                if (fileData.isActive === undefined) {
-                                        fileData.isActive = true;
-                                }
-                                if (fileData.autoRefreshed) autoRefreshedCount++;
-                                if (fileData.permissionDenied) permissionDeniedCount++;
-                                if (fileData.handle && !fileData.permissionDenied) grantedFiles++;
+			for (const fileData of refreshedFiles) {
+				await this.processFile(fileData);
+				if (fileData.isActive === undefined) {
+					fileData.isActive = true;
+				}
+				if (fileData.autoRefreshed) autoRefreshedCount++;
+				if (fileData.permissionDenied) permissionDeniedCount++;
+				if (fileData.handle && !fileData.permissionDenied) grantedFiles++;
 
-                                const existingIndex = this.loadedFiles.findIndex(
-                                        (f) => f.name === fileData.name
-                                );
-                                if (existingIndex >= 0) this.loadedFiles[existingIndex] = fileData;
-                                else this.loadedFiles.push(fileData);
-                        }
+				const existingIndex = this.loadedFiles.findIndex(
+					(f) => f.name === fileData.name
+				);
+				if (existingIndex >= 0) this.loadedFiles[existingIndex] = fileData;
+				else this.loadedFiles.push(fileData);
+			}
 
-                        this.updateFileInfo(this.loadedFiles);
-                        this.renderFileEditors();
-                        NotificationService.hideLoading();
+			this.updateFileInfo(this.loadedFiles);
+			this.renderFileEditors();
+			NotificationService.hideLoading();
 
-                        if (filesNeedingPermission.length > 0) {
-                                NotificationService.showWarning(
-                                        createIconLabel(
-                                                "alert-triangle",
-                                                `${filesNeedingPermission.length} file(s) need permission to access. Please grant access using the cards above.`,
-                                                { size: 18 }
-                                        )
-                                );
-                        }
+			if (filesNeedingPermission.length > 0) {
+				NotificationService.showWarning(
+					createIconLabel(
+						"alert-triangle",
+						`${filesNeedingPermission.length} file(s) need permission to access. Please grant access using the cards above.`,
+						{ size: 18 }
+					)
+				);
+			}
 
-                        const fileNames = refreshedFiles.map((f) => f.name).join(", ");
-                        const messageItems: IconListItem[] = [
-                                { icon: "folder", text: `Restored ${refreshedFiles.length} file(s): ${fileNames}` },
-                        ];
-                        if (grantedFiles > 0) {
-                                messageItems.push({
-                                        icon: "check-circle",
-                                        text: `${grantedFiles} file(s) have disk access`,
-                                });
-                        }
-                        if (autoRefreshedCount > 0) {
-                                messageItems.push({
-                                        icon: "refresh-cw",
-                                        text: `Auto-refreshed ${autoRefreshedCount} file(s) from disk`,
-                                });
-                        }
-                        if (permissionDeniedCount === 0 && filesNeedingPermission.length === 0) {
-                                NotificationService.showInfo(createIconList(messageItems, { size: 18 }));
-                        }
-                } catch (error) {
-                        console.warn("Failed to load persisted files:", error);
-                }
-        }
+			const fileNames = refreshedFiles.map((f) => f.name).join(", ");
+			const messageItems: IconListItem[] = [
+				{
+					icon: "folder",
+					text: `Restored ${refreshedFiles.length} file(s): ${fileNames}`,
+				},
+			];
+			if (grantedFiles > 0) {
+				messageItems.push({
+					icon: "check-circle",
+					text: `${grantedFiles} file(s) have disk access`,
+				});
+			}
+			if (autoRefreshedCount > 0) {
+				messageItems.push({
+					icon: "refresh-cw",
+					text: `Auto-refreshed ${autoRefreshedCount} file(s) from disk`,
+				});
+			}
+			if (permissionDeniedCount === 0 && filesNeedingPermission.length === 0) {
+				NotificationService.showInfo(
+					createIconList(messageItems, { size: 18 })
+				);
+			}
+		} catch (error) {
+			console.warn("Failed to load persisted files:", error);
+		}
+	}
 
-        /**
-         * Handle file removal
+	/**
+	 * Handle file removal
 	 */
 	private async handleFileRemove(fileId: string): Promise<void> {
 		try {
@@ -674,12 +695,12 @@ export class KonficuratorApp {
 			this.updateFileInfo(this.loadedFiles);
 			this.renderFileEditors();
 
-                        // Storage removal (async) – errors logged but don't block UI removal
-                        try {
-                                await StorageService.removeFile(fileId);
-                        } catch (error) {
-                                console.warn("Failed to remove file from storage:", error);
-                        }
+			// Storage removal (async) – errors logged but don't block UI removal
+			try {
+				await StorageService.removeFile(fileId);
+			} catch (error) {
+				console.warn("Failed to remove file from storage:", error);
+			}
 
 			// Show success message
 			FileNotifications.showFileRemoved(file.name);
@@ -689,25 +710,27 @@ export class KonficuratorApp {
 		}
 	}
 
-        private getExistingGroups(): { name: string; color?: GroupAccentId }[] {
-                const seen = new Map<string, GroupAccentId | undefined>();
-                for (const f of this.loadedFiles) {
-                        if (!seen.has(f.group))
-                                seen.set(f.group, f.groupColor || this.groupColors.get(f.group));
-                }
-                return Array.from(seen.entries()).map(([name, color]) => {
-                        const obj: { name: string; color?: GroupAccentId } = { name };
-                        if (color !== undefined) obj.color = color;
-                        return obj;
-                });
-        }
+	private getExistingGroups(): { name: string; color?: GroupAccentId }[] {
+		const seen = new Map<string, GroupAccentId | undefined>();
+		for (const f of this.loadedFiles) {
+			if (!seen.has(f.group))
+				seen.set(f.group, f.groupColor || this.groupColors.get(f.group));
+		}
+		return Array.from(seen.entries()).map(([name, color]) => {
+			const obj: { name: string; color?: GroupAccentId } = { name };
+			if (color !== undefined) obj.color = color;
+			return obj;
+		});
+	}
 
 	private async handleGroupTitleClick(groupName: string): Promise<void> {
-                const currentColor =
-                        this.groupColors.get(groupName) ||
-                        this.loadedFiles.find((f) => f.group === groupName)?.groupColor;
-                const normalizedColor = normalizeGroupAccent(currentColor);
-		const dialogInput: { name: string; color?: GroupAccentId } = { name: groupName };
+		const currentColor =
+			this.groupColors.get(groupName) ||
+			this.loadedFiles.find((f) => f.group === groupName)?.groupColor;
+		const normalizedColor = normalizeGroupAccent(currentColor);
+		const dialogInput: { name: string; color?: GroupAccentId } = {
+			name: groupName,
+		};
 		if (normalizedColor !== undefined) {
 			dialogInput.color = normalizedColor;
 		}
@@ -724,7 +747,7 @@ export class KonficuratorApp {
 					}
 				});
 				// Update color map
-                                const existingColor = color || normalizedColor;
+				const existingColor = color || normalizedColor;
 				if (existingColor) {
 					this.groupColors.delete(groupName);
 					this.groupColors.set(newName, existingColor);
@@ -779,9 +802,9 @@ export class KonficuratorApp {
 		}
 	}
 
-        /**
-         * Save files to storage when files change
-         */
+	/**
+	 * Save files to storage when files change
+	 */
 	private async saveToStorage(): Promise<void> {
 		try {
 			await StorageService.saveFiles(this.loadedFiles);

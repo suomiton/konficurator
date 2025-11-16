@@ -13,6 +13,8 @@ export interface FormEventHandlers {
 		value: any,
 		fieldType: string
 	) => void;
+	onRawContentChange?: (fileId: string, raw: string) => void;
+	onToggleView?: (fileId: string, mode: "form" | "raw") => void;
 	onArrayItemAdd?: (path: string) => void;
 	onArrayItemRemove?: (path: string, index: number) => void;
 	onFileRemove?: (fileName: string) => void;
