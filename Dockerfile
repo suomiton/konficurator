@@ -11,7 +11,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup target add wasm32-unknown-unknown
 RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-RUN cargo install wasm-bindgen-cli --force
+RUN cargo install wasm-bindgen-cli --version 0.2.105 --locked
 
 # Prevent wasm-pack from attempting to download glibc binary on musl Alpine
 ENV WASM_PACK_NO_INSTALL=true
@@ -20,16 +20,16 @@ ENV WASM_BINDGEN_BIN=/root/.cargo/bin/wasm-bindgen
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy only package.json to allow platform-specific optional dependencies (Rollup WASM) to resolve
+COPY package.json ./
 COPY parser-wasm/package*.json ./parser-wasm/
 COPY parser-wasm/Cargo.toml ./parser-wasm/
 
 # Create empty Cargo.lock to avoid issues with wasm-pack
 RUN touch ./parser-wasm/Cargo.lock
 
-# Install all dependencies (including devDependencies)
-RUN npm ci --no-optional
+# Install dependencies including optional platform-specific binaries
+RUN npm install --no-audit --no-fund
 
 # Copy source code
 COPY . .
@@ -44,4 +44,4 @@ RUN npm run build
 EXPOSE 8080
 
 # Start development server
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8080", "--strictPort"]

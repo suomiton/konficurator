@@ -14,8 +14,10 @@ npm install
 ## Build workflows
 
 - **Dev server**: `npm run dev` builds the WASM package in dev mode and launches Vite with HMR on `http://localhost:5173`.
-- **Production build**: `npm run build` compiles the WASM module in release mode and produces a Vite bundle in `dist/`.
+- **Production build**: `npm run build` compiles the WASM module in release mode and produces a Vite bundle in `build/`.
 - **Optimised release**: `npm run build:prod` performs a clean build, compiles the WASM module in release mode, minifies assets, and generates pre-compressed bundles.
+
+Vite uses the WASM distribution of Rollup through the `rollup` npm alias and override. This avoids platform-specific native Rollup binaries on Alpine and keeps `npm ci` consistent across platforms. All Vite builds write to `build/`, which the optimizer processes in place. The production pipeline finishes with `npm run build:verify`, checking that HTML references emitted JavaScript and CSS, the WASM parser exists, and compressed HTML is present.
 
 To rebuild the WebAssembly parser by itself, run:
 

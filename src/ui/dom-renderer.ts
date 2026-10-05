@@ -4,24 +4,24 @@
  */
 
 import {
-        createElement,
-        createInput,
-        createButton,
-        createForm,
-        createTextarea,
-        createLabel,
+	createElement,
+	createInput,
+	createButton,
+	createForm,
+	createTextarea,
+	createLabel,
 } from "./dom-factory";
 import { createIcon } from "./icon";
 import {
-        FormFieldData,
-        TextFieldData,
-        NumberFieldData,
-        BooleanFieldData,
-        XmlHeadingFieldData,
-        XmlValueFieldData,
-        XmlAttributesFieldData,
-        XmlAttributeField,
-        formatLabel,
+	FormFieldData,
+	TextFieldData,
+	NumberFieldData,
+	BooleanFieldData,
+	XmlHeadingFieldData,
+	XmlValueFieldData,
+	XmlAttributesFieldData,
+	XmlAttributeField,
+	formatLabel,
 } from "./form-data";
 
 export interface FormElementRenderOptions {
@@ -67,6 +67,10 @@ export function renderFormField(
 
 	// Create input based on field type
 	const input = renderInputElement(fieldData, inputClassName);
+
+	if (input instanceof HTMLInputElement && input.type === "checkbox") {
+		formGroup.classList.add("checkbox");
+	}
 
 	// Arrange elements based on label position
 	if (label) {
@@ -192,7 +196,7 @@ function renderObjectField(
 	const header = createElement({
 		tag: "div",
 		className: "object-header",
-		innerHTML: `<strong>${fieldData.label}</strong>`,
+		innerHTML: `<h4>${fieldData.label}</h4>`,
 	});
 
 	const fieldsContainer = createElement({
@@ -518,6 +522,7 @@ export function renderFormContainer(
  * Renders file header section
  */
 export function renderFileHeader(
+	fileId: string,
 	fileName: string,
 	fileType: string,
 	hasHandle?: boolean
@@ -559,7 +564,7 @@ export function renderFileHeader(
 	// File path display removed as redundant (filename already shown in title)
 
 	// Action buttons
-	const actionButtons = renderFileActionButtons(fileName, hasHandle);
+	const actionButtons = renderFileActionButtons(fileId, hasHandle);
 
 	header.appendChild(titleContainer);
 	header.appendChild(actionButtons);
@@ -571,7 +576,7 @@ export function renderFileHeader(
  * Renders file action buttons
  */
 function renderFileActionButtons(
-	fileName: string,
+	fileId: string,
 	hasHandle?: boolean
 ): HTMLElement {
 	const actionButtons = createElement({
@@ -579,30 +584,30 @@ function renderFileActionButtons(
 		className: "file-action-buttons",
 	});
 
-	if (hasHandle) {
-		const refreshButton = createButton({
-			tag: "button",
-			className: "btn btn-info btn-small refresh-file-btn",
-			type: "button",
-			attributes: {
-				"data-file": fileName,
-				title: `Reload ${fileName} from disk`,
-				"aria-label": `Reload ${fileName} from disk`,
-			},
-		});
-		refreshButton.appendChild(
-			createIcon("refresh-cw", { size: 18, className: "btn-icon" })
-		);
-		actionButtons.appendChild(refreshButton);
-	} else {
+	// Left-most: Toggle raw editor button
+	const rawToggleButton = createButton({
+		tag: "button",
+		className: "btn btn-secondary btn-small toggle-raw-btn",
+		type: "button",
+		attributes: {
+			"data-id": fileId,
+			title: "Edit Raw",
+			"aria-label": "Edit Raw",
+		},
+		textContent: "Edit Raw",
+	});
+	actionButtons.appendChild(rawToggleButton);
+
+	// Reload button only shown if we don't yet have a persistent file handle
+	if (!hasHandle) {
 		const reloadButton = createButton({
 			tag: "button",
 			className: "btn btn-warning btn-small reload-from-disk-btn",
 			type: "button",
 			attributes: {
-				"data-file": fileName,
-				title: `Select and reload ${fileName} from disk to get latest content`,
-				"aria-label": `Select and reload ${fileName} from disk to get latest content`,
+				"data-id": fileId,
+				title: `Select and reload from disk to get latest content`,
+				"aria-label": `Select and reload from disk to get latest content`,
 			},
 		});
 		reloadButton.appendChild(
@@ -611,18 +616,34 @@ function renderFileActionButtons(
 		actionButtons.appendChild(reloadButton);
 	}
 
+	// Minimize button (replaces refresh) always available to hide/show the editor
+	const minimizeButton = createButton({
+		tag: "button",
+		className: "btn btn-info btn-small minimize-file-btn",
+		type: "button",
+		attributes: {
+			"data-id": fileId,
+			title: "Minimize editor",
+			"aria-label": "Minimize editor",
+		},
+	});
+	minimizeButton.appendChild(
+		createIcon("minus", { size: 18, className: "btn-icon" })
+	);
+	actionButtons.appendChild(minimizeButton);
+
 	const removeButton = createButton({
 		tag: "button",
 		className: "btn btn-danger btn-small remove-file-btn",
 		type: "button",
 		attributes: {
-			"data-file": fileName,
-			title: `Remove ${fileName}`,
-			"aria-label": `Remove ${fileName}`,
+			"data-id": fileId,
+			title: `Close editor`,
+			"aria-label": `Close editor`,
 		},
 	});
 	removeButton.appendChild(
-		createIcon("trash", { size: 18, className: "btn-icon" })
+		createIcon("x", { size: 18, className: "btn-icon" })
 	);
 
 	actionButtons.appendChild(removeButton);
@@ -632,28 +653,7 @@ function renderFileActionButtons(
 /**
  * Renders save button container
  */
-export function renderSaveContainer(fileName: string): HTMLElement {
-	const container = createElement({
-		tag: "div",
-		className: "save-container",
-		attributes: { "data-file": fileName },
-	});
-
-	const saveButton = createButton({
-		tag: "button",
-		className: "btn btn-success btn-small",
-		type: "button",
-		attributes: { "data-file": fileName },
-	});
-	saveButton.appendChild(
-		createIcon("save", { size: 18, className: "btn-icon" })
-	);
-	saveButton.appendChild(document.createTextNode(" Save Changes"));
-
-	container.appendChild(saveButton);
-
-	return container;
-}
+// Save button removed; instant save UX active
 
 /**
  * Renders error notification

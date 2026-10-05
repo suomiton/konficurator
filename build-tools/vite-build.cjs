@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 
 const { spawnSync } = require('node:child_process');
-const { exit, platform } = require('node:process');
+const { exit } = require('node:process');
+const path = require('node:path');
 
-process.env.ROLLUP_SKIP_NODEJS_NATIVE_BUILD = '1';
-
-const npxCommand = platform === 'win32' ? 'npx.cmd' : 'npx';
-const result = spawnSync(npxCommand, ['vite', 'build', '--outDir', 'dist'], {
+const viteCli = path.join(path.dirname(require.resolve('vite/package.json')), 'bin/vite.js');
+const result = spawnSync(process.execPath, [viteCli, 'build'], {
   stdio: 'inherit',
 });
 

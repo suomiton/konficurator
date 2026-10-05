@@ -39,14 +39,14 @@ jobs:
         run: |
           echo "=== DEVELOPMENT BUILD METRICS ===" 
           echo "TypeScript compilation completed"
-          if [ -d "dist" ]; then
-            dev_size=$(du -sb dist/ styles/ index.html | awk '{sum += $1} END {print sum}')
+          if [ -d "build" ]; then
+            dev_size=$(du -sb build/ | awk '{sum += $1} END {print sum}')
             echo "Development build size: $dev_size bytes"
             echo "DEV_SIZE=$dev_size" >> $GITHUB_ENV
-            echo "Files in dist/:"
-            ls -lah dist/
+            echo "Files in build/:"
+            ls -lah build/
           else
-            echo "No dist directory found"
+            echo "No build directory found"
             exit 1
           fi
         
@@ -72,7 +72,7 @@ jobs:
             ls -lah build/
             echo ""
             echo "JavaScript files:"
-            find build/dist/ -name "*.js" -exec ls -lh {} \; || echo "No JS files found"
+            find build/assets/ -name "*.js" -exec ls -lh {} \; || echo "No JS files found"
             echo ""
             echo "Compressed files:"
             echo "Gzip files: $(find build/ -name "*.gz" | wc -l)"
@@ -86,14 +86,14 @@ jobs:
             [ -f "build/index.html.br" ] && echo "✅ index.html.br exists" || echo "❌ index.html.br missing"
             [ -f "build/nginx-config.txt" ] && echo "✅ nginx-config.txt exists" || echo "❌ nginx-config.txt missing"
             [ -f "build/.htaccess" ] && echo "✅ .htaccess exists" || echo "❌ .htaccess missing"
-            [ -d "build/dist" ] && echo "✅ dist directory exists" || echo "❌ dist directory missing"
+            [ -d "build/assets" ] && echo "✅ assets directory exists" || echo "❌ assets directory missing"
             [ -d "build/styles" ] && echo "✅ styles directory exists" || echo "❌ styles directory missing"
             [ -d "build/samples" ] && echo "✅ samples directory exists" || echo "❌ samples directory missing"
             
             # Check compression ratios for main files
             echo ""
             echo "=== COMPRESSION ANALYSIS ==="
-            for file in build/dist/main.js build/styles/main.css build/index.html; do
+            for file in build/assets/*.js build/assets/*.css build/index.html; do
               if [ -f "$file" ]; then
                 original_size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
                 if [ -f "$file.gz" ]; then

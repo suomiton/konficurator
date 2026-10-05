@@ -76,14 +76,16 @@ header {
 	background: var(--color-gray-50);
 	border-radius: var(--radius-medium) var(--radius-medium) 0 0;
 	border-bottom: 2px solid var(--color-border);
-	margin-bottom: var(--gutter-3);
 }
 
 .file-title-container {
 	flex-grow: 1;
 }
 
-/* .file-path removed (redundant with filename) */
+.object-fields {
+	padding: 0 var(--gutter-2);
+	margin: var(--gutter-2) 0;
+}
 
 .file-action-buttons {
 	display: flex;

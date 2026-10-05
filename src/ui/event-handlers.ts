@@ -7,12 +7,22 @@ import { FormFieldData } from "./form-data";
 
 export interface FormEventHandlers {
 	onFieldChange?: (path: string, value: any, fieldType: string) => void;
+	onFileFieldChange?: (
+		fileId: string,
+		path: string,
+		value: any,
+		fieldType: string
+	) => void;
+	onRawContentChange?: (fileId: string, raw: string) => void;
+	onToggleView?: (fileId: string, mode: "form" | "raw") => void;
 	onArrayItemAdd?: (path: string) => void;
 	onArrayItemRemove?: (path: string, index: number) => void;
 	onFileRemove?: (fileName: string) => void;
+	/** Deprecated: use onFileMinimize or onFileReload */
 	onFileRefresh?: (fileName: string) => void;
+	onFileMinimize?: (fileName: string) => void;
 	onFileReload?: (fileName: string) => void;
-	onFileSave?: (fileName: string) => void;
+	// onFileSave removed: instant save model in place
 }
 
 /**
@@ -23,19 +33,47 @@ export function setupFieldEventListeners(
 	fieldData: FormFieldData,
 	handlers: FormEventHandlers
 ): void {
-	const { onFieldChange } = handlers;
-	if (!onFieldChange) return;
+	const { onFieldChange, onFileFieldChange } = handlers;
+	if (!onFieldChange && !onFileFieldChange) return;
 
 	switch (fieldData.type) {
 		case "text":
 		case "number":
-			setupInputEventListeners(element, fieldData, onFieldChange);
+			setupInputEventListeners(element, fieldData, (value, type) => {
+				onFieldChange?.(fieldData.path, value, type);
+				// fileId travels via closest file-editor
+				const container = element.closest(
+					".file-editor[data-id]"
+				) as HTMLElement | null;
+				if (container) {
+					const fid = container.getAttribute("data-id")!;
+					onFileFieldChange?.(fid, fieldData.path, value, type);
+				}
+			});
 			break;
 		case "boolean":
-			setupCheckboxEventListeners(element, fieldData, onFieldChange);
+			setupCheckboxEventListeners(element, fieldData, (value, type) => {
+				onFieldChange?.(fieldData.path, value, type);
+				const container = element.closest(
+					".file-editor[data-id]"
+				) as HTMLElement | null;
+				if (container) {
+					const fid = container.getAttribute("data-id")!;
+					onFileFieldChange?.(fid, fieldData.path, value, type);
+				}
+			});
 			break;
 		case "xml-value":
-			setupTextareaEventListeners(element, fieldData, onFieldChange);
+			setupTextareaEventListeners(element, fieldData, (value, type) => {
+				onFieldChange?.(fieldData.path, value, type);
+				const container = element.closest(
+					".file-editor[data-id]"
+				) as HTMLElement | null;
+				if (container) {
+					const fid = container.getAttribute("data-id")!;
+					onFileFieldChange?.(fid, fieldData.path, value, type);
+				}
+			});
 			break;
 		case "array":
 			setupArrayEventListeners(element, fieldData, handlers);
@@ -52,7 +90,7 @@ export function setupFieldEventListeners(
 function setupInputEventListeners(
 	element: HTMLElement,
 	fieldData: FormFieldData,
-	onFieldChange: (path: string, value: any, fieldType: string) => void
+	callback: (value: any, fieldType: string) => void
 ): void {
 	const input = element.querySelector("input") as HTMLInputElement;
 	if (!input) return;
@@ -60,29 +98,46 @@ function setupInputEventListeners(
 	// Handle input changes with debouncing for better performance
 	let timeoutId: NodeJS.Timeout;
 
+	// Track last emitted value to avoid redundant events
+	const normalize = () =>
+		fieldData.type === "number"
+			? input.value
+				? String(parseFloat(input.value))
+				: ""
+			: String(input.value ?? "");
+	input.dataset.lastValue = normalize();
+
 	input.addEventListener("input", () => {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => {
-			const value =
-				fieldData.type === "number"
-					? input.value
-						? parseFloat(input.value)
-						: ""
-					: input.value;
-			onFieldChange(fieldData.path, value, fieldData.type);
+			const currentNorm = normalize();
+			if (currentNorm !== (input.dataset.lastValue || "")) {
+				input.dataset.lastValue = currentNorm;
+				const value =
+					fieldData.type === "number"
+						? currentNorm === ""
+							? ""
+							: parseFloat(currentNorm)
+						: currentNorm;
+				callback(value, fieldData.type);
+			}
 		}, 300); // 300ms debounce
 	});
 
 	// Handle immediate changes on blur for better UX
 	input.addEventListener("blur", () => {
 		clearTimeout(timeoutId);
-		const value =
-			fieldData.type === "number"
-				? input.value
-					? parseFloat(input.value)
-					: ""
-				: input.value;
-		onFieldChange(fieldData.path, value, fieldData.type);
+		const currentNorm = normalize();
+		if (currentNorm !== (input.dataset.lastValue || "")) {
+			input.dataset.lastValue = currentNorm;
+			const value =
+				fieldData.type === "number"
+					? currentNorm === ""
+						? ""
+						: parseFloat(currentNorm)
+					: currentNorm;
+			callback(value, fieldData.type);
+		}
 	});
 }
 
@@ -92,15 +147,22 @@ function setupInputEventListeners(
 function setupCheckboxEventListeners(
 	element: HTMLElement,
 	fieldData: FormFieldData,
-	onFieldChange: (path: string, value: any, fieldType: string) => void
+	callback: (value: any, fieldType: string) => void
 ): void {
 	const checkbox = element.querySelector(
 		'input[type="checkbox"]'
 	) as HTMLInputElement;
 	if (!checkbox) return;
 
+	// Initialize last state
+	checkbox.dataset.lastChecked = checkbox.checked ? "1" : "0";
+
 	checkbox.addEventListener("change", () => {
-		onFieldChange(fieldData.path, checkbox.checked, fieldData.type);
+		const current = checkbox.checked ? "1" : "0";
+		if (current !== (checkbox.dataset.lastChecked || "")) {
+			checkbox.dataset.lastChecked = current;
+			callback(checkbox.checked, fieldData.type);
+		}
 	});
 }
 
@@ -110,23 +172,35 @@ function setupCheckboxEventListeners(
 function setupTextareaEventListeners(
 	element: HTMLElement,
 	fieldData: FormFieldData,
-	onFieldChange: (path: string, value: any, fieldType: string) => void
+	callback: (value: any, fieldType: string) => void
 ): void {
 	const textarea = element.querySelector("textarea") as HTMLTextAreaElement;
 	if (!textarea) return;
 
 	let timeoutId: NodeJS.Timeout;
 
+	// Track last emitted value to avoid redundant events
+	const normalize = () => String(textarea.value ?? "");
+	textarea.dataset.lastValue = normalize();
+
 	textarea.addEventListener("input", () => {
 		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => {
-			onFieldChange(fieldData.path, textarea.value, fieldData.type);
+			const currentNorm = normalize();
+			if (currentNorm !== (textarea.dataset.lastValue || "")) {
+				textarea.dataset.lastValue = currentNorm;
+				callback(currentNorm, fieldData.type);
+			}
 		}, 300);
 	});
 
 	textarea.addEventListener("blur", () => {
 		clearTimeout(timeoutId);
-		onFieldChange(fieldData.path, textarea.value, fieldData.type);
+		const currentNorm = normalize();
+		if (currentNorm !== (textarea.dataset.lastValue || "")) {
+			textarea.dataset.lastValue = currentNorm;
+			callback(currentNorm, fieldData.type);
+		}
 	});
 }
 
@@ -170,7 +244,8 @@ export function setupFileActionEventListeners(
 	fileName: string,
 	handlers: FormEventHandlers
 ): void {
-	const { onFileRemove, onFileRefresh, onFileReload } = handlers;
+	const { onFileRemove, onFileRefresh, onFileReload, onFileMinimize } =
+		handlers;
 
 	// Remove file button
 	const removeButton = headerElement.querySelector(
@@ -182,13 +257,13 @@ export function setupFileActionEventListeners(
 		});
 	}
 
-	// Refresh file button
-	const refreshButton = headerElement.querySelector(
-		".refresh-file-btn"
+	// Minimize button (preferred) or legacy refresh button
+	const minimizeButton = headerElement.querySelector(
+		".minimize-file-btn"
 	) as HTMLButtonElement;
-	if (refreshButton && onFileRefresh) {
-		refreshButton.addEventListener("click", () => {
-			onFileRefresh(fileName);
+	if (minimizeButton && (onFileMinimize || onFileRefresh)) {
+		minimizeButton.addEventListener("click", () => {
+			(onFileMinimize || onFileRefresh)?.(fileName);
 		});
 	}
 
@@ -206,21 +281,7 @@ export function setupFileActionEventListeners(
 /**
  * Sets up event listeners for save button
  */
-export function setupSaveEventListeners(
-	saveContainer: HTMLElement,
-	fileName: string,
-	handlers: FormEventHandlers
-): void {
-	const { onFileSave } = handlers;
-	if (!onFileSave) return;
-
-	const saveButton = saveContainer.querySelector("button") as HTMLButtonElement;
-	if (saveButton) {
-		saveButton.addEventListener("click", () => {
-			onFileSave(fileName);
-		});
-	}
-}
+// Save button listeners removed: changes are persisted on field change
 
 /**
  * Sets up form submit prevention (since we handle changes via individual field events)

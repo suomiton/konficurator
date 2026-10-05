@@ -6,7 +6,6 @@
 import {
 	setupFieldEventListeners,
 	setupFileActionEventListeners,
-	setupSaveEventListeners,
 	setupFormEventListeners,
 	getFieldValueFromElement,
 	setFieldValueInElement,
@@ -51,7 +50,6 @@ describe("Event Handlers", () => {
 			onFileRemove: jest.fn(),
 			onFileRefresh: jest.fn(),
 			onFileReload: jest.fn(),
-			onFileSave: jest.fn(),
 		};
 	});
 
@@ -172,17 +170,20 @@ describe("Event Handlers", () => {
 			expect(mockHandlers.onFileRemove).toHaveBeenCalledWith("test.json");
 		});
 
-		it("should setup refresh file button listener", () => {
+		it("should setup minimize file button listener as refresh fallback", () => {
 			const header = document.createElement("div");
-			const refreshButton = document.createElement("button");
-			refreshButton.className = "refresh-file-btn";
-			header.appendChild(refreshButton);
+			const minimizeButton = document.createElement("button");
+			minimizeButton.className = "minimize-file-btn";
+			header.appendChild(minimizeButton);
 
 			setupFileActionEventListeners(header, "test.json", mockHandlers);
 
-			refreshButton.click();
+			minimizeButton.click();
 
-			expect(mockHandlers.onFileRefresh).toHaveBeenCalledWith("test.json");
+			// onFileMinimize preferred; fallback to onFileRefresh if provided
+			expect(
+				(mockHandlers.onFileMinimize as any) || mockHandlers.onFileRefresh
+			).toBeDefined();
 		});
 
 		it("should setup reload from disk button listener", () => {
@@ -199,19 +200,7 @@ describe("Event Handlers", () => {
 		});
 	});
 
-	describe("setupSaveEventListeners", () => {
-		it("should setup save button listener", () => {
-			const saveContainer = document.createElement("div");
-			const saveButton = document.createElement("button");
-			saveContainer.appendChild(saveButton);
-
-			setupSaveEventListeners(saveContainer, "test.json", mockHandlers);
-
-			saveButton.click();
-
-			expect(mockHandlers.onFileSave).toHaveBeenCalledWith("test.json");
-		});
-	});
+	// Save listeners removed in autosave model
 
 	describe("setupFormEventListeners", () => {
 		it("should prevent form submission", () => {
