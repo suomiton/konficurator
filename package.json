@@ -13,8 +13,8 @@
 		"url": "https://github.com/suomiton/konficurator/issues"
 	},
 	"scripts": {
-		"build": "npm run build:wasm:prod && vite build",
-		"build:prod": "npm run clean && npm run build:wasm:prod && vite build && npm run build:optimize && npm run build:gzip && npm run postbuild:assets",
+		"build": "npm run build:wasm:prod && node build-tools/vite-build.cjs",
+		"build:prod": "npm run clean && npm run build:wasm:prod && node build-tools/vite-build.cjs && npm run build:optimize && npm run build:gzip && npm run postbuild:assets",
 		"postbuild:assets": "cp -r styles build/ && cp -r samples build/ && mkdir -p build/parser-wasm/pkg && cp -r parser-wasm/pkg/* build/parser-wasm/pkg/ || true",
 		"build:ts": "tsc",
 		"build:wasm": "cd parser-wasm && wasm-pack build --target web --dev",
@@ -57,9 +57,13 @@
 		"ts-jest": "^29.4.5",
 		"typescript": "^5.9.3",
 		"vite": "^5.4.10",
-		"wasm-pack": "^0.13.1"
+		"wasm-pack": "^0.13.1",
+		"rollup": "npm:@rollup/wasm-node@4.53.1"
 	},
 	"engines": {
 		"node": ">=16.0.0"
+	},
+	"overrides": {
+		"rollup": "$rollup"
 	}
 }
