@@ -13,7 +13,7 @@ RUN rustup target add wasm32-unknown-unknown
 # Install wasm-pack and wasm-bindgen CLI
 RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 # Install latest wasm-bindgen CLI
-RUN cargo install wasm-bindgen-cli --force
+RUN cargo install wasm-bindgen-cli --version 0.2.105 --locked
 
 # Prevent wasm-pack from downloading a glibc-linked prebuilt on Alpine
 ENV WASM_PACK_NO_INSTALL=true
@@ -21,7 +21,7 @@ ENV WASM_BINDGEN_BIN=/root/.cargo/bin/wasm-bindgen
 
 WORKDIR /app
 
-# Copy only package.json to avoid lockfile platform pinning for Rollup native optional deps
+# Copy only package.json to avoid lockfile platform pinning for Rollup WASM optional deps
 COPY package.json ./
 COPY parser-wasm/package*.json ./parser-wasm/
 COPY parser-wasm/Cargo.toml ./parser-wasm/
