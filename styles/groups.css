@@ -1,0 +1,63 @@
+/* Grouped file list styles using design tokens from variables.css */
+.file-group {
+	border: 2px solid var(--color-border);
+	border-radius: var(--radius-large);
+	padding: var(--gutter-1);
+	background: var(--color-gray-200);
+	box-shadow: var(--shadow-soft);
+	transition: border-color .25s ease, box-shadow .2s ease;
+}
+
+.file-group-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding-bottom: var(--gutter-1);
+}
+
+.file-group-title {
+	background: transparent;
+	border: none;
+	color: var(--color-text-primary);
+	font-family: var(--font-family-base);
+	font-weight: 600;
+	cursor: pointer;
+	padding: calc(var(--gutter-1) / 2) var(--gutter-1);
+	border-radius: var(--radius-small);
+}
+
+.file-group-title:hover {
+	background: var(--color-gray-100);
+}
+
+.file-group-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--gutter-1);
+}
+
+.file-tag {
+	background: var(--color-gray-50);
+	border: 1px solid var(--color-border);
+	padding: calc(var(--gutter-1) / 2) var(--gutter-2);
+	border-radius: 999px;
+	cursor: pointer;
+	font-size: 13px;
+	line-height: 1.2;
+	transition: border-color .2s, background .2s;
+}
+
+.file-tag:hover {
+	background: var(--color-gray-100);
+}
+
+.file-tag.inactive {
+	opacity: 0.6;
+}
+
+.add-file-tag {
+	color: var(--color-info);
+	border-color: var(--color-info);
+	background: transparent;
+	align-self: center;
+}

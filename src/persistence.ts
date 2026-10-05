@@ -1,7 +1,11 @@
 import { IPersistence, FileData } from "./interfaces";
 import { ParserFactory } from "./parsers";
 import { NotificationService } from "./ui/notifications";
-import { SupportedFileType, getMimeTypeForFileType, getExtensionsForFileType } from "./utils/fileTypeUtils";
+import {
+	SupportedFileType,
+	getMimeTypeForFileType,
+	getExtensionsForFileType,
+} from "./utils/fileTypeUtils";
 
 // Import WASM parser for non-destructive updates
 import init, { update_value } from "../parser-wasm/pkg/parser_core.js";
@@ -21,6 +25,76 @@ export class FilePersistence implements IPersistence {
 		if (!this.wasmInitialized) {
 			await init();
 			this.wasmInitialized = true;
+		}
+	}
+
+	/**
+	 * Compute updated content (without writing) based on current form values using WASM non-destructive updates.
+	 * Returns the updated raw content string for validation/previews.
+	 */
+	async previewUpdatedContent(
+		fileData: FileData,
+		formElement: HTMLFormElement
+	): Promise<string> {
+		await this.ensureWasmInitialized();
+		let updatedContent = fileData.originalContent || "";
+		const fieldChanges = this.extractFieldChanges(
+			formElement,
+			fileData.content
+		);
+		for (const change of fieldChanges) {
+			updatedContent = update_value(
+				fileData.type,
+				updatedContent,
+				change.path,
+				change.newValue
+			);
+		}
+		return updatedContent;
+	}
+
+	/**
+	 * Save entire file content from a raw editable source without reformatting
+	 */
+	async saveRaw(fileData: FileData, rawText: string): Promise<void> {
+		try {
+			// Write to file or prompt save-as
+			if (fileData.handle) {
+				const fileHandler = await import("./fileHandler");
+				const handler = new fileHandler.FileHandler();
+				await handler.writeFile(fileData.handle, rawText);
+			} else {
+				await this.saveAsNewFile(fileData.name, rawText, fileData.type);
+			}
+
+			// Re-parse to update in-memory structure, but keep formatting by
+			// assigning rawText as originalContent directly.
+			const parser = ParserFactory.createParser(fileData.type, rawText);
+			fileData.content = parser.parse(rawText);
+			fileData.originalContent = rawText;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			const lowered = message.toLowerCase();
+			const isParseValidation =
+				lowered.startsWith("invalid json format") ||
+				lowered.startsWith("invalid xml format") ||
+				lowered.includes("failed to parse env file") ||
+				lowered.includes("invalid config format") ||
+				lowered.includes("unexpected token") ||
+				lowered.includes("bad control character");
+			// For validation/parse errors: suppress toast (file already written) and just log.
+			if (isParseValidation) {
+				console.warn(
+					`Raw save completed but parse failed for ${fileData.name}: ${message}`
+				);
+				// Preserve raw text even if parse fails
+				fileData.originalContent = rawText;
+				return; // swallow error
+			}
+			NotificationService.showError(
+				`Failed to save ${fileData.name}: ${message}`
+			);
+			throw error;
 		}
 	}
 
@@ -77,7 +151,7 @@ export class FilePersistence implements IPersistence {
 			// Write to file
 			if (fileData.handle) {
 				// Use existing handle if available
-                                const fileHandler = await import("./fileHandler");
+				const fileHandler = await import("./fileHandler");
 				const handler = new fileHandler.FileHandler();
 				await handler.writeFile(fileData.handle, updatedContent);
 			} else {
@@ -91,7 +165,7 @@ export class FilePersistence implements IPersistence {
 			// Update originalContent to the new file content for future edits
 			fileData.originalContent = updatedContent;
 
-			NotificationService.showSuccess(`Successfully saved ${fileData.name}`);
+			// Silent success to avoid noisy toasts during autosave
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			NotificationService.showError(
@@ -303,7 +377,8 @@ export class FilePersistence implements IPersistence {
 					{
 						description: `${fileType.toUpperCase()} files`,
 						accept: {
-							[getMimeTypeForFileType(fileType)]: getExtensionsForFileType(fileType)
+							[getMimeTypeForFileType(fileType)]:
+								getExtensionsForFileType(fileType),
 						},
 					},
 				],
