@@ -1,3 +1,5 @@
+import { TextEncoder, TextDecoder } from "util";
+Object.assign(globalThis, { TextEncoder, TextDecoder });
 // Jest test setup file
 
 // Mock DOM APIs that might not be available in Jest environment
@@ -14,26 +16,6 @@ Object.defineProperty(window, "matchMedia", {
 		dispatchEvent: jest.fn(),
 	})),
 });
-
-// Mock WebAssembly module
-jest.mock(
-	"../parser-wasm/pkg/parser_core.js",
-	() => {
-		return {
-			__esModule: true,
-			default: jest.fn().mockResolvedValue(true),
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			update_value: jest
-				.fn()
-				.mockImplementation((_fileType, content, _path, newVal) => {
-					return `${content.substring(0, 10)}...${newVal}...${content.substring(
-						content.length - 10
-					)}`;
-				}),
-		};
-	},
-	{ virtual: true }
-);
 
 // Mock File API
 (global as any).File = class MockFile {

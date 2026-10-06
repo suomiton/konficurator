@@ -76,3 +76,5 @@ parser-wasm/node_modules/
 
 # Debug files
 parser-wasm/debug_xml.rs
+
+parser-wasm/pkg-node/

@@ -13,7 +13,9 @@ export function determineFileType(
 	filename: string,
 	content?: string
 ): SupportedFileType {
-	const extension = filename.toLowerCase().split(".").pop();
+	const lower = filename.toLowerCase();
+	if (lower === ".env" || lower.startsWith(".env.")) return "env";
+	const extension = lower.split(".").pop();
 
 	// Handle .config files specially - detect format based on content when available
 	if (extension === "config") {
@@ -21,7 +23,10 @@ export function determineFileType(
 			const trimmedContent = content.trim();
 
 			// Detect JSON content by leading token (do not require valid JSON)
-			if (trimmedContent.startsWith("{") || trimmedContent.startsWith("[")) {
+			if (
+				trimmedContent.startsWith("{") ||
+				trimmedContent.startsWith("[")
+			) {
 				return "json";
 			}
 
@@ -48,6 +53,8 @@ export function determineFileType(
 		case "xml":
 			return "xml";
 		case "env":
+		case "properties":
+		case "ini":
 			return "env";
 		case "json":
 		default:
@@ -67,7 +74,7 @@ function looksLikeEnvFormat(content: string): boolean {
 	// Check if most lines follow key=value pattern
 	// Allow mixed case, underscores, dots (for properties files), and flexible naming
 	const envLikeLines = lines.filter((line) =>
-		/^[a-zA-Z_][a-zA-Z0-9_.]*\s*=/.test(line.trim())
+		/^(?:export\s+)?[a-zA-Z_][a-zA-Z0-9_.-]*\s*=/.test(line.trim())
 	);
 	return envLikeLines.length > lines.length * 0.5; // At least 50% of lines should look like ENV
 }
@@ -110,7 +117,7 @@ export function getExtensionsForFileType(
 		case "config":
 			return [".config"];
 		case "env":
-			return [".env"];
+			return [".env", ".properties", ".ini"];
 		default:
 			return [".json"];
 	}

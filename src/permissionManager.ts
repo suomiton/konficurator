@@ -1,3 +1,4 @@
+import { readFileText } from "./utils/readFileText";
 /**
  * Permission Manager
  * Handles file permission restoration with user interaction
@@ -15,7 +16,8 @@ export class PermissionManager {
 	 */
 	static async restoreSavedHandles(
 		files: FileData[],
-		onFileRestored: (file: FileData) => Promise<void> = () => Promise.resolve()
+		onFileRestored: (file: FileData) => Promise<void> = () =>
+			Promise.resolve()
 	): Promise<{
 		restoredFiles: FileData[];
 		filesNeedingPermission: FileData[];
@@ -45,7 +47,7 @@ export class PermissionManager {
 					"queryPermission" in file.handle &&
 					typeof file.handle.queryPermission === "function"
 				) {
-					const permission = await (file.handle as any).queryPermission({
+					const permission = await file.handle.queryPermission({
 						mode: "readwrite",
 					});
 
@@ -55,7 +57,10 @@ export class PermissionManager {
 						try {
 							await onFileRestored(file);
 						} catch (error) {
-							console.error(`Error processing ${file.name}:`, error);
+							console.error(
+								`Error processing ${file.name}:`,
+								error
+							);
 						}
 					} else {
 						// Permission needed, show reconnect card
@@ -72,7 +77,10 @@ export class PermissionManager {
 					}
 				}
 			} catch (error) {
-				console.warn(`Could not check permission for ${file.name}:`, error);
+				console.warn(
+					`Could not check permission for ${file.name}:`,
+					error
+				);
 				// File handle might be invalid, add as storage-only
 				restoredFiles.push({
 					...file,
@@ -110,50 +118,56 @@ export class PermissionManager {
 					`Requesting permission for ${file.name}...`
 				);
 
-                                const permission = await (file.handle as any).requestPermission({
-                                        mode: "readwrite",
-                                });
+				const permission = await file.handle.requestPermission({
+					mode: "readwrite",
+				});
 
-                                NotificationService.hideLoading();
+				NotificationService.hideLoading();
 
-                                if (permission === "granted") {
-                                        // Permission granted, load the file
-                                        let restoredFile = { ...file, permissionDenied: false };
+				if (permission === "granted") {
+					// Permission granted, load the file
+					let restoredFile = { ...file, permissionDenied: false };
 
-                                        if (
-                                                restoredFile.handle &&
-                                                "getFile" in restoredFile.handle &&
-                                                typeof restoredFile.handle.getFile === "function"
-                                        ) {
-                                                try {
-                                                        const fileBlob = await restoredFile.handle.getFile();
-                                                        const fileText = await fileBlob.text();
+					if (
+						restoredFile.handle &&
+						"getFile" in restoredFile.handle &&
+						typeof restoredFile.handle.getFile === "function"
+					) {
+						try {
+							const fileBlob =
+								await restoredFile.handle.getFile();
+							const fileText = await readFileText(fileBlob);
 
-                                                        restoredFile = {
-                                                                ...restoredFile,
-                                                                content: fileText,
-                                                                originalContent: fileText,
-                                                                lastModified: fileBlob.lastModified,
-                                                                size: fileBlob.size,
-                                                        };
-                                                } catch (readError) {
-                                                        const message =
-                                                                readError instanceof Error
-                                                                        ? readError.message
-                                                                        : "Unknown error";
-                                                        NotificationService.showError(
-                                                                `Failed to reload "${file.name}" after granting permission: ${message}`
-                                                        );
-                                                }
-                                        }
+							restoredFile = {
+								...restoredFile,
+								content: fileText,
+								originalContent: fileText,
+								lastModified: fileBlob.lastModified,
+								size: fileBlob.size,
+							};
+						} catch (readError) {
+							const message =
+								readError instanceof Error
+									? readError.message
+									: "Unknown error";
+							NotificationService.showError(
+								`Failed to reload "${file.name}" after granting permission: ${message}`
+							);
+						}
+					}
 
-                                        await onFileRestored(restoredFile);
+					await onFileRestored(restoredFile);
 
-                                        // Remove the reconnect card for this file
-                                        const reconnectContainer = document.getElementById("reconnectCards");
-                                        if (reconnectContainer) {
-                                                const existingCards = reconnectContainer.querySelectorAll(
-							`[data-reconnect-file="${file.name}"]`
+					// Remove the reconnect card for this file
+					const reconnectContainer =
+						document.getElementById("reconnectCards");
+					if (reconnectContainer) {
+						const existingCards = Array.from(
+							reconnectContainer.querySelectorAll<HTMLElement>(
+								"[data-reconnect-file]"
+							)
+						).filter(
+							(card) => card.dataset.reconnectFile === file.name
 						);
 						existingCards.forEach((card) => card.remove());
 					}
@@ -165,23 +179,23 @@ export class PermissionManager {
 						})
 					);
 
-                                        NotificationService.showSuccess(
-                                                createIconLabel(
-                                                        "check-circle",
-                                                        `Access granted to "${file.name}". File loaded successfully.`,
-                                                        { size: 18 }
-                                                )
-                                        );
+					NotificationService.showSuccess(
+						createIconLabel(
+							"check-circle",
+							`Access granted to "${file.name}". File loaded successfully.`,
+							{ size: 18 }
+						)
+					);
 					return true;
 				} else {
 					// Permission denied
-                                        NotificationService.showError(
-                                                createIconLabel(
-                                                        "lock",
-                                                        `Permission denied for "${file.name}". The file will remain in storage-only mode.`,
-                                                        { size: 18 }
-                                                )
-                                        );
+					NotificationService.showError(
+						createIconLabel(
+							"lock",
+							`Permission denied for "${file.name}". The file will remain in storage-only mode.`,
+							{ size: 18 }
+						)
+					);
 					return false;
 				}
 			} else {
@@ -193,16 +207,17 @@ export class PermissionManager {
 			}
 		} catch (error) {
 			NotificationService.hideLoading();
-			const message = error instanceof Error ? error.message : "Unknown error";
+			const message =
+				error instanceof Error ? error.message : "Unknown error";
 
 			if (error instanceof Error && error.name === "SecurityError") {
-                                NotificationService.showError(
-                                        createIconLabel(
-                                                "lock",
-                                                `Security error accessing "${file.name}": ${message}`,
-                                                { size: 18 }
-                                        )
-                                );
+				NotificationService.showError(
+					createIconLabel(
+						"lock",
+						`Security error accessing "${file.name}": ${message}`,
+						{ size: 18 }
+					)
+				);
 			} else {
 				NotificationService.showError(
 					`Failed to request permission for "${file.name}": ${message}`
@@ -242,9 +257,11 @@ export class PermissionManager {
 
 		FileNotifications.showReconnectCard(file.handle, async (handle) => {
 			// Remove any existing reconnect cards for this file
-			const existingCards = reconnectContainer.querySelectorAll(
-				`[data-reconnect-file="${file.name}"]`
-			);
+			const existingCards = Array.from(
+				reconnectContainer.querySelectorAll<HTMLElement>(
+					"[data-reconnect-file]"
+				)
+			).filter((card) => card.dataset.reconnectFile === file.name);
 			existingCards.forEach((card) => card.remove());
 
 			// Update the file with the new handle and attempt to request permission and reload

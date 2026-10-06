@@ -1,3 +1,5 @@
+import { readFileText } from "./utils/readFileText";
+import { determineFileType } from "./utils/fileTypeUtils";
 /**
  * Persistent storage for Konficurator using IndexedDB.
  * ---------------------------------------------------
@@ -18,10 +20,10 @@ import { FileData } from "./interfaces";
 import { GroupAccentId, normalizeGroupAccent } from "./theme/groupColors";
 
 export interface StoredFileV2 {
-        id: string;
-        name: string;
-        group: string;
-        groupColor?: GroupAccentId | string;
+	id: string;
+	name: string;
+	group: string;
+	groupColor?: GroupAccentId | string;
 	type: "json" | "xml" | "config" | "env";
 	lastModified: number;
 	content: string;
@@ -94,16 +96,16 @@ export class StorageService {
 				content: f.originalContent,
 				size: f.size ?? f.originalContent.length,
 				isActive: f.isActive,
-			} as StoredFileV2;
+			};
 
 			if (f.groupColor !== undefined) {
-				(record as any).groupColor = f.groupColor;
+				record.groupColor = f.groupColor;
 			}
 			if (f.handle !== null && f.handle !== undefined) {
-				(record as any).handle = f.handle;
+				record.handle = f.handle;
 			}
 			if (f.path !== undefined) {
-				(record as any).path = f.path;
+				record.path = f.path;
 			}
 
 			store.put(record);
@@ -129,18 +131,7 @@ export class StorageService {
 		const result: FileData[] = [];
 
 		for (const r of records) {
-			let actualType = r.type;
-			if (r.type === "config" && r.content) {
-				try {
-					JSON.parse(r.content.trim());
-					actualType = "json";
-				} catch {
-					const trimmed = r.content.trim();
-					if (trimmed.startsWith("<?xml") || trimmed.startsWith("<")) {
-						actualType = "xml";
-					}
-				}
-			}
+			const actualType = determineFileType(r.name, r.content);
 
 			const fd: FileData = {
 				id: r.id,
@@ -153,17 +144,17 @@ export class StorageService {
 				size: r.size,
 				handle: null,
 				isActive: r.isActive !== undefined ? r.isActive : true,
-			} as FileData;
+			};
 
-                        if (r.groupColor !== undefined) {
-                                const accent = normalizeGroupAccent(r.groupColor);
-                                if (accent) (fd as any).groupColor = accent;
-                        }
+			if (r.groupColor !== undefined) {
+				const accent = normalizeGroupAccent(r.groupColor);
+				if (accent) fd.groupColor = accent;
+			}
 			if (r.path) fd.path = r.path;
 
 			if (r.handle) {
 				try {
-					const qp = await (r.handle as any).queryPermission?.({
+					const qp = await r.handle.queryPermission?.({
 						mode: "readwrite",
 					});
 					if (qp === "granted") {
@@ -229,14 +220,18 @@ export class StorageService {
 		}
 
 		try {
-			const perm = await (file.handle as any).queryPermission?.({
+			const perm = await file.handle.queryPermission?.({
 				mode: "readwrite",
 			});
 			if (perm === "denied") {
-				return { ...file, permissionDenied: true, autoRefreshed: false };
+				return {
+					...file,
+					permissionDenied: true,
+					autoRefreshed: false,
+				};
 			}
 			const blob = await file.handle.getFile();
-			const text = await blob.text();
+			const text = await readFileText(blob);
 			const changed = blob.lastModified !== file.lastModified;
 			return {
 				...file,

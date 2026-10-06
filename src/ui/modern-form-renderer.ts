@@ -4,7 +4,7 @@
  */
 
 import { IRenderer, FileData } from "../interfaces";
-import { generateFormFieldsData } from "./form-data";
+import { generateFormFieldsData, generateParserFields } from "./form-data";
 import {
 	renderFormField,
 	renderFormContainer,
@@ -13,12 +13,15 @@ import {
 	FormElementRenderOptions,
 } from "./dom-renderer";
 import {
-	setupFieldEventListeners,
 	setupFileActionEventListeners,
 	setupFormEventListeners,
 	FormEventHandlers,
 } from "./event-handlers";
 import { createElement } from "./dom-factory";
+import { edit_array, parse_tree } from "../../parser-wasm/pkg/parser_core.js";
+import { previewFormEdits } from "./form-edits";
+import type { ParseNode } from "../../parser-wasm/pkg/parser_core.js";
+import { RawErrorMeta } from "./raw-error-overlay";
 import { RawEditor } from "./raw-editor";
 
 type ViewMode = "form" | "raw";
@@ -62,17 +65,25 @@ export class ModernFormRenderer implements IRenderer {
 		);
 
 		// Setup header event listeners
-		setupFileActionEventListeners(header, fileData.name, this.eventHandlers);
+		setupFileActionEventListeners(
+			header,
+			fileData.name,
+			this.eventHandlers
+		);
 		container.appendChild(header);
 
 		// Body wrapper to host either form or raw editor
-		const body = createElement({ tag: "div", className: "file-editor-body" });
+		const body = createElement({
+			tag: "div",
+			className: "file-editor-body",
+		});
 		container.appendChild(body);
 
 		// Hook toggle button and initial render
 		this.setupHeaderToggle(header, fileData, body);
 
-		const initialMode: ViewMode = this.viewModeById.get(fileData.id) || "form";
+		const initialMode: ViewMode =
+			this.viewModeById.get(fileData.id) || "form";
 		this.renderEditorBody(fileData, body, initialMode);
 
 		return container;
@@ -114,6 +125,7 @@ export class ModernFormRenderer implements IRenderer {
 			}
 			// re-render body in new mode
 			body.innerHTML = "";
+			this.formsById.delete(fileData.id);
 			this.renderEditorBody(fileData, body, next);
 			this.eventHandlers.onToggleView?.(fileData.id, next);
 		});
@@ -142,25 +154,31 @@ export class ModernFormRenderer implements IRenderer {
 		}
 
 		// Default: form view
-		const form = renderFormContainer();
-		setupFormEventListeners(form);
+		const form = renderFormContainer() as HTMLFormElement;
+		this.formsById.set(fileData.id, form);
+		setupFormEventListeners(form, this.eventHandlers);
 
 		// If content is not a valid object or had a parse error, show error instead of fields
+		const tree = fileData.content?.__tree as ParseNode | undefined;
 		if (
-			!fileData.content ||
-			typeof fileData.content !== "object" ||
-			Array.isArray(fileData.content) ||
-			(typeof fileData.content === "object" && "_error" in fileData.content)
+			!tree &&
+			(!fileData.content ||
+				typeof fileData.content !== "object" ||
+				Array.isArray(fileData.content) ||
+				(typeof fileData.content === "object" &&
+					"_error" in fileData.content))
 		) {
 			const message =
-				typeof fileData.content === "object" && (fileData.content as any)._error
-					? String((fileData.content as any)._error)
+				typeof fileData.content === "object" && fileData.content._error
+					? String(fileData.content._error)
 					: "Failed to parse file: Not a valid configuration object.";
 			const errorDiv = renderErrorMessage(message);
 			form.appendChild(errorDiv);
 		} else {
 			try {
-				const formFieldsData = generateFormFieldsData(fileData.content);
+				const formFieldsData = tree
+					? generateParserFields(tree)
+					: generateFormFieldsData(fileData.content);
 				const fieldsContainer = this.renderFormFields(formFieldsData);
 				form.appendChild(fieldsContainer);
 			} catch (error) {
@@ -173,21 +191,56 @@ export class ModernFormRenderer implements IRenderer {
 			}
 		}
 
+		form.addEventListener("click", (event) => {
+			const target = (
+				event.target as HTMLElement
+			).closest<HTMLButtonElement>(".add-array-item, .remove-array-item");
+			if (!target || fileData.type !== "json") return;
+			try {
+				const content = previewFormEdits(
+					"json",
+					fileData.originalContent,
+					form
+				).content;
+				const index = target.classList.contains("remove-array-item")
+					? Number(target.dataset.index)
+					: undefined;
+				const updated = edit_array(
+					content,
+					JSON.parse(target.dataset.path!),
+					index,
+					undefined
+				);
+				form.dataset.draftContent = updated;
+				form.replaceChildren(
+					this.renderFormFields(
+						generateParserFields(parse_tree("json", updated))
+					)
+				);
+				this.eventHandlers.onFileFieldChange?.(
+					fileData.id,
+					target.dataset.path!,
+					"",
+					"array"
+				);
+			} catch (error) {
+				form.appendChild(renderErrorMessage(String(error)));
+			}
+		});
 		body.appendChild(form);
 	}
 
 	/** Allow controller to push validation overlays to active raw editors */
-	applyRawValidation(
-		fileId: string,
-		meta?: {
-			valid: boolean;
-			errors?: Array<{ message?: string; line?: number; column?: number }>;
-			message?: string;
-			line?: number;
-		}
-	): void {
-		const editor = this.rawEditorsById.get(fileId);
-		if (editor) editor.applyValidation(meta as any);
+	getForm(fileId: string): HTMLFormElement | null {
+		return this.formsById.get(fileId) ?? null;
+	}
+	getRawContent(fileId: string): string | undefined {
+		return this.rawEditorsById.get(fileId)?.getContent();
+	}
+	private formsById = new Map<string, HTMLFormElement>();
+
+	applyRawValidation(fileId: string, meta?: RawErrorMeta): void {
+		this.rawEditorsById.get(fileId)?.applyValidation(meta);
 	}
 
 	/**
@@ -210,29 +263,6 @@ export class ModernFormRenderer implements IRenderer {
 
 		for (const fieldData of formFieldsData) {
 			const fieldElement = renderFormField(fieldData, this.renderOptions);
-
-			// Setup event listeners for this field
-			setupFieldEventListeners(fieldElement, fieldData, this.eventHandlers);
-
-			// Handle nested objects and arrays
-			if (
-				fieldData.type === "object" &&
-				"children" in fieldData &&
-				fieldData.children
-			) {
-				const nestedFields = this.renderFormFields(fieldData.children);
-				const fieldsContainer = fieldElement.querySelector(".object-fields");
-				if (fieldsContainer) {
-					fieldsContainer.appendChild(nestedFields);
-				}
-			} else if (
-				fieldData.type === "array" &&
-				"items" in fieldData &&
-				fieldData.items
-			) {
-				// Array items are now handled internally by renderArrayField
-				// No need to append additional items here
-			}
 
 			container.appendChild(fieldElement);
 		}

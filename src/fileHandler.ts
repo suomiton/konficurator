@@ -1,11 +1,12 @@
+import { readFileText } from "./utils/readFileText";
 import { IFileHandler, FileData } from "./interfaces";
 import { GroupAccentId } from "./theme/groupColors";
 import { determineFileType } from "./utils/fileTypeUtils";
 
 // Lightweight UUID generator (fallback if crypto.randomUUID unavailable)
 function generateId(): string {
-	if (typeof crypto !== "undefined" && (crypto as any).randomUUID) {
-		return (crypto as any).randomUUID();
+	if (typeof crypto !== "undefined" && crypto.randomUUID) {
+		return crypto.randomUUID();
 	}
 	return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
 		const r = (Math.random() * 16) | 0;
@@ -24,11 +25,11 @@ export class FileHandler implements IFileHandler {
 	 * Opens file picker and allows user to select multiple configuration files.
 	 * Backward compatible signature: if first argument is an array, treat as existing files (group defaults to "default").
 	 */
-        async selectFiles(
-                groupOrExisting: string | FileData[] = "default",
-                existingFilesInGroup: FileData[] = [],
-                groupColor?: GroupAccentId
-        ): Promise<FileData[]> {
+	async selectFiles(
+		groupOrExisting: string | FileData[] = "default",
+		existingFilesInGroup: FileData[] = [],
+		groupColor?: GroupAccentId
+	): Promise<FileData[]> {
 		try {
 			// Check if File System Access API is supported
 			if (!window.showOpenFilePicker) {
@@ -63,7 +64,7 @@ export class FileHandler implements IFileHandler {
 			const fileDataPromises = fileHandles.map(
 				async (handle): Promise<FileData> => {
 					const file = await handle.getFile();
-					const content = await file.text();
+					const content = await readFileText(file);
 					const fileType = determineFileType(handle.name, content);
 
 					const fd: FileData = {
@@ -79,7 +80,7 @@ export class FileHandler implements IFileHandler {
 						size: file.size,
 						isActive: true,
 					} as FileData;
-					if (groupColor) (fd as any).groupColor = groupColor;
+					if (groupColor) fd.groupColor = groupColor;
 					return fd;
 				}
 			);
@@ -109,7 +110,7 @@ export class FileHandler implements IFileHandler {
 	 */
 	async readFile(handle: FileSystemFileHandle): Promise<string> {
 		const file = await handle.getFile();
-		return await file.text();
+		return await readFileText(file);
 	}
 
 	/**
@@ -140,7 +141,7 @@ export class FileHandler implements IFileHandler {
 		try {
 			// Verify file handle is still valid by attempting to get file
 			const file = await fileData.handle.getFile();
-			const content = await file.text();
+			const content = await readFileText(file);
 			const fileType = determineFileType(fileData.name, content);
 
 			// Return updated file data with fresh content

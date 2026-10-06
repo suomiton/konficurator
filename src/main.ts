@@ -1,3 +1,5 @@
+import { loadPersistedWorkspace } from "./controllers/workspace-loader";
+import { SaveScheduler } from "./controllers/save-scheduler";
 import { FileHandler } from "./fileHandler";
 import { ParserFactory } from "./parsers";
 import { ModernFormRenderer } from "./ui/modern-form-renderer";
@@ -5,8 +7,7 @@ import { FilePersistence } from "./persistence";
 import { FileData } from "./interfaces";
 import { StorageService } from "./handleStorage";
 import { NotificationService, FileNotifications } from "./ui/notifications";
-import { PermissionManager } from "./permissionManager";
-import { createIconLabel, createIconList, IconListItem } from "./ui/icon";
+import { createIconLabel } from "./ui/icon";
 import {
 	showAddFilesDialog,
 	showEditGroupDialog,
@@ -17,7 +18,7 @@ import {
 	FileEditorController,
 	ValidationMetaInput,
 } from "./controllers/file-editor-controller";
-import { findFormElementWithRetry } from "./ui/form-utils";
+import { ensureWasmInitialized } from "./wasm";
 
 /**
  * Main Application Controller
@@ -28,7 +29,7 @@ export class KonficuratorApp {
 	private renderer: ModernFormRenderer;
 	private persistence: FilePersistence;
 	private loadedFiles: FileData[] = [];
-	private activeSaveOperations: Set<string> = new Set();
+	private saveScheduler = new SaveScheduler();
 	private groupColors: Map<string, GroupAccentId> = new Map();
 	private fileListView: FileListView;
 	private editorController: FileEditorController;
@@ -60,6 +61,7 @@ export class KonficuratorApp {
 			persistence: this.persistence,
 			getFiles: () => this.loadedFiles,
 			saveToStorage: () => this.saveToStorage(),
+			saveScheduler: this.saveScheduler,
 		});
 
 		this.init();
@@ -122,39 +124,44 @@ export class KonficuratorApp {
 		// Direct binding removed; Add file button rendered dynamically as part of file list
 
 		// Listen for file permission granted events
-		window.addEventListener("filePermissionGranted", async (event: Event) => {
-			const customEvent = event as CustomEvent;
-			const { file } = customEvent.detail as { file: FileData };
+		window.addEventListener(
+			"filePermissionGranted",
+			async (event: Event) => {
+				const customEvent = event as CustomEvent;
+				const { file } = customEvent.detail as { file: FileData };
 
-			await this.processFile(file);
-			this.applyGroupAccent(file.group, file.groupColor);
+				await this.processFile(file);
+				this.applyGroupAccent(file.group, file.groupColor);
 
-			// Update existing file (by id) or add new one while preserving visibility state
-			const existingIndex = this.loadedFiles.findIndex((f) => f.id === file.id);
-			if (existingIndex >= 0) {
-				const existingFile = this.loadedFiles[existingIndex];
-				const resolvedIsActive =
-					existingFile.isActive === false
-						? false
-						: file.isActive ?? existingFile.isActive ?? true;
-				const mergedFile: FileData = {
-					...existingFile,
-					...file,
-					isActive: resolvedIsActive,
-				};
-				this.loadedFiles[existingIndex] = mergedFile;
-			} else {
-				if (file.isActive === undefined) {
-					file.isActive = true;
+				// Update existing file (by id) or add new one while preserving visibility state
+				const existingIndex = this.loadedFiles.findIndex(
+					(f) => f.id === file.id
+				);
+				if (existingIndex >= 0) {
+					const existingFile = this.loadedFiles[existingIndex];
+					const resolvedIsActive =
+						existingFile.isActive === false
+							? false
+							: (file.isActive ?? existingFile.isActive ?? true);
+					const mergedFile: FileData = {
+						...existingFile,
+						...file,
+						isActive: resolvedIsActive,
+					};
+					this.loadedFiles[existingIndex] = mergedFile;
+				} else {
+					if (file.isActive === undefined) {
+						file.isActive = true;
+					}
+					this.loadedFiles.push(file);
 				}
-				this.loadedFiles.push(file);
-			}
 
-			// Update UI and storage
-			this.updateFileInfo(this.loadedFiles);
-			this.renderFileEditors();
-			await this.saveToStorage();
-		});
+				// Update UI and storage
+				this.updateFileInfo(this.loadedFiles);
+				this.renderFileEditors();
+				await this.saveToStorage();
+			}
+		);
 
 		// Delegate save button clicks
 		document.addEventListener("click", (event) => {
@@ -198,13 +205,6 @@ export class KonficuratorApp {
 			}
 
 			// Raw toggle is handled inside ModernFormRenderer
-
-			const saveBtn = target.closest(".btn") as HTMLElement | null;
-			if (saveBtn && saveBtn.textContent?.includes("Save")) {
-				const id = saveBtn.getAttribute("data-id");
-				if (id) this.handleFileSave(id);
-				return;
-			}
 
 			if (target.classList.contains("file-group-title")) {
 				const group = target.getAttribute("data-group");
@@ -254,7 +254,9 @@ export class KonficuratorApp {
 
 			NotificationService.showLoading("Selecting files...");
 			// Only consider duplicates within the target group
-			const existingInGroup = this.loadedFiles.filter((f) => f.group === group);
+			const existingInGroup = this.loadedFiles.filter(
+				(f) => f.group === group
+			);
 			const newFiles = await this.fileHandler.selectFiles(
 				group,
 				existingInGroup,
@@ -285,7 +287,8 @@ export class KonficuratorApp {
 				newFiles.map((f) => `${f.name}`)
 			);
 		} catch (error) {
-			const message = error instanceof Error ? error.message : "Unknown error";
+			const message =
+				error instanceof Error ? error.message : "Unknown error";
 			NotificationService.showError(`Failed to load files: ${message}`);
 			// Ensure UI restored even on error
 			this.renderFileEditors();
@@ -300,16 +303,18 @@ export class KonficuratorApp {
 	 */
 	private async processFile(fileData: FileData): Promise<void> {
 		try {
+			await ensureWasmInitialized();
 			const parser = ParserFactory.createParser(
 				fileData.type,
-				fileData.content
+				fileData.originalContent
 			);
-			const parsedContent = parser.parse(fileData.content);
+			const parsedContent = parser.parse(fileData.originalContent);
 
 			// Update file data with parsed content
 			fileData.content = parsedContent;
 		} catch (error) {
-			const message = error instanceof Error ? error.message : "Unknown error";
+			const message =
+				error instanceof Error ? error.message : "Unknown error";
 			console.error(`Failed to parse ${fileData.name}:`, error);
 			// Still keep file but with error flag
 			fileData.content = { _error: message };
@@ -374,6 +379,9 @@ export class KonficuratorApp {
 	 * Handle file save operation
 	 */
 	public async handleFileSave(fileId: string): Promise<void> {
+		await this.saveScheduler.run(fileId, () => this.saveFileNow(fileId));
+	}
+	private async saveFileNow(fileId: string): Promise<void> {
 		// Resolve file strictly by id
 		const fileData = this.loadedFiles.find((f) => f.id === fileId);
 		if (!fileData) {
@@ -382,25 +390,19 @@ export class KonficuratorApp {
 		}
 		const resolvedId = fileData.id;
 
-		// Prevent concurrent save operations on the same file
-		if (this.activeSaveOperations.has(resolvedId)) {
-			console.warn(`Save operation already in progress for ${resolvedId}`);
-			return;
-		}
-		this.activeSaveOperations.add(resolvedId);
-
 		try {
 			// Check if file has been modified on disk before saving (only when we have a handle)
 			if (fileData.handle) {
-				const isModifiedOnDisk = await this.fileHandler.isFileModifiedOnDisk(
-					fileData
-				);
+				const isModifiedOnDisk =
+					await this.fileHandler.isFileModifiedOnDisk(fileData);
 				if (isModifiedOnDisk) {
 					// Import lazily to avoid upfront cost when not needed
-					const { ConfirmationDialog } = await import("./confirmation");
-					const choice = await ConfirmationDialog.showFileConflictDialog(
-						fileData.name
-					);
+					const { ConfirmationDialog } =
+						await import("./confirmation");
+					const choice =
+						await ConfirmationDialog.showFileConflictDialog(
+							fileData.name
+						);
 					switch (choice) {
 						case "cancel":
 							return; // user aborted
@@ -415,9 +417,9 @@ export class KonficuratorApp {
 			}
 
 			// Robust form element finding with retry logic for race conditions (render may be async)
-			const formElement = await findFormElementWithRetry(resolvedId);
+			const formElement = this.renderer.getForm(resolvedId);
 			if (!formElement) {
-				throw new Error("Form not found after retries");
+				throw new Error("Form not found");
 			}
 
 			await this.persistence.saveFile(fileData, formElement);
@@ -438,31 +440,18 @@ export class KonficuratorApp {
 			await this.saveToStorage();
 			// Silent success (autosave UX)
 		} catch (error) {
-			const message = error instanceof Error ? error.message : "Unknown error";
+			const message =
+				error instanceof Error ? error.message : "Unknown error";
 			NotificationService.showError(`Failed to save: ${message}`);
-		} finally {
-			this.activeSaveOperations.delete(resolvedId);
 		}
 	}
 
-	// Debounced instant save support
-	private pendingAutosaveTimers: Map<string, number> = new Map();
-
-	public scheduleAutosave(fileId: string, delay: number = 600): void {
-		// Clear any existing timer for this file
-		const existing = this.pendingAutosaveTimers.get(fileId);
-		if (existing) {
-			clearTimeout(existing);
-		}
-		const timer = window.setTimeout(async () => {
-			this.pendingAutosaveTimers.delete(fileId);
-			try {
-				await this.handleFileSave(fileId);
-			} catch (e) {
-				console.warn("Autosave failed", e);
-			}
-		}, delay);
-		this.pendingAutosaveTimers.set(fileId, timer);
+	public scheduleAutosave(fileId: string, delay = 600): void {
+		this.saveScheduler.schedule(
+			fileId,
+			() => this.saveFileNow(fileId),
+			delay
+		);
 	}
 
 	/**
@@ -478,13 +467,16 @@ export class KonficuratorApp {
 			NotificationService.showLoading(`Refreshing ${fileData.name}...`);
 
 			// Refresh file content from disk
-			const refreshedFileData = await this.fileHandler.refreshFile(fileData);
+			const refreshedFileData =
+				await this.fileHandler.refreshFile(fileData);
 
 			// Process the refreshed file (parse content)
 			await this.processFile(refreshedFileData);
 
 			// Update the file in loaded files array
-			const fileIndex = this.loadedFiles.findIndex((f) => f.id === fileId);
+			const fileIndex = this.loadedFiles.findIndex(
+				(f) => f.id === fileId
+			);
 			if (fileIndex !== -1) {
 				this.loadedFiles[fileIndex] = refreshedFileData;
 			}
@@ -501,7 +493,8 @@ export class KonficuratorApp {
 			FileNotifications.showRefreshSuccess(fileData.name);
 		} catch (error) {
 			NotificationService.hideLoading();
-			const message = error instanceof Error ? error.message : "Unknown error";
+			const message =
+				error instanceof Error ? error.message : "Unknown error";
 			const fileData = this.loadedFiles.find((f) => f.id === fileId);
 			const name = fileData?.name || "file";
 			if (message.includes("No file handle available")) {
@@ -511,7 +504,9 @@ export class KonficuratorApp {
 			} else if (message.includes("Permission denied")) {
 				FileNotifications.showPermissionDenied(name);
 			} else {
-				NotificationService.showError(`Failed to refresh: ${name}: ${message}`);
+				NotificationService.showError(
+					`Failed to refresh: ${name}: ${message}`
+				);
 			}
 		}
 	}
@@ -538,7 +533,7 @@ export class KonficuratorApp {
 			);
 
 			// Find the file with matching name
-			const matchingFile = newFiles.find((f) => f.name === fileData.name);
+			const matchingFile = newFiles.find((f) => f.id === fileData.id);
 
 			if (!matchingFile) {
 				NotificationService.hideLoading();
@@ -556,7 +551,9 @@ export class KonficuratorApp {
 			await this.processFile(matchingFile);
 
 			// Replace the old file in loaded files array
-			const fileIndex = this.loadedFiles.findIndex((f) => f.id === fileId);
+			const fileIndex = this.loadedFiles.findIndex(
+				(f) => f.id === fileId
+			);
 			if (fileIndex !== -1) {
 				this.loadedFiles[fileIndex] = matchingFile;
 			}
@@ -579,7 +576,8 @@ export class KonficuratorApp {
 			);
 		} catch (error) {
 			NotificationService.hideLoading();
-			const message = error instanceof Error ? error.message : "Unknown error";
+			const message =
+				error instanceof Error ? error.message : "Unknown error";
 
 			if (error instanceof Error && error.name === "AbortError") {
 				// User cancelled file selection
@@ -587,7 +585,9 @@ export class KonficuratorApp {
 					`File selection cancelled. The file remains unchanged.`
 				);
 			} else {
-				NotificationService.showError(`Failed to reload from disk: ${message}`);
+				NotificationService.showError(
+					`Failed to reload from disk: ${message}`
+				);
 			}
 		}
 	}
@@ -596,90 +596,14 @@ export class KonficuratorApp {
 	 * Load persisted files from browser storage with automatic file refresh
 	 */
 	private async loadPersistedFiles(): Promise<void> {
-		try {
-			const restoredFiles = await StorageService.loadFiles();
-			if (!restoredFiles.length) {
-				NotificationService.showInfo(
-					createIconLabel(
-						"help-circle",
-						'No saved files found. Use the "Add" button to load configuration files from your computer.',
-						{ size: 18 }
-					)
-				);
-				return;
+		await loadPersistedWorkspace(
+			this.loadedFiles,
+			(file) => this.processFile(file),
+			() => {
+				this.updateFileInfo(this.loadedFiles);
+				this.renderFileEditors();
 			}
-
-			NotificationService.showLoading(
-				`Loading ${restoredFiles.length} persisted file(s)...`
-			);
-
-			const { restoredFiles: processedFiles, filesNeedingPermission } =
-				await PermissionManager.restoreSavedHandles(restoredFiles);
-			const refreshedFiles = await StorageService.autoRefreshFiles(
-				processedFiles
-			);
-
-			let autoRefreshedCount = 0;
-			let permissionDeniedCount = 0;
-			let grantedFiles = 0;
-
-			for (const fileData of refreshedFiles) {
-				await this.processFile(fileData);
-				if (fileData.isActive === undefined) {
-					fileData.isActive = true;
-				}
-				if (fileData.autoRefreshed) autoRefreshedCount++;
-				if (fileData.permissionDenied) permissionDeniedCount++;
-				if (fileData.handle && !fileData.permissionDenied) grantedFiles++;
-
-				const existingIndex = this.loadedFiles.findIndex(
-					(f) => f.name === fileData.name
-				);
-				if (existingIndex >= 0) this.loadedFiles[existingIndex] = fileData;
-				else this.loadedFiles.push(fileData);
-			}
-
-			this.updateFileInfo(this.loadedFiles);
-			this.renderFileEditors();
-			NotificationService.hideLoading();
-
-			if (filesNeedingPermission.length > 0) {
-				NotificationService.showWarning(
-					createIconLabel(
-						"alert-triangle",
-						`${filesNeedingPermission.length} file(s) need permission to access. Please grant access using the cards above.`,
-						{ size: 18 }
-					)
-				);
-			}
-
-			const fileNames = refreshedFiles.map((f) => f.name).join(", ");
-			const messageItems: IconListItem[] = [
-				{
-					icon: "folder",
-					text: `Restored ${refreshedFiles.length} file(s): ${fileNames}`,
-				},
-			];
-			if (grantedFiles > 0) {
-				messageItems.push({
-					icon: "check-circle",
-					text: `${grantedFiles} file(s) have disk access`,
-				});
-			}
-			if (autoRefreshedCount > 0) {
-				messageItems.push({
-					icon: "refresh-cw",
-					text: `Auto-refreshed ${autoRefreshedCount} file(s) from disk`,
-				});
-			}
-			if (permissionDeniedCount === 0 && filesNeedingPermission.length === 0) {
-				NotificationService.showInfo(
-					createIconList(messageItems, { size: 18 })
-				);
-			}
-		} catch (error) {
-			console.warn("Failed to load persisted files:", error);
-		}
+		);
 	}
 
 	/**
@@ -705,7 +629,8 @@ export class KonficuratorApp {
 			// Show success message
 			FileNotifications.showFileRemoved(file.name);
 		} catch (error) {
-			const message = error instanceof Error ? error.message : "Unknown error";
+			const message =
+				error instanceof Error ? error.message : "Unknown error";
 			NotificationService.showError(`Failed to remove file: ${message}`);
 		}
 	}
@@ -714,7 +639,10 @@ export class KonficuratorApp {
 		const seen = new Map<string, GroupAccentId | undefined>();
 		for (const f of this.loadedFiles) {
 			if (!seen.has(f.group))
-				seen.set(f.group, f.groupColor || this.groupColors.get(f.group));
+				seen.set(
+					f.group,
+					f.groupColor || this.groupColors.get(f.group)
+				);
 		}
 		return Array.from(seen.entries()).map(([name, color]) => {
 			const obj: { name: string; color?: GroupAccentId } = { name };
@@ -842,6 +770,12 @@ declare global {
 	}
 
 	interface FileSystemFileHandle {
+		queryPermission?(options: {
+			mode: "read" | "readwrite";
+		}): Promise<PermissionState>;
+		requestPermission?(options: {
+			mode: "read" | "readwrite";
+		}): Promise<PermissionState>;
 		getFile(): Promise<File>;
 		createWritable(): Promise<FileSystemWritableFileStream>;
 		name: string;

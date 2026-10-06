@@ -1,54 +1,49 @@
-import { KonficuratorApp } from "../../src/main";
+import { validate_multi } from "../../parser-wasm/pkg/parser_core.js";
+import { FileEditorController } from "../../src/controllers/file-editor-controller";
+import { ModernFormRenderer } from "../../src/ui/modern-form-renderer";
+import { FilePersistence } from "../../src/persistence";
+import { FileData } from "../../src/interfaces";
 
-jest.useFakeTimers();
-
-// Basic integration test for ENV multi-error augmentation
-
-describe("ENV multi-error augmentation", () => {
-	let app: any;
+describe("ENV diagnostics from the shared scanner", () => {
 	beforeEach(() => {
-		document.body.innerHTML = "";
-		const fileInfo = document.createElement("div");
-		fileInfo.id = "fileInfo";
-		document.body.appendChild(fileInfo);
-		const editorContainer = document.createElement("div");
-		editorContainer.id = "editorContainer";
-		document.body.appendChild(editorContainer);
-
-		app = new KonficuratorApp();
-		// Invalid ENV content: two lines missing '=' plus valid/comment lines
-		const rawEnv = `FOO\nBAR=1\n# comment\nBAZ VALUE\nQUX\n`;
-		app.loadedFiles = [
-			{
-				id: "env-id",
-				name: "test.env",
-				type: "env",
-				group: "default",
-				content: rawEnv,
-				originalContent: rawEnv,
-				isActive: true,
-			},
-		];
-		app.renderFileEditors();
+		jest.useFakeTimers();
+		document.body.innerHTML = '<div id="editorContainer"></div>';
 	});
-
-	test("shows multi-errors for missing '=' lines in raw mode", () => {
-		app.toggleRawMode("env-id"); // enter raw
-		app.editorController.requestValidation("env-id", "raw", 0);
-		// Fast-forward microtasks & timers
-		jest.runAllTimers();
-		// Trigger a second validation to ensure augmentation runs after first WASM pass
-		app.editorController.requestValidation("env-id", "raw", 0);
-		jest.runAllTimers();
-		app.editorController.reapplyLastDecorations("env-id");
-		const raw = document.querySelector(
-			'div.file-editor[data-id="env-id"] .raw-editor'
-		) as HTMLElement | null;
-		expect(raw).toBeTruthy();
-		// Expect at least two error markers (FOO, BAZ VALUE, QUX) -> 3 lines
-		const markers = raw!.querySelectorAll(".raw-editor-error");
-		expect(markers.length).toBeGreaterThanOrEqual(3);
-		const texts = Array.from(markers).map((m) => m.textContent || "");
-		expect(texts.some((t) => /Missing '='/.test(t))).toBe(true);
+	afterEach(() => {
+		jest.clearAllTimers();
+		jest.useRealTimers();
+		document.body.replaceChildren();
+	});
+	test("reports each bad line once and renders markers outside the raw content", async () => {
+		const text = "FOO\nBAR=1\n# comment\nBAZ VALUE\nQUX\n";
+		const result = validate_multi("env", text, 50);
+		expect(result.errors.map((error) => error.line)).toEqual([1, 4, 5]);
+		const file = {
+			id: "env",
+			group: "default",
+			name: "test.env",
+			type: "env",
+			content: { _error: "invalid" },
+			originalContent: text,
+			handle: null,
+		} as FileData;
+		const renderer = new ModernFormRenderer();
+		const controller = new FileEditorController({
+			renderer,
+			persistence: new FilePersistence(),
+			getFiles: () => [file],
+			saveToStorage: async () => {},
+		});
+		controller.renderEditors([file]);
+		(
+			document.querySelector(".toggle-raw-btn") as HTMLButtonElement
+		).click();
+		controller.requestValidation(file.id, "raw", 0);
+		await jest.advanceTimersByTimeAsync(1);
+		expect(document.querySelectorAll(".raw-editor-error")).toHaveLength(3);
+		expect(
+			document.querySelector(".raw-editor .raw-editor-error")
+		).toBeNull();
+		expect(renderer.getRawContent(file.id)).toBe(text);
 	});
 });

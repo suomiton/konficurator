@@ -85,6 +85,24 @@ export function renderFormField(
 		formGroup.appendChild(input);
 	}
 
+	if (
+		fieldData.segments &&
+		(input instanceof HTMLInputElement ||
+			input instanceof HTMLTextAreaElement)
+	) {
+		input.dataset.path = JSON.stringify(fieldData.segments);
+		input.dataset.originalValue =
+			fieldData.type === "boolean"
+				? String(Boolean(fieldData.value))
+				: String(fieldData.value ?? "");
+		input.dataset.kind = fieldData.kind || "string";
+	}
+	if (fieldData.type === "object" && "children" in fieldData) {
+		const fields = input.querySelector(".object-fields");
+		for (const child of (fieldData as import("./form-data").ObjectFieldData)
+			.children)
+			fields?.appendChild(renderFormField(child, options));
+	}
 	return formGroup;
 }
 
@@ -107,9 +125,15 @@ export function renderInputElement(
 		case "array":
 			return renderArrayField(fieldData, className);
 		case "xml-heading":
-			return renderXmlHeadingField(fieldData as XmlHeadingFieldData, className);
+			return renderXmlHeadingField(
+				fieldData as XmlHeadingFieldData,
+				className
+			);
 		case "xml-value":
-			return renderXmlValueField(fieldData as XmlValueFieldData, className);
+			return renderXmlValueField(
+				fieldData as XmlValueFieldData,
+				className
+			);
 		case "xml-attributes":
 			return renderXmlAttributesField(
 				fieldData as XmlAttributesFieldData,
@@ -133,7 +157,7 @@ function renderTextInput(
 		type: fieldData.inputType || "text",
 		name: fieldData.path,
 		id: fieldData.path,
-		value: String(fieldData.value || ""),
+		value: String(fieldData.value ?? ""),
 		data: { path: fieldData.path },
 	});
 }
@@ -156,7 +180,7 @@ function renderNumberInput(
 		type: "number",
 		name: fieldData.path,
 		id: fieldData.path,
-		value: String(fieldData.value || ""),
+		value: String(fieldData.value ?? ""),
 		attributes,
 		data: { path: fieldData.path },
 	});
@@ -196,7 +220,7 @@ function renderObjectField(
 	const header = createElement({
 		tag: "div",
 		className: "object-header",
-		innerHTML: `<h4>${fieldData.label}</h4>`,
+		textContent: fieldData.label,
 	});
 
 	const fieldsContainer = createElement({
@@ -222,90 +246,58 @@ function renderArrayField(
 		tag: "div",
 		className: `${className} array-field`,
 		data: { path: fieldData.path, type: "array" },
-		attributes: {
-			name: fieldData.path,
-			"data-original-value": JSON.stringify((fieldData as any).value || []),
-		},
 	});
-
-	const header = createElement({
-		tag: "div",
-		className: "array-header",
-		innerHTML: `<strong>${fieldData.label}</strong>`,
-	});
-
-	// Only one items container, no extra .array-items-list
+	container.appendChild(
+		createElement({
+			tag: "div",
+			className: "array-header",
+			textContent: fieldData.label,
+		})
+	);
 	const itemsContainer = createElement({
 		tag: "div",
 		className: "array-items",
-		data: { path: fieldData.path },
 	});
-
-	const addButton = createButton({
-		tag: "button",
-		className: "btn btn-primary btn-small add-array-item",
-		type: "button",
-		textContent: "+ Add Item",
-		data: { path: fieldData.path },
-	});
-
-	function renderItems(items: any[]) {
-		itemsContainer.innerHTML = "";
-		items.forEach((item, idx) => {
-			const itemContainer = createElement({
-				tag: "div",
-				className: "array-item-container",
-			});
-
-			const label = createElement({
-				tag: "div",
-				className: "array-item-label",
-				textContent: `Item${idx}`,
-			});
-
-			const input = createInput({
-				tag: "input",
-				className: "form-control array-item-input",
-				type: "text",
-				value: String(item),
-				data: { idx: String(idx) },
-			});
-			input.addEventListener("input", (e) => {
-				(fieldData as any).items[idx] = (e.target as HTMLInputElement).value;
-			});
-
-			const removeBtn = createButton({
-				tag: "button",
-				className: "btn btn-danger btn-small remove-array-item",
-				type: "button",
-				textContent: "×",
-				data: { idx: String(idx) },
-			});
-			removeBtn.addEventListener("click", () => {
-				(fieldData as any).items.splice(idx, 1);
-				renderItems((fieldData as any).items);
-			});
-
-			itemContainer.appendChild(label);
-			itemContainer.appendChild(input);
-			itemContainer.appendChild(removeBtn);
-			itemsContainer.appendChild(itemContainer);
+	const items =
+		(fieldData as import("./form-data").ArrayFieldData).items || [];
+	items.forEach((item, index) => {
+		const row = createElement({
+			tag: "div",
+			className: "array-item-container",
 		});
-	}
-
-	// Initial render
-	if (!(fieldData as any).items) (fieldData as any).items = [];
-	renderItems((fieldData as any).items);
-
-	addButton.addEventListener("click", () => {
-		(fieldData as any).items.push("");
-		renderItems((fieldData as any).items);
+		if (fieldData.segments) row.appendChild(renderFormField(item));
+		else
+			row.appendChild(
+				createInput({
+					tag: "input",
+					type: "text",
+					className: "array-item-input",
+					value: String(item ?? ""),
+				})
+			);
+		if (fieldData.segments)
+			row.appendChild(
+				createButton({
+					tag: "button",
+					type: "button",
+					className: "btn btn-danger btn-small remove-array-item",
+					textContent: "×",
+					data: { path: fieldData.path, index: String(index) },
+				})
+			);
+		itemsContainer.appendChild(row);
 	});
-
-	container.appendChild(header);
 	container.appendChild(itemsContainer);
-	container.appendChild(addButton);
-
+	if (fieldData.segments)
+		container.appendChild(
+			createButton({
+				tag: "button",
+				type: "button",
+				className: "btn btn-primary btn-small add-array-item",
+				textContent: "+ Add Item",
+				data: { path: fieldData.path },
+			})
+		);
 	return container;
 }
 
@@ -325,7 +317,7 @@ function renderXmlHeadingField(
 	const heading = createElement({
 		tag: "h4",
 		className: "xml-tag-name",
-		innerHTML: `&lt;${fieldData.key}&gt;`,
+		textContent: `<${fieldData.key}>`,
 	});
 	container.appendChild(heading);
 
@@ -444,8 +436,8 @@ function resolveXmlAttributeFields(
 			typeof value === "boolean"
 				? "boolean"
 				: typeof value === "number"
-				? "number"
-				: "text",
+					? "number"
+					: "text",
 	}));
 }
 

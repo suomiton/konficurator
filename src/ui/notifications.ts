@@ -1,9 +1,5 @@
 import { createButton, createElement } from "./dom-factory";
-import {
-        createIcon,
-        createIconLabel,
-        IconName,
-} from "./icon";
+import { createIcon, createIconLabel, IconName } from "./icon";
 
 /**
  * Centralized Notification System
@@ -31,11 +27,11 @@ export class NotificationService {
 	/**
 	 * Show a temporary toast notification
 	 */
-        static showToast(
-                message: NotificationContent,
-                type: NotificationType = "info",
-                options: NotificationOptions = {}
-        ): void {
+	static showToast(
+		message: NotificationContent,
+		type: NotificationType = "info",
+		options: NotificationOptions = {}
+	): void {
 		const {
 			duration = this.DEFAULT_DURATION,
 			position = this.DEFAULT_POSITION,
@@ -58,30 +54,42 @@ export class NotificationService {
 	/**
 	 * Show success notification
 	 */
-        static showSuccess(message: NotificationContent, options?: NotificationOptions): void {
-                this.showToast(message, "success", options);
-        }
+	static showSuccess(
+		message: NotificationContent,
+		options?: NotificationOptions
+	): void {
+		this.showToast(message, "success", options);
+	}
 
 	/**
 	 * Show error notification
 	 */
-        static showError(message: NotificationContent, options?: NotificationOptions): void {
-                this.showToast(message, "error", { duration: 5000, ...options });
-        }
+	static showError(
+		message: NotificationContent,
+		options?: NotificationOptions
+	): void {
+		this.showToast(message, "error", { duration: 5000, ...options });
+	}
 
 	/**
 	 * Show info notification
 	 */
-        static showInfo(message: NotificationContent, options?: NotificationOptions): void {
-                this.showToast(message, "info", options);
-        }
+	static showInfo(
+		message: NotificationContent,
+		options?: NotificationOptions
+	): void {
+		this.showToast(message, "info", options);
+	}
 
 	/**
 	 * Show warning notification
 	 */
-        static showWarning(message: NotificationContent, options?: NotificationOptions): void {
-                this.showToast(message, "warning", options);
-        }
+	static showWarning(
+		message: NotificationContent,
+		options?: NotificationOptions
+	): void {
+		this.showToast(message, "warning", options);
+	}
 
 	/**
 	 * Show loading message (replaces content area)
@@ -114,36 +122,36 @@ export class NotificationService {
 	/**
 	 * Show error in content area (for major errors)
 	 */
-        static showErrorInContainer(
-                message: string,
-                containerId: string = "editorContainer"
-        ): void {
-                const container = document.getElementById(containerId);
-                if (container) {
-                        container.innerHTML = "";
-                        const errorContainer = createElement({
-                                tag: "div",
-                                className: "error-container",
-                        });
+	static showErrorInContainer(
+		message: string,
+		containerId: string = "editorContainer"
+	): void {
+		const container = document.getElementById(containerId);
+		if (container) {
+			container.innerHTML = "";
+			const errorContainer = createElement({
+				tag: "div",
+				className: "error-container",
+			});
 
-                        errorContainer.appendChild(
-                                createIcon("alert-triangle", {
-                                        size: 48,
-                                        className: "error-icon",
-                                })
-                        );
+			errorContainer.appendChild(
+				createIcon("alert-triangle", {
+					size: 48,
+					className: "error-icon",
+				})
+			);
 
-                        errorContainer.appendChild(
-                                createElement({
-                                        tag: "div",
-                                        className: "error-message",
-                                        textContent: message,
-                                })
-                        );
+			errorContainer.appendChild(
+				createElement({
+					tag: "div",
+					className: "error-message",
+					textContent: message,
+				})
+			);
 
-                        container.appendChild(errorContainer);
-                }
-        }
+			container.appendChild(errorContainer);
+		}
+	}
 
 	/**
 	 * Clear all notifications
@@ -155,64 +163,64 @@ export class NotificationService {
 	/**
 	 * Create toast element with proper styling
 	 */
-        private static createToastElement(
-                message: NotificationContent,
-                type: NotificationType,
-                dismissible: boolean
-        ): HTMLElement {
-                const toast = createElement({
-                        tag: "div",
-                        className: `notification-toast toast-${type}`,
-                });
+	private static createToastElement(
+		message: NotificationContent,
+		type: NotificationType,
+		dismissible: boolean
+	): HTMLElement {
+		const toast = createElement({
+			tag: "div",
+			className: `notification-toast toast-${type}`,
+		});
 
-                this.ensureStyles();
+		this.ensureStyles();
 
-                const content = createElement({
-                        tag: "div",
-                        className: "toast-content",
-                });
+		const content = createElement({
+			tag: "div",
+			className: "toast-content",
+		});
 
-                content.appendChild(
-                        createIcon(this.getIconName(type), {
-                                size: 20,
-                                className: "toast-icon",
-                        })
-                );
+		content.appendChild(
+			createIcon(this.getIconName(type), {
+				size: 20,
+				className: "toast-icon",
+			})
+		);
 
-                const messageContainer = createElement({
-                        tag: "div",
-                        className: "toast-message",
-                });
+		const messageContainer = createElement({
+			tag: "div",
+			className: "toast-message",
+		});
 
-                if (typeof message === "string") {
-                        messageContainer.textContent = message;
-                } else {
-                        messageContainer.appendChild(message);
-                }
+		if (typeof message === "string") {
+			messageContainer.textContent = message;
+		} else {
+			messageContainer.appendChild(message);
+		}
 
-                content.appendChild(messageContainer);
+		content.appendChild(messageContainer);
 
-                if (dismissible) {
-                        const dismissBtn = createButton({
-                                tag: "button",
-                                className: "toast-dismiss",
-                                type: "button",
-                        });
-                        dismissBtn.setAttribute("aria-label", "Dismiss");
-                        dismissBtn.title = "Dismiss";
-                        dismissBtn.appendChild(
-                                createIcon("x", {
-                                        size: 16,
-                                        className: "toast-dismiss__icon",
-                                })
-                        );
-                        dismissBtn.addEventListener("click", () => this.removeToast(toast));
-                        content.appendChild(dismissBtn);
-                }
+		if (dismissible) {
+			const dismissBtn = createButton({
+				tag: "button",
+				className: "toast-dismiss",
+				type: "button",
+			});
+			dismissBtn.setAttribute("aria-label", "Dismiss");
+			dismissBtn.title = "Dismiss";
+			dismissBtn.appendChild(
+				createIcon("x", {
+					size: 16,
+					className: "toast-dismiss__icon",
+				})
+			);
+			dismissBtn.addEventListener("click", () => this.removeToast(toast));
+			content.appendChild(dismissBtn);
+		}
 
-                toast.appendChild(content);
-                return toast;
-        }
+		toast.appendChild(content);
+		return toast;
+	}
 
 	/**
 	 * Position toast based on specified location
@@ -245,21 +253,23 @@ export class NotificationService {
 	 */
 	private static removeExistingToasts(): void {
 		const existingToasts = document.querySelectorAll(".notification-toast");
-		existingToasts.forEach((toast) => this.removeToast(toast as HTMLElement));
+		existingToasts.forEach((toast) =>
+			this.removeToast(toast as HTMLElement)
+		);
 	}
 
 	/**
 	 * Get icon for notification type
 	 */
-        private static getIconName(type: NotificationType): IconName {
-                const icons: Record<NotificationType, IconName> = {
-                        success: "check-circle",
-                        error: "x-circle",
-                        info: "info",
-                        warning: "alert-triangle",
-                };
-                return icons[type] ?? "info";
-        }
+	private static getIconName(type: NotificationType): IconName {
+		const icons: Record<NotificationType, IconName> = {
+			success: "check-circle",
+			error: "x-circle",
+			info: "info",
+			warning: "alert-triangle",
+		};
+		return icons[type] ?? "info";
+	}
 
 	/**
 	 * Ensure notification styles are loaded
@@ -422,24 +432,32 @@ export class FileNotifications {
 	/**
 	 * Show file not found error with guidance
 	 */
-        static showFileNotFound(filename: string): void {
-                NotificationService.showError(
-                        createIconLabel("folder", `File not found: "${filename}" may have been moved, renamed, or deleted. Please check the file location and use "Select Files" to reload.`, {
-                                size: 18,
-                        })
-                );
-        }
+	static showFileNotFound(filename: string): void {
+		NotificationService.showError(
+			createIconLabel(
+				"folder",
+				`File not found: "${filename}" may have been moved, renamed, or deleted. Please check the file location and use "Select Files" to reload.`,
+				{
+					size: 18,
+				}
+			)
+		);
+	}
 
 	/**
 	 * Show permission denied error
 	 */
-        static showPermissionDenied(filename: string): void {
-                NotificationService.showError(
-                        createIconLabel("lock", `Permission denied: Cannot access "${filename}". You may need to grant permission again or the file may be locked.`, {
-                                size: 18,
-                        })
-                );
-        }
+	static showPermissionDenied(filename: string): void {
+		NotificationService.showError(
+			createIconLabel(
+				"lock",
+				`Permission denied: Cannot access "${filename}". You may need to grant permission again or the file may be locked.`,
+				{
+					size: 18,
+				}
+			)
+		);
+	}
 
 	/**
 	 * Show no file handle error
@@ -453,13 +471,17 @@ export class FileNotifications {
 	/**
 	 * Show file refresh success
 	 */
-        static showRefreshSuccess(filename: string): void {
-                NotificationService.showSuccess(
-                        createIconLabel("refresh-cw", `"${filename}" refreshed successfully from disk.`, {
-                                size: 18,
-                        })
-                );
-        }
+	static showRefreshSuccess(filename: string): void {
+		NotificationService.showSuccess(
+			createIconLabel(
+				"refresh-cw",
+				`"${filename}" refreshed successfully from disk.`,
+				{
+					size: 18,
+				}
+			)
+		);
+	}
 
 	/**
 	 * Show file save success
@@ -484,40 +506,42 @@ export class FileNotifications {
 	/**
 	 * Show auto-refresh results
 	 */
-        static showAutoRefreshResults(
-                refreshedCount: number,
-                filenames: string[]
-        ): void {
-                if (refreshedCount > 0) {
-                        NotificationService.showInfo(
-                                createIconLabel(
-                                        "refresh-cw",
-                                        `Auto-refreshed ${refreshedCount} file(s) from disk: ${filenames.join(", ")}`,
-                                        { size: 18 }
-                                )
-                        );
-                }
-        }
+	static showAutoRefreshResults(
+		refreshedCount: number,
+		filenames: string[]
+	): void {
+		if (refreshedCount > 0) {
+			NotificationService.showInfo(
+				createIconLabel(
+					"refresh-cw",
+					`Auto-refreshed ${refreshedCount} file(s) from disk: ${filenames.join(", ")}`,
+					{ size: 18 }
+				)
+			);
+		}
+	}
 
 	/**
 	 * Show file removal success
 	 */
 	static showFileRemoved(filename: string): void {
-		NotificationService.showSuccess(`File "${filename}" removed successfully.`);
+		NotificationService.showSuccess(
+			`File "${filename}" removed successfully.`
+		);
 	}
 
 	/**
 	 * Show files reloaded from disk success
 	 */
-        static showReloadFromDiskSuccess(count: number, filenames: string[]): void {
-                NotificationService.showSuccess(
-                        createIconLabel(
-                                "folder",
-                                `Successfully reloaded ${count} file(s) from disk: ${filenames.join(", ")}`,
-                                { size: 18 }
-                        )
-                );
-        }
+	static showReloadFromDiskSuccess(count: number, filenames: string[]): void {
+		NotificationService.showSuccess(
+			createIconLabel(
+				"folder",
+				`Successfully reloaded ${count} file(s) from disk: ${filenames.join(", ")}`,
+				{ size: 18 }
+			)
+		);
+	}
 
 	/**
 	 * Show reconnect card for a file that needs permission
@@ -545,9 +569,9 @@ export class FileNotifications {
 		}
 
 		// Check if a reconnect card for this file already exists
-		const existing = document.querySelector(
-			`[data-reconnect-file="${handle.name}"]`
-		);
+		const existing = Array.from(
+			document.querySelectorAll<HTMLElement>("[data-reconnect-file]")
+		).find((card) => card.dataset.reconnectFile === handle.name);
 		if (existing) {
 			existing.remove();
 		}
@@ -561,31 +585,32 @@ export class FileNotifications {
 		content.className = "reconnect-content";
 
 		// Create elements individually to ensure they exist
-                const icon = document.createElement("div");
-                icon.className = "reconnect-icon";
-                icon.appendChild(
-                        createIcon("lock", { size: 28, className: "reconnect-icon__image" })
-                );
+		const icon = document.createElement("div");
+		icon.className = "reconnect-icon";
+		icon.appendChild(
+			createIcon("lock", { size: 28, className: "reconnect-icon__image" })
+		);
 
 		const info = document.createElement("div");
 		info.className = "reconnect-info";
-		info.innerHTML = `
-			<h3>Permission Required</h3>
-			<p>The file "<strong>${handle.name}</strong>" needs permission to be accessed. Click the button below to grant access.</p>
-		`;
+		const heading = document.createElement("h3");
+		heading.textContent = "Permission Required";
+		const message = document.createElement("p");
+		message.textContent = `The file "${handle.name}" needs permission to be accessed. Click the button below to grant access.`;
+		info.append(heading, message);
 
 		const reconnectBtn = document.createElement("button");
 		reconnectBtn.className = "reconnect-btn";
 		reconnectBtn.id = reconnectId;
 		reconnectBtn.textContent = `Grant Access to ${handle.name}`;
 
-                const dismissBtn = document.createElement("button");
-                dismissBtn.className = "dismiss-btn";
-                dismissBtn.setAttribute("aria-label", "Dismiss");
-                dismissBtn.title = "Dismiss";
-                dismissBtn.appendChild(
-                        createIcon("x", { size: 18, className: "dismiss-btn__icon" })
-                );
+		const dismissBtn = document.createElement("button");
+		dismissBtn.className = "dismiss-btn";
+		dismissBtn.setAttribute("aria-label", "Dismiss");
+		dismissBtn.title = "Dismiss";
+		dismissBtn.appendChild(
+			createIcon("x", { size: 18, className: "dismiss-btn__icon" })
+		);
 
 		// Assemble the card
 		content.appendChild(icon);

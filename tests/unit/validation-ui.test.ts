@@ -68,7 +68,7 @@ describe("Validation UI decorations", () => {
                 ) as HTMLElement | null;
                 expect(raw!.classList.contains("has-error")).toBe(true);
                 expect(raw!.classList.contains("is-valid")).toBe(false);
-                const inlineErrors = raw!.querySelectorAll(".raw-editor-error");
+                const inlineErrors = raw!.parentElement!.querySelectorAll(".raw-editor-error");
                 expect(inlineErrors.length).toBe(1);
                 expect(inlineErrors[0].textContent || "").toContain("missing '='");
 
@@ -79,7 +79,7 @@ describe("Validation UI decorations", () => {
                 ) as HTMLElement | null;
                 expect(raw!.classList.contains("is-valid")).toBe(true);
                 expect(raw!.classList.contains("has-error")).toBe(false);
-                expect(raw!.querySelectorAll(".raw-editor-error").length).toBe(0);
+                expect(raw!.parentElement!.querySelectorAll(".raw-editor-error").length).toBe(0);
         });
 
 	test("lastValidationMeta reapplies on re-render in raw mode", () => {
@@ -96,7 +96,7 @@ describe("Validation UI decorations", () => {
 		) as HTMLElement | null;
 		expect(raw).toBeTruthy();
                 expect(raw!.classList.contains("has-error")).toBe(true);
-                expect(raw!.querySelectorAll(".raw-editor-error").length).toBe(1);
+                expect(raw!.parentElement!.querySelectorAll(".raw-editor-error").length).toBe(1);
                 // Exit and re-enter raw mode
                 app.toggleRawMode("v-id"); // exit raw
                 app.toggleRawMode("v-id"); // re-enter raw
@@ -106,6 +106,6 @@ describe("Validation UI decorations", () => {
                 expect(raw).toBeTruthy();
                 // Decoration should be applied from lastValidationMeta
                 expect(raw!.classList.contains("has-error")).toBe(true);
-                expect(raw!.querySelectorAll(".raw-editor-error").length).toBe(1);
+                expect(raw!.parentElement!.querySelectorAll(".raw-editor-error").length).toBe(1);
         });
 });

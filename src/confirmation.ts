@@ -18,7 +18,12 @@ export class ConfirmationDialog {
 	): Promise<boolean> {
 		return new Promise((resolve) => {
 			const overlay = this.createOverlay();
-			const dialog = this.createDialog(title, message, confirmText, cancelText);
+			const dialog = this.createDialog(
+				title,
+				message,
+				confirmText,
+				cancelText
+			);
 
 			// Handle confirm
 			const confirmBtn = dialog.querySelector(
@@ -203,21 +208,24 @@ export class ConfirmationDialog {
 
 		const messageElement = createElement({
 			tag: "p",
-			innerHTML: `The file <strong>"${fileName}"</strong> has been modified on disk since you loaded it. What would you like to do?`,
+			textContent: `The file "${fileName}" has been modified on disk since you loaded it. What would you like to do?`,
 		});
 
-                const warningElement = createElement({
-                        tag: "p",
-                        className: "warning-text",
-                });
-                warningElement.appendChild(
-                        createIcon("alert-triangle", { size: 18, className: "warning-text__icon" })
-                );
-                warningElement.appendChild(
-                        document.createTextNode(
-                                " Overwriting will replace the newer version on disk with your changes."
-                        )
-                );
+		const warningElement = createElement({
+			tag: "p",
+			className: "warning-text",
+		});
+		warningElement.appendChild(
+			createIcon("alert-triangle", {
+				size: 18,
+				className: "warning-text__icon",
+			})
+		);
+		warningElement.appendChild(
+			document.createTextNode(
+				" Overwriting will replace the newer version on disk with your changes."
+			)
+		);
 
 		const buttonsContainer = createElement({
 			tag: "div",

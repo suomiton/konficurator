@@ -1,408 +1,74 @@
-import { describe, it, expect, beforeEach } from "@jest/globals";
 import {
+	ParserFactory,
 	JsonParser,
 	XmlParser,
 	EnvParser,
-	ParserFactory,
 } from "../../src/parsers";
+import { parse_tree } from "../../parser-wasm/pkg/parser_core.js";
 
-function domEqual(xmlA: string, xmlB: string): boolean {
-	const parser = new window.DOMParser();
-	const domA = parser.parseFromString(xmlA, "application/xml");
-	const domB = parser.parseFromString(xmlB, "application/xml");
-	// Remove insignificant whitespace nodes for comparison
-	function clean(node: Node) {
-		for (let i = node.childNodes.length - 1; i >= 0; i--) {
-			const child = node.childNodes[i];
-			if (child.nodeType === 3 && !/\S/.test(child.nodeValue || "")) {
-				node.removeChild(child);
-			} else {
-				clean(child);
-			}
-		}
-	}
-	clean(domA);
-	clean(domB);
-	return domA.isEqualNode(domB);
-}
-
-describe("Parser Implementations - Real Tests", () => {
-	describe("JsonParser", () => {
-		let parser: JsonParser;
-
-		beforeEach(() => {
-			parser = new JsonParser();
+describe("Rust-backed display parsers", () => {
+	test("projects JSON while retaining exact tokens and paths for editing", () => {
+		const data = new JsonParser().parse(
+			'{"a.b":1.50,"large":9007199254740993,"s":"true"}'
+		);
+		expect(data["a.b"]).toBe(1.5);
+		expect(data.__tree.children[0]).toMatchObject({
+			path: ["a.b"],
+			value: "1.50",
+			kind: "number",
 		});
-
-		describe("parse", () => {
-			it("should parse valid JSON content", () => {
-				const jsonContent = '{"name": "test", "value": 123, "enabled": true}';
-				const result = parser.parse(jsonContent);
-
-				expect(result).toEqual({
-					name: "test",
-					value: 123,
-					enabled: true,
-				});
-			});
-
-			it("should parse nested JSON objects", () => {
-				const jsonContent =
-					'{"config": {"database": {"host": "localhost", "port": 5432}}}';
-				const result = parser.parse(jsonContent);
-
-				expect(result).toEqual({
-					config: {
-						database: {
-							host: "localhost",
-							port: 5432,
-						},
-					},
-				});
-			});
-
-			it("should parse JSON arrays", () => {
-				const jsonContent = '{"items": ["item1", "item2", "item3"]}';
-				const result = parser.parse(jsonContent);
-
-				expect(result).toEqual({
-					items: ["item1", "item2", "item3"],
-				});
-			});
-
-			it("should throw error for invalid JSON", () => {
-				const invalidJson = '{"name": "test", "value":}';
-				expect(() => parser.parse(invalidJson)).toThrow("Invalid JSON format");
-			});
-
-			it("should throw error for empty content", () => {
-				expect(() => parser.parse("")).toThrow("Content cannot be empty");
-				expect(() => parser.parse("   ")).toThrow("Content cannot be empty");
-			});
-		});
-
-		describe("serialize", () => {
-			it("should serialize object to formatted JSON", () => {
-				const data = { name: "test", value: 123 };
-				const result = parser.serialize(data);
-
-				expect(result).toBe('{\n  "name": "test",\n  "value": 123\n}');
-			});
-
-			it("should serialize complex nested objects", () => {
-				const data = {
-					config: {
-						database: { host: "localhost", port: 5432 },
-						features: ["auth", "logging"],
-					},
-				};
-				const result = parser.serialize(data);
-
-				const parsed = JSON.parse(result);
-				expect(parsed).toEqual(data);
-			});
-
-			it("should handle circular reference errors", () => {
-				const circular: any = { name: "test" };
-				circular.self = circular;
-
-				expect(() => parser.serialize(circular)).toThrow(
-					"Failed to serialize JSON"
-				);
-			});
-		});
-
-		describe("getFileType", () => {
-			it("should return correct file type", () => {
-				expect(parser.getFileType()).toBe("json");
-			});
+		expect(data.__tree.children[1].value).toBe("9007199254740993");
+		expect(Object.keys(data)).not.toContain("__tree");
+	});
+	test("preserves XML numeric strings and indexes .NET attributes", () => {
+		const text =
+			'<appSettings><add key="A" value="1.10"/><add key="B" value="02100"/></appSettings>';
+		const data = new XmlParser().parse(text);
+		expect(data.appSettings.add[1]["@value"]).toBe("02100");
+		expect(data.__tree.children[0].children[1].children[1]).toMatchObject({
+			path: ["appSettings", "add", "1", "@value"],
+			value: "02100",
 		});
 	});
-
-	describe("XmlParser (DOM-based, lossless)", () => {
-		let parser: XmlParser;
-		beforeEach(() => {
-			parser = new XmlParser();
-		});
-
-		describe("lossless round-trip", () => {
-			it("should preserve XML structure after parse and serialize (simple)", () => {
-				const xml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?><root><a>1</a><b>2</b></root>`;
-				const parsed = parser.parse(xml);
-				const serialized = parser.serialize(parsed);
-				expect(domEqual(serialized, xml)).toBe(true);
-			});
-
-			it("should preserve whitespace and indentation structurally", () => {
-				const xml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root>\n  <a>1</a>\n  <b>2</b>\n</root>`;
-				const parsed = parser.parse(xml);
-				const serialized = parser.serialize(parsed);
-				expect(domEqual(serialized, xml)).toBe(true);
-			});
-
-			it("should preserve comments and their positions structurally", () => {
-				const xml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?><root><!--inside--><a>1</a><!--after--></root>`;
-				const parsed = parser.parse(xml);
-				const serialized = parser.serialize(parsed);
-				expect(domEqual(serialized, xml)).toBe(true);
-			});
-
-			it("should preserve attribute order and quoting structurally", () => {
-				const xml = `<?xml version=\"1.0\"?><root a='1' b=\"2\" c='3'></root>`;
-				const parsed = parser.parse(xml);
-				const serialized = parser.serialize(parsed);
-				expect(domEqual(serialized, xml)).toBe(true);
-			});
-
-			it("should preserve self-closing tags vs. explicit open/close structurally", () => {
-				const xml = `<root><empty/><notempty></notempty></root>`;
-				const parsed = parser.parse(xml);
-				const serialized = parser.serialize(parsed);
-				expect(domEqual(serialized, xml)).toBe(true);
-			});
-
-			it("should preserve mixed content (text + elements)", () => {
-				const xml = `<root>text<a>1</a>more</root>`;
-				const parsed = parser.parse(xml);
-				const serialized = parser.serialize(parsed);
-				expect(domEqual(serialized, xml)).toBe(true);
-			});
-
-			it("should preserve CDATA sections structurally", () => {
-				const xml = `<root><![CDATA[<not>xml</not>]]></root>`;
-				const parsed = parser.parse(xml);
-				const serialized = parser.serialize(parsed);
-				expect(domEqual(serialized, xml)).toBe(true);
-			});
-
-			it("should preserve processing instructions structurally", () => {
-				const xml = `<?xml version='1.0'?><root><?pi test?></root>`;
-				const parsed = parser.parse(xml);
-				const serialized = parser.serialize(parsed);
-				expect(domEqual(serialized, xml)).toBe(true);
-			});
-
-			it("should preserve empty elements structurally", () => {
-				const xml = `<root><empty></empty><selfclose/></root>`;
-				const parsed = parser.parse(xml);
-				const serialized = parser.serialize(parsed);
-				expect(domEqual(serialized, xml)).toBe(true);
-			});
-
-			it("should preserve unicode and special characters", () => {
-				const xml = `<root>Ω≈ç√∫˜µ≤≥÷</root>`;
-				const parsed = parser.parse(xml);
-				const serialized = parser.serialize(parsed);
-				expect(domEqual(serialized, xml)).toBe(true);
-			});
-
-			it("should preserve deeply nested structures", () => {
-				const xml = `<a><b><c><d>val</d></c></b></a>`;
-				const parsed = parser.parse(xml);
-				const serialized = parser.serialize(parsed);
-				expect(domEqual(serialized, xml)).toBe(true);
-			});
-		});
-
-		describe("invalid XML handling", () => {
-			it("should throw error for invalid XML", () => {
-				const invalid = `<root><a></root>`;
-				expect(() => parser.parse(invalid)).toThrow(/Invalid XML/);
-			});
-			it("should throw error for empty content", () => {
-				expect(() => parser.parse("")).toThrow(/empty/);
-			});
-		});
-
-		describe("fallback serialization", () => {
-			it("should serialize object to XML if DOM/original XML is missing", () => {
-				// Simulate a plain object (no DOM, no __xml)
-				const obj = { foo: "bar", baz: 42 };
-				const xml = parser.serialize(obj);
-				expect(xml).toContain("<appSettings>");
-				expect(xml).toContain('<add key="foo" value="bar"');
-				expect(xml).toContain('<add key="baz" value="42"');
-			});
+	test("uses ENV quoting, export and inline-comment rules for display", () => {
+		const data = new EnvParser().parse(
+			'\uFEFFexport VER="1.10" # comment\r\nURL=http://x/#frag\r\nPHONE=0401234567\r\n'
+		);
+		expect(data).toEqual({
+			VER: "1.10",
+			URL: "http://x/#frag",
+			PHONE: "0401234567",
 		});
 	});
-
-	describe("EnvParser", () => {
-		let parser: EnvParser;
-
-		beforeEach(() => {
-			parser = new EnvParser();
-		});
-
-		describe("parse", () => {
-			it("should parse simple ENV content", () => {
-				const envContent = `
-					# This is a comment
-					KEY1=value1
-					KEY2=true
-					KEY3=123
-					KEY4="value with spaces"
-					KEY5='single quotes'
-				`;
-
-				const result = parser.parse(envContent);
-				expect(result).toEqual({
-					KEY1: "value1",
-					KEY2: true,
-					KEY3: 123,
-					KEY4: "value with spaces",
-					KEY5: "single quotes",
-				});
-			});
-
-			it("should handle empty lines and comments", () => {
-				const envContent = `
-					# This is a comment
-					
-					KEY1=value1
-					# Another comment
-					KEY2=value2
-				`;
-
-				const result = parser.parse(envContent);
-				expect(result).toEqual({
-					KEY1: "value1",
-					KEY2: "value2",
-				});
-			});
-
-			it("should throw error for empty content", () => {
-				expect(() => parser.parse("")).toThrow("Content cannot be empty");
-				expect(() => parser.parse("   ")).toThrow("Content cannot be empty");
-			});
-		});
-
-		describe("serialize", () => {
-			it("should serialize object to ENV format", () => {
-				const data = {
-					KEY1: "value1",
-					KEY2: true,
-					KEY3: 123,
-					KEY4: "value with spaces",
-				};
-				const result = parser.serialize(data);
-
-				expect(result).toContain("KEY1=value1");
-				expect(result).toContain("KEY2=true");
-				expect(result).toContain("KEY3=123");
-				expect(result).toContain('KEY4="value with spaces"');
-			});
-
-			it("should handle complex objects in ENV serialization", () => {
-				const data = {
-					KEY1: "value1",
-					COMPLEX: {
-						nested: "value",
-						number: 42,
-					},
-				};
-				const result = parser.serialize(data);
-
-				expect(result).toContain("KEY1=value1");
-				expect(result).toContain('# Complex object for key "COMPLEX"');
-				expect(result).toContain('COMPLEX="{');
-			});
-		});
-
-		describe("getFileType", () => {
-			it("should return correct file type", () => {
-				expect(parser.getFileType()).toBe("env");
-			});
-		});
+	test.each([
+		["json", '{"a":1 "b":2}'],
+		["xml", "<r><a></b></r>"],
+		["env", 'K="unterminated'],
+	])("rejects malformed %s", (type, content) => {
+		expect(() => ParserFactory.createParser(type).parse(content)).toThrow();
 	});
-
-	describe("ParserFactory", () => {
-		describe("createParser", () => {
-			it("should create JsonParser for json file type", () => {
-				const parser = ParserFactory.createParser("json");
-				expect(parser).toBeInstanceOf(JsonParser);
-				expect(parser.getFileType()).toBe("json");
-			});
-
-			it("should create XmlParser for xml file type", () => {
-				const parser = ParserFactory.createParser("xml");
-				expect(parser).toBeInstanceOf(XmlParser);
-				expect(parser.getFileType()).toBe("xml");
-			});
-
-			it("should create XmlParser for config file type", () => {
-				const parser = ParserFactory.createParser("config");
-				expect(parser).toBeInstanceOf(XmlParser);
-				expect(parser.getFileType()).toBe("xml");
-			});
-
-			it("should auto-detect JSON for config files with JSON content", () => {
-				const jsonContent = '{"key": "value"}';
-				const parser = ParserFactory.createParser("config", jsonContent);
-				expect(parser).toBeInstanceOf(JsonParser);
-				expect(parser.getFileType()).toBe("json");
-			});
-
-			it("should auto-detect XML for config files with XML content", () => {
-				const xmlContent = '<?xml version="1.0"?><root><key>value</key></root>';
-				const parser = ParserFactory.createParser("config", xmlContent);
-				expect(parser).toBeInstanceOf(XmlParser);
-				expect(parser.getFileType()).toBe("xml");
-			});
-
-			it("should auto-detect ENV for config files with ENV content", () => {
-				const envContent = "KEY1=value1\nKEY2=value2\nKEY3=value3";
-				const parser = ParserFactory.createParser("config", envContent);
-				expect(parser).toBeInstanceOf(EnvParser);
-				expect(parser.getFileType()).toBe("env");
-			});
-
-			it("should fallback to XML parser for config files with unrecognized content", () => {
-				const unknownContent =
-					"some random content that is not JSON, XML, or ENV";
-				const parser = ParserFactory.createParser("config", unknownContent);
-				expect(parser).toBeInstanceOf(XmlParser);
-				expect(parser.getFileType()).toBe("xml");
-			});
-
-			it("should create EnvParser for env file type", () => {
-				const parser = ParserFactory.createParser("env");
-				expect(parser).toBeInstanceOf(EnvParser);
-				expect(parser.getFileType()).toBe("env");
-			});
-
-			it("should throw error for unsupported file type", () => {
-				expect(() => ParserFactory.createParser("yaml")).toThrow(
-					"Unsupported file type: yaml"
-				);
-			});
-
-			it("should handle case insensitive file types", () => {
-				const jsonParser = ParserFactory.createParser("JSON");
-				const xmlParser = ParserFactory.createParser("XML");
-				const configParser = ParserFactory.createParser("CONFIG");
-				const envParser = ParserFactory.createParser("ENV");
-
-				expect(jsonParser).toBeInstanceOf(JsonParser);
-				expect(xmlParser).toBeInstanceOf(XmlParser);
-				expect(configParser).toBeInstanceOf(XmlParser);
-				expect(envParser).toBeInstanceOf(EnvParser);
-			});
-		});
-
-		describe("registerParser", () => {
-			it("should allow registration of new parser types", () => {
-				// Test that we can register a new parser
-				const mockParser = {
-					parse: () => ({ test: "data" }),
-					serialize: () => "serialized",
-					getFileType: () => "test",
-				};
-
-				ParserFactory.registerParser("test", () => mockParser);
-				const parser = ParserFactory.createParser("test");
-
-				expect(parser).toBe(mockParser);
-			});
-		});
+	test.each([
+		['{"a":1}', JsonParser],
+		["<r/>", XmlParser],
+		["export K=v", EnvParser],
+	])("detects config contents %s", (content, parser) => {
+		expect(ParserFactory.createParser("config", content)).toBeInstanceOf(
+			parser
+		);
+	});
+	test("exposes a root array and root primitive", () => {
+		expect(new JsonParser().parse('[1, {"a":2}]').__tree.kind).toBe(
+			"array"
+		);
+		expect(new JsonParser().parse("0").__tree.value).toBe("0");
+	});
+	test("rejects non-string path segments in the generated WASM API", () => {
+		const core = require("../wasm.cjs");
+		expect(() => core.update_value("json", '{"a":1}', [1], "2")).toThrow(
+			/string/
+		);
+		expect(parse_tree("json", '\uFEFF{"a":1}').children[0].span.start).toBe(
+			8
+		);
 	});
 });

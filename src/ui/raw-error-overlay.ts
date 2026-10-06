@@ -21,7 +21,12 @@ export class RawErrorOverlay {
 
 	private constructor(private readonly rawEl: HTMLDivElement) {
 		// Ensure container exists
-		const existing = rawEl.querySelector<HTMLDivElement>(
+		const host = rawEl.parentElement;
+		if (!host)
+			throw new Error(
+				"Mount the raw editor before adding its validation overlay"
+			);
+		const existing = host.querySelector<HTMLDivElement>(
 			":scope > .raw-editor-overlay"
 		);
 		if (existing) {
@@ -30,7 +35,7 @@ export class RawErrorOverlay {
 			const el = document.createElement("div");
 			el.className = "raw-editor-overlay";
 			this.overlay = el;
-			rawEl.appendChild(el);
+			host.appendChild(el);
 		}
 	}
 
@@ -49,7 +54,11 @@ export class RawErrorOverlay {
 		if (!meta || meta.valid) return;
 
 		const errors =
-			meta.errors && meta.errors.length ? meta.errors : meta.line ? [meta] : [];
+			meta.errors && meta.errors.length
+				? meta.errors
+				: meta.line
+					? [meta]
+					: [];
 		if (!errors.length) return;
 
 		const cs = window.getComputedStyle(this.rawEl);

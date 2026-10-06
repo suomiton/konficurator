@@ -19,8 +19,8 @@ const mockFileHandle = {
 	kind: "file" as const,
 	getFile: jest.fn<() => Promise<File>>(),
 	createWritable: jest.fn<() => Promise<FileSystemWritableFileStream>>(),
-	queryPermission: jest.fn<(options?: { mode: string }) => Promise<string>>(),
-	requestPermission: jest.fn<(options?: { mode: string }) => Promise<string>>(),
+	queryPermission: jest.fn<(options?: { mode: string }) => Promise<PermissionState>>(),
+	requestPermission: jest.fn<(options?: { mode: string }) => Promise<PermissionState>>(),
 	isSameEntry: jest
 		.fn<(other: FileSystemHandle) => Promise<boolean>>()
 		.mockResolvedValue(false),

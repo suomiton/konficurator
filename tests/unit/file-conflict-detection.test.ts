@@ -102,6 +102,7 @@ describe("File Conflict Detection Feature", () => {
 			const newTime = Date.now(); // Now
 
 			const fileData: FileData = {
+                id: "conflict-id", group: "default",
 				name: "test.json",
 				handle: mockFileHandle,
 				type: "json",
@@ -123,6 +124,7 @@ describe("File Conflict Detection Feature", () => {
 			const currentTime = Date.now();
 
 			const fileData: FileData = {
+                id: "conflict-id", group: "default",
 				name: "test.json",
 				handle: mockFileHandle,
 				type: "json",
@@ -141,6 +143,7 @@ describe("File Conflict Detection Feature", () => {
 
 		it("should return false when file has no handle", async () => {
 			const fileData: FileData = {
+                id: "conflict-id", group: "default",
 				name: "test.json",
 				handle: null,
 				type: "json",
@@ -156,6 +159,7 @@ describe("File Conflict Detection Feature", () => {
 
 		it("should return false when file has no lastModified timestamp", async () => {
 			const fileData: FileData = {
+                id: "conflict-id", group: "default",
 				name: "test.json",
 				handle: mockFileHandle,
 				type: "json",
@@ -171,6 +175,7 @@ describe("File Conflict Detection Feature", () => {
 
 		it("should return false when file access fails", async () => {
 			const fileData: FileData = {
+                id: "conflict-id", group: "default",
 				name: "test.json",
 				handle: mockFileHandle,
 				type: "json",
@@ -202,6 +207,7 @@ describe("File Conflict Detection Feature", () => {
 			const exactTime = Date.now();
 
 			const fileData: FileData = {
+                id: "conflict-id", group: "default",
 				name: "test.json",
 				handle: mockFileHandle,
 				type: "json",
@@ -430,6 +436,7 @@ describe("File Conflict Detection Feature", () => {
 		it("should show conflict dialog when file is modified on disk", async () => {
 			// This test verifies the integration pattern used in main.ts
 			const fileData: FileData = {
+                id: "conflict-id", group: "default",
 				name: "test.json",
 				handle: mockFileHandle,
 				type: "json",
@@ -469,6 +476,7 @@ describe("File Conflict Detection Feature", () => {
 
 		it("should not show conflict dialog when file is not modified", async () => {
 			const fileData: FileData = {
+                id: "conflict-id", group: "default",
 				name: "test.json",
 				handle: mockFileHandle,
 				type: "json",
@@ -527,6 +535,7 @@ describe("File Conflict Detection Feature", () => {
 	describe("Error Handling and Edge Cases", () => {
 		it("should handle FileSystemFileHandle.getFile() throwing NotAllowedError", async () => {
 			const fileData: FileData = {
+                id: "conflict-id", group: "default",
 				name: "test.json",
 				handle: mockFileHandle,
 				type: "json",
@@ -553,6 +562,7 @@ describe("File Conflict Detection Feature", () => {
 
 		it("should handle FileSystemFileHandle.getFile() throwing NotFoundError", async () => {
 			const fileData: FileData = {
+                id: "conflict-id", group: "default",
 				name: "test.json",
 				handle: mockFileHandle,
 				type: "json",
@@ -579,6 +589,7 @@ describe("File Conflict Detection Feature", () => {
 
 		it("should handle very large timestamp differences correctly", async () => {
 			const fileData: FileData = {
+                id: "conflict-id", group: "default",
 				name: "test.json",
 				handle: mockFileHandle,
 				type: "json",
@@ -596,6 +607,7 @@ describe("File Conflict Detection Feature", () => {
 
 		it("should handle corrupted/invalid lastModified timestamps", async () => {
 			const fileData: FileData = {
+                id: "conflict-id", group: "default",
 				name: "test.json",
 				handle: mockFileHandle,
 				type: "json",

@@ -14,7 +14,7 @@ describe("KonficuratorApp autosave", () => {
 	test("debounces multiple scheduleAutosave calls into one save per file", async () => {
 		const app = new KonficuratorApp();
 		const saveSpy = jest
-			.spyOn(app as any, "handleFileSave")
+			.spyOn(app as any, "saveFileNow")
 			.mockResolvedValue(undefined);
 
 		(app as any).loadedFiles = [];
@@ -32,7 +32,7 @@ describe("KonficuratorApp autosave", () => {
 	test("independent debouncing per file id", async () => {
 		const app = new KonficuratorApp();
 		const saveSpy = jest
-			.spyOn(app as any, "handleFileSave")
+			.spyOn(app as any, "saveFileNow")
 			.mockResolvedValue(undefined);
 
 		(app as any).scheduleAutosave("file-A", 300);

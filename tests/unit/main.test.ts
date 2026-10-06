@@ -490,6 +490,7 @@ describe("Main Application Tests", () => {
 			const form = document.createElement("form");
 			editor.appendChild(form);
 			document.body.appendChild(editor);
+			jest.spyOn(app.renderer, "getForm").mockReturnValue(form);
 			const spy = jest.spyOn(app.persistence, "saveFile");
 			await (app as any).handleFileSave("save-id");
 			expect(spy).toHaveBeenCalledWith(fileData, form);

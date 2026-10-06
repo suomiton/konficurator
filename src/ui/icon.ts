@@ -105,7 +105,10 @@ export function createIcon(
 			wrapper.setAttribute("aria-hidden", "true");
 		} else {
 			wrapper.setAttribute("role", "img");
-			wrapper.setAttribute("aria-label", title ?? name.replace(/-/g, " "));
+			wrapper.setAttribute(
+				"aria-label",
+				title ?? name.replace(/-/g, " ")
+			);
 		}
 
 		return wrapper;

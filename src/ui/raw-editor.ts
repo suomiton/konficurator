@@ -1,4 +1,4 @@
-import { RawErrorOverlay } from "./raw-error-overlay";
+import { RawErrorOverlay, RawErrorMeta } from "./raw-error-overlay";
 
 export interface RawEditorOptions {
 	fileId: string;
@@ -11,6 +11,8 @@ export class RawEditor {
 	private gutter: HTMLDivElement;
 	private overlay: RawErrorOverlay | null = null;
 	private fileId: string;
+	private lineEndings: string[] = [];
+	private defaultLineEnding = "\n";
 	private onChange: ((c: string) => void) | undefined;
 
 	constructor(opts: RawEditorOptions) {
@@ -40,22 +42,44 @@ export class RawEditor {
 	}
 
 	getContent(): string {
-		// Build content from raw-line divs explicitly, stripping NBSP
-		const lines: string[] = [];
-		for (const child of Array.from(this.root.children)) {
-			if (!(child instanceof HTMLElement)) continue;
-			let txt = child.textContent || "";
-			// Replace non-breaking spaces with empty (they were only layout placeholders)
-			txt = txt.replace(/\u00A0/g, "");
-			lines.push(txt);
-		}
-		return lines.join("\n");
+		const read = (node: Node): string => {
+			if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
+			if (node instanceof HTMLBRElement) return "\n";
+			const children = Array.from(node.childNodes);
+			if (children.length === 1 && children[0] instanceof HTMLBRElement)
+				return "";
+			let text = "";
+			children.forEach((child, index) => {
+				if (
+					index > 0 &&
+					child instanceof HTMLElement &&
+					["DIV", "P"].includes(child.tagName)
+				)
+					text += "\n";
+				text += read(child);
+			});
+			return text;
+		};
+		const text = read(this.root);
+		return text
+			.replace(/\r\n?/g, "\n")
+			.split("\n")
+			.map(
+				(line, index, all) =>
+					line +
+					(index < all.length - 1
+						? (this.lineEndings[index] ?? this.defaultLineEnding)
+						: "")
+			)
+			.join("");
 	}
 
 	setContent(text: string): void {
 		// Split into lines and create separate line divs for easier future enhancements
 		this.root.innerHTML = "";
-		const lines = text.replace(/\r\n/g, "\n").split("\n");
+		this.lineEndings = text.match(/\r\n|\r|\n/g) ?? [];
+		this.defaultLineEnding = this.lineEndings[0] ?? "\n";
+		const lines = text.split(/\r\n|\r|\n/);
 		for (const line of lines) {
 			const lineEl = document.createElement("div");
 			lineEl.className = "raw-line";
@@ -70,39 +94,27 @@ export class RawEditor {
 		this.updateGutter();
 	}
 
-	applyValidation(meta?: {
-		valid: boolean;
-		errors?: Array<{ message?: string; line?: number; column?: number }>;
-		message?: string;
-		line?: number;
-	}): void {
-		if (!this.overlay) this.overlay = RawErrorOverlay.mount(this.root);
+	applyValidation(meta?: RawErrorMeta): void {
+		if (!this.overlay && this.root.parentElement)
+			this.overlay = RawErrorOverlay.mount(this.root);
 		this.root.classList.toggle("has-error", meta?.valid === false);
 		this.root.classList.toggle("is-valid", meta?.valid !== false);
-		this.overlay.render(meta as any);
+		this.overlay?.render(meta);
 	}
 
 	updateGutter(): void {
 		const lines = Array.from(this.root.children);
 		const count = lines.length || 1;
-		const numbers = Array.from({ length: count }, (_, i) => `${i + 1}`).join(
-			"\n"
-		);
+		const numbers = Array.from(
+			{ length: count },
+			(_, i) => `${i + 1}`
+		).join("\n");
 		this.gutter.textContent = numbers;
 		this.gutter.dataset.lineCount = String(count);
 		this.gutter.scrollTop = this.root.scrollTop;
 	}
 
 	private handleInput = () => {
-		// Normalize empty divs to retain visual space
-		// Remove any accidental NBSP introduced by browser edits
-		Array.from(this.root.children).forEach((child) => {
-			if (child instanceof HTMLElement) {
-				if (child.textContent && /\u00A0/.test(child.textContent)) {
-					child.textContent = child.textContent.replace(/\u00A0/g, "");
-				}
-			}
-		});
 		this.updateGutter();
 		this.onChange?.(this.getContent());
 	};
