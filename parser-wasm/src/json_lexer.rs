@@ -1,8 +1,4 @@
-//! Pieni, no‑alloc JSON‑tokenisoija, joka tuottaa Token { kind, span }.
-//! • Tukee RFC 8259: numerot, stringit, true/false/null, whitespace.
-//! • Ei kommentteja eikä trailing‑comma‑sallintaa (sama kuin virallinen JSON).
-//! • Span = byte‑indeksit alkuperäiseen buffiin (start..end).
-
+//! JSON token spans in the original UTF-8 buffer.
 use crate::Span;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,7 +31,7 @@ pub struct LexError {
 
 pub fn lex(buf: &str) -> Result<Vec<Token>, String> {
     let bytes = buf.as_bytes();
-    let mut i = 0;
+    let mut i = if buf.starts_with('\u{feff}') { 3 } else { 0 };
     let mut tokens = Vec::new();
 
     macro_rules! push {
@@ -91,10 +87,6 @@ pub fn lex(buf: &str) -> Result<Vec<Token>, String> {
                             break;
                         }
                         b'\n' | b'\r' if !esc => {
-                            #[cfg(test)]
-                            {
-                                println!("newline inside string at {}", i);
-                            }
                             break;
                         }
                         _ => {
@@ -143,71 +135,9 @@ pub fn lex(buf: &str) -> Result<Vec<Token>, String> {
     Ok(tokens)
 }
 
-/// Erittäin kevyt syntaksivalidointi – tarkistaa sulkujen tasapainon ja
-/// object‑key → colon → value ‑järjestyksen pääpiirteissään.
-/// Riittää konfiguraatiokäyttöihin; syvällisempi tarkistus voidaan
-/// delegoida serde_jsonille, jos tarve.
-pub fn validate(tokens: &[Token]) -> Result<(), String> {
-    use Kind::*;
-    let mut stack = Vec::new();
-    let mut expect_key_or_end = false; // inside object
-    let mut i = 0;
-
-    while i < tokens.len() {
-        match tokens[i].kind {
-            LBrace => {
-                stack.push(LBrace);
-                expect_key_or_end = true;
-                i += 1;
-            }
-            LBrack => {
-                stack.push(LBrack);
-                i += 1;
-            }
-            RBrace => {
-                if stack.pop() != Some(LBrace) {
-                    return Err("mismatched '}'".into());
-                }
-                i += 1;
-                expect_key_or_end = false;
-            }
-            RBrack => {
-                if stack.pop() != Some(LBrack) {
-                    return Err("mismatched ']'".into());
-                }
-                i += 1;
-            }
-            StringLit => {
-                if stack.last() == Some(&LBrace) && expect_key_or_end {
-                    // key position – next token must be Colon
-                    if tokens.get(i + 1).map(|t| t.kind) != Some(Colon) {
-                        return Err("object key not followed by ':'".into());
-                    }
-                }
-                i += 1;
-            }
-            Colon => {
-                expect_key_or_end = false;
-                i += 1;
-            }
-            Comma => {
-                expect_key_or_end = stack.last() == Some(&LBrace);
-                i += 1;
-            }
-            NumberLit | True | False | Null => {
-                i += 1;
-            }
-        }
-    }
-    if !stack.is_empty() {
-        return Err("unclosed brackets/braces".into());
-    }
-    Ok(())
-}
-
 pub fn lex_lenient(buf: &str, max_errors: usize) -> (Vec<Token>, Vec<LexError>) {
     let bytes = buf.as_bytes();
-    let mut i = 0;
+    let mut i = if buf.starts_with('\u{feff}') { 3 } else { 0 };
     let mut tokens = Vec::new();
     let mut errors = Vec::new();
     let budget = if max_errors == 0 {

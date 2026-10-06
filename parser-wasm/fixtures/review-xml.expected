@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<configuration>
+  <appSettings><add key="A" value="1"/><add key="B" value="0401234567"/></appSettings>
+</configuration>

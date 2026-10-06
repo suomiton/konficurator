@@ -1,0 +1,2 @@
+﻿export database.host="remote"  # comment
+VER=1.10

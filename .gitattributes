@@ -1,0 +1,2 @@
+# Golden fixtures must retain their original BOM and line-ending bytes.
+parser-wasm/fixtures/review-* -text whitespace=cr-at-eol

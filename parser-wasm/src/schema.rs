@@ -1,20 +1,22 @@
 use crate::json_parser::JsonSpanResolver;
 use crate::multi_validation::infer_json_span;
-use crate::{compute_line_col_from_offset, compute_offset_from_line_col, Span};
-use js_sys::{Array, Object, Reflect};
-use jsonschema::error::{ValidationError, ValidationErrorKind};
-use jsonschema::{Draft, JSONSchema};
-use once_cell::sync::Lazy;
+use crate::{compute_line_col_from_offset, Span};
+use js_sys::{Object, Reflect};
+use jsonschema::error::ValidationError;
+use jsonschema::{Draft, Validator};
+use serde::Serialize;
 use serde_json::Value;
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
 use wasm_bindgen::JsValue;
 
 const DEFAULT_MAX_SCHEMA_ERRORS: usize = 50;
 const MAX_SCHEMA_ERROR_CAP: usize = 200;
 
-static SCHEMA_CACHE: Lazy<Mutex<HashMap<String, Arc<JSONSchema>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+thread_local! {
+    static SCHEMA_CACHE: RefCell<HashMap<String, Rc<Validator>>> = RefCell::new(HashMap::new());
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct SchemaValidationOptions {
@@ -63,7 +65,8 @@ impl SchemaValidationOptions {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct SchemaErrorDescriptor {
     pub(crate) message: String,
     pub(crate) keyword: Option<String>,
@@ -75,20 +78,13 @@ pub(crate) struct SchemaErrorDescriptor {
     pub(crate) end: Option<usize>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub(crate) struct SchemaValidationOutcome {
     pub(crate) valid: bool,
     pub(crate) errors: Vec<SchemaErrorDescriptor>,
 }
 
 impl SchemaValidationOutcome {
-    fn success() -> Self {
-        Self {
-            valid: true,
-            errors: Vec::new(),
-        }
-    }
-
     fn from_errors(errors: Vec<SchemaErrorDescriptor>) -> Self {
         let valid = errors.is_empty();
         Self { valid, errors }
@@ -168,11 +164,14 @@ pub(crate) fn register_schema(schema_id: &str, schema: &str) -> Result<(), JsVal
     let schema_value: Value = serde_json::from_str(schema).map_err(|err| {
         JsValue::from_str(&format!("Invalid schema JSON for '{schema_id}': {err}"))
     })?;
-    let compiled =
-        JSONSchema::compile(&schema_value).map_err(|err| JsValue::from_str(&err.to_string()))?;
+    let compiled = jsonschema::validator_for(&schema_value)
+        .map_err(|err| JsValue::from_str(&err.to_string()))?;
 
-    let mut cache = SCHEMA_CACHE.lock().expect("schema cache lock poisoned");
-    cache.insert(schema_id.to_string(), Arc::new(compiled));
+    SCHEMA_CACHE.with(|cache| {
+        cache
+            .borrow_mut()
+            .insert(schema_id.to_string(), Rc::new(compiled))
+    });
     Ok(())
 }
 
@@ -183,19 +182,25 @@ pub(crate) fn validate_schema_for_tests(
     options: Option<SchemaValidationOptions>,
 ) -> SchemaValidationOutcome {
     let schema_value: Value = serde_json::from_str(schema_json).unwrap();
-    let compiled = JSONSchema::compile(&schema_value).unwrap();
-    let instance_value = serde_json::from_str::<Value>(content).unwrap();
+    let compiled = jsonschema::validator_for(&schema_value).unwrap();
+    let instance_value =
+        serde_json::from_str::<Value>(content.trim_start_matches('\u{feff}')).unwrap();
     let opts = options.unwrap_or_default();
     schema_validate_instance(&compiled, &instance_value, content, &opts)
 }
 
 fn parse_instance(content: &str) -> Result<Value, SyntaxErrorDetail> {
-    match serde_json::from_str::<Value>(content) {
+    match serde_json::from_str::<Value>(content.trim_start_matches('\u{feff}')) {
         Ok(val) => Ok(val),
         Err(err) => {
-            let line = err.line().max(1) as usize;
-            let column = err.column().max(1) as usize;
-            let start = compute_offset_from_line_col(content, line, column);
+            let line = err.line().max(1);
+            let column = err.column().max(1);
+            let start = crate::positions::LineIndex::new(content).byte_offset(line, column)
+                + if content.starts_with('\u{feff}') && line == 1 {
+                    3
+                } else {
+                    0
+                };
             let span = infer_json_span(content, start);
             Err(SyntaxErrorDetail {
                 message: err.to_string(),
@@ -210,40 +215,33 @@ fn parse_instance(content: &str) -> Result<Value, SyntaxErrorDetail> {
 fn compile_schema(
     schema_value: &Value,
     draft: Option<Draft>,
-) -> Result<JSONSchema, ValidationError> {
-    let mut options = JSONSchema::options();
+) -> Result<Validator, Box<ValidationError<'_>>> {
+    let mut options = jsonschema::options();
     if let Some(draft) = draft {
-        options.with_draft(draft);
+        options = options.with_draft(draft);
     }
-    options.compile(schema_value)
+    options.build(schema_value).map_err(Box::new)
 }
 
 fn schema_validate_instance(
-    compiled: &JSONSchema,
+    compiled: &Validator,
     instance: &Value,
     content: &str,
     opts: &SchemaValidationOptions,
 ) -> SchemaValidationOutcome {
-    match compiled.validate(instance) {
-        Ok(_) => SchemaValidationOutcome::success(),
-        Err(errors) => {
-            let resolver = if opts.collect_positions {
-                JsonSpanResolver::new(content).ok()
-            } else {
-                None
-            };
-            let mut collected = Vec::new();
-            for error in errors.take(opts.max_errors) {
-                collected.push(descriptor_from_error(
-                    error,
-                    content,
-                    opts.collect_positions,
-                    resolver.as_ref(),
-                ));
-            }
-            SchemaValidationOutcome::from_errors(collected)
-        }
-    }
+    let resolver = if opts.collect_positions {
+        JsonSpanResolver::new(content).ok()
+    } else {
+        None
+    };
+    let errors = compiled
+        .iter_errors(instance)
+        .take(opts.max_errors)
+        .map(|error| {
+            descriptor_from_error(error, content, opts.collect_positions, resolver.as_ref())
+        })
+        .collect();
+    SchemaValidationOutcome::from_errors(errors)
 }
 
 fn descriptor_from_error(
@@ -252,9 +250,14 @@ fn descriptor_from_error(
     include_positions: bool,
     resolver: Option<&JsonSpanResolver>,
 ) -> SchemaErrorDescriptor {
-    let instance_path = error.instance_path.to_string();
-    let schema_path = Some(error.schema_path.to_string());
-    let keyword = keyword_from_kind(&error.kind).map(|kw| kw.to_string());
+    let instance_path = error.instance_path().to_string();
+    let schema_path = Some(error.schema_path().to_string());
+    let keyword = error
+        .schema_path()
+        .to_string()
+        .rsplit('/')
+        .next()
+        .map(str::to_string);
 
     let (line, column, start, end) = if include_positions {
         resolver
@@ -317,124 +320,7 @@ fn schema_issue_outcome(message: String) -> SchemaValidationOutcome {
 }
 
 fn schema_outcome_to_js(outcome: SchemaValidationOutcome) -> JsValue {
-    let obj = Object::new();
-    let _ = Reflect::set(
-        &obj,
-        &JsValue::from_str("valid"),
-        &JsValue::from_bool(outcome.valid),
-    );
-    if !outcome.errors.is_empty() {
-        let arr = Array::new();
-        for err in &outcome.errors {
-            arr.push(&schema_error_to_js(err));
-        }
-        let _ = Reflect::set(&obj, &JsValue::from_str("errors"), &arr);
-    }
-    obj.into()
-}
-
-fn schema_error_to_js(err: &SchemaErrorDescriptor) -> JsValue {
-    let obj = Object::new();
-    let _ = Reflect::set(
-        &obj,
-        &JsValue::from_str("message"),
-        &JsValue::from_str(&err.message),
-    );
-    if let Some(keyword) = &err.keyword {
-        let _ = Reflect::set(
-            &obj,
-            &JsValue::from_str("keyword"),
-            &JsValue::from_str(keyword),
-        );
-    }
-    let _ = Reflect::set(
-        &obj,
-        &JsValue::from_str("instancePath"),
-        &JsValue::from_str(&err.instance_path),
-    );
-    if let Some(schema_path) = &err.schema_path {
-        let _ = Reflect::set(
-            &obj,
-            &JsValue::from_str("schemaPath"),
-            &JsValue::from_str(schema_path),
-        );
-    }
-    if let Some(line) = err.line {
-        let _ = Reflect::set(
-            &obj,
-            &JsValue::from_str("line"),
-            &JsValue::from_f64(line as f64),
-        );
-    }
-    if let Some(column) = err.column {
-        let _ = Reflect::set(
-            &obj,
-            &JsValue::from_str("column"),
-            &JsValue::from_f64(column as f64),
-        );
-    }
-    if let Some(start) = err.start {
-        let _ = Reflect::set(
-            &obj,
-            &JsValue::from_str("start"),
-            &JsValue::from_f64(start as f64),
-        );
-    }
-    if let Some(end) = err.end {
-        let _ = Reflect::set(
-            &obj,
-            &JsValue::from_str("end"),
-            &JsValue::from_f64(end as f64),
-        );
-    }
-    obj.into()
-}
-
-#[allow(unreachable_patterns)]
-fn keyword_from_kind(kind: &ValidationErrorKind) -> Option<&'static str> {
-    use ValidationErrorKind::*;
-    match kind {
-        AdditionalItems { .. } => Some("additionalItems"),
-        AdditionalProperties { .. } => Some("additionalProperties"),
-        AnyOf => Some("anyOf"),
-        BacktrackLimitExceeded { .. } => Some("format"),
-        Constant { .. } => Some("const"),
-        Contains => Some("contains"),
-        ContentEncoding { .. } => Some("contentEncoding"),
-        ContentMediaType { .. } => Some("contentMediaType"),
-        Enum { .. } => Some("enum"),
-        ExclusiveMaximum { .. } => Some("exclusiveMaximum"),
-        ExclusiveMinimum { .. } => Some("exclusiveMinimum"),
-        FalseSchema => Some("false"),
-        FileNotFound { .. } => Some("$ref"),
-        Format { .. } => Some("format"),
-        FromUtf8 { .. } => Some("contentEncoding"),
-        Utf8 { .. } => Some("contentEncoding"),
-        JSONParse { .. } => Some("$ref"),
-        InvalidReference { .. } => Some("$ref"),
-        InvalidURL { .. } => Some("$ref"),
-        MaxItems { .. } => Some("maxItems"),
-        Maximum { .. } => Some("maximum"),
-        MaxLength { .. } => Some("maxLength"),
-        MaxProperties { .. } => Some("maxProperties"),
-        MinItems { .. } => Some("minItems"),
-        Minimum { .. } => Some("minimum"),
-        MinLength { .. } => Some("minLength"),
-        MinProperties { .. } => Some("minProperties"),
-        MultipleOf { .. } => Some("multipleOf"),
-        Not { .. } => Some("not"),
-        OneOfMultipleValid | OneOfNotValid => Some("oneOf"),
-        Pattern { .. } => Some("pattern"),
-        PropertyNames { .. } => Some("propertyNames"),
-        Required { .. } => Some("required"),
-        Schema => Some("$schema"),
-        Type { .. } => Some("type"),
-        UnevaluatedProperties { .. } => Some("unevaluatedProperties"),
-        UniqueItems => Some("uniqueItems"),
-        UnknownReferenceScheme { .. } => Some("$ref"),
-        Resolver { .. } => Some("$ref"),
-        _ => None,
-    }
+    crate::to_js(&outcome)
 }
 
 fn resolve_pointer_span(resolver: &JsonSpanResolver, pointer: &str) -> Option<Span> {
@@ -486,9 +372,6 @@ fn parse_draft_label(raw: &str) -> Option<Draft> {
     }
 }
 
-fn get_cached_schema(id: &str) -> Option<Arc<JSONSchema>> {
-    SCHEMA_CACHE
-        .lock()
-        .ok()
-        .and_then(|cache| cache.get(id).cloned())
+fn get_cached_schema(id: &str) -> Option<Rc<Validator>> {
+    SCHEMA_CACHE.with(|cache| cache.borrow().get(id).cloned())
 }

@@ -1,238 +1,121 @@
-//! JSON‑parseri, joka käyttää omaa minitokenisoijaa span‑hakuihin.
-
-use crate::json_lexer::{lex, validate, Kind, Token};
+//! Strict JSON parsing with token spans and decoded keys.
+use crate::json_lexer::{lex, Kind, Token};
+use crate::model::Node;
 use crate::{BytePreservingParser, Span};
 
+#[derive(Default)]
 pub struct JsonParser;
 impl JsonParser {
     pub fn new() -> Self {
         Self
     }
 }
-
-// ────────── HELPER FUNCTIONS ──────────
-
-fn find_matching_brace(tokens: &[Token], start_idx: usize) -> Result<usize, String> {
-    let mut depth = 0;
-    for i in start_idx..tokens.len() {
-        match tokens[i].kind {
-            Kind::LBrace => depth += 1,
-            Kind::RBrace => {
-                depth -= 1;
-                if depth == 0 {
-                    return Ok(tokens[i].span.end);
-                }
-            }
-            _ => {}
-        }
-    }
-    Err("Unmatched opening brace".to_string())
-}
-
-fn find_matching_bracket(tokens: &[Token], start_idx: usize) -> Result<usize, String> {
-    let mut depth = 0;
-    for i in start_idx..tokens.len() {
-        match tokens[i].kind {
-            Kind::LBrack => depth += 1,
-            Kind::RBrack => {
-                depth -= 1;
-                if depth == 0 {
-                    return Ok(tokens[i].span.end);
-                }
-            }
-            _ => {}
-        }
-    }
-    Err("Unmatched opening bracket".to_string())
-}
-
-// ────────── PATH‑TRACKER ──────────
-#[derive(Debug, Clone)]
-enum Seg {
-    Key(String),
-    Idx(usize),
-}
-
-fn path_matches(stack: &[Seg], target: &[String]) -> bool {
-    if stack.len() != target.len() {
-        return false;
-    }
-    for (s, t) in stack.iter().zip(target) {
-        match s {
-            Seg::Key(k) if k == t => (),
-            Seg::Idx(i) if i.to_string() == *t => (),
-            _ => return false,
-        }
-    }
-    true
-}
-
 impl BytePreservingParser for JsonParser {
-    fn validate_syntax(&self, content: &str) -> Result<(), String> {
+    fn parse(&self, content: &str) -> Result<Node, String> {
+        serde_json::from_str::<serde_json::Value>(content.trim_start_matches('\u{feff}'))
+            .map_err(|e| e.to_string())?;
         let tokens = lex(content)?;
-        validate(&tokens)
-    }
-
-    fn find_value_span(&self, content: &str, path: &[String]) -> Result<Span, String> {
-        let tokens = lex(content)?;
-        find_value_span_with_tokens(&tokens, content, path)
+        let mut node = parse_node(content, &tokens, &mut 0, String::new(), Vec::new())?;
+        assign_paths(&mut node);
+        Ok(node)
     }
 }
-
-fn find_value_span_with_tokens(
-    tokens: &[Token],
+fn parse_node(
     content: &str,
-    path: &[String],
-) -> Result<Span, String> {
-    let mut path_stack = Vec::<Seg>::new();
-    let mut arr_idx_stack = Vec::<usize>::new();
-    let mut expect_key: Option<String> = None;
-    let mut i = 0;
-
-    while i < tokens.len() {
-        match tokens[i].kind {
-            Kind::LBrace => {
-                if let Some(key) = expect_key.take() {
-                    path_stack.push(Seg::Key(key));
-                    if path_matches(&path_stack, path) {
-                        let start_pos = tokens[i].span.start;
-                        let end_pos = find_matching_brace(tokens, i)?;
-                        return Ok(crate::Span::new(start_pos, end_pos));
-                    }
-                }
-                i += 1;
-            }
-            Kind::RBrace => {
-                if let Some(Seg::Key(_)) = path_stack.last() {
-                    path_stack.pop();
-                }
-                i += 1;
-            }
-            Kind::LBrack => {
-                if let Some(key) = expect_key.take() {
-                    path_stack.push(Seg::Key(key));
-                    if path_matches(&path_stack, path) {
-                        let start_pos = tokens[i].span.start;
-                        let end_pos = find_matching_bracket(tokens, i)?;
-                        return Ok(crate::Span::new(start_pos, end_pos));
-                    }
-                }
-                arr_idx_stack.push(0);
-                path_stack.push(Seg::Idx(0));
-                i += 1;
-            }
-            Kind::RBrack => {
-                arr_idx_stack.pop();
-                if let Some(Seg::Idx(_)) = path_stack.last() {
-                    path_stack.pop();
-                }
-                if let Some(Seg::Key(_)) = path_stack.last() {
-                    path_stack.pop();
-                }
-                i += 1;
-            }
-            Kind::StringLit => {
-                if tokens.get(i + 1).map(|t| t.kind) == Some(Kind::Colon) {
-                    let key_slice = &content[tokens[i].span.start + 1..tokens[i].span.end - 1];
-                    expect_key = Some(key_slice.to_string());
-                    i += 2;
-                } else {
-                    if let Some(key) = expect_key.take() {
-                        path_stack.push(Seg::Key(key));
-                    }
-                    if path_matches(&path_stack, path) {
-                        return Ok(crate::Span::new(tokens[i].span.start, tokens[i].span.end));
-                    }
-                    if let Some(Seg::Key(_)) = path_stack.last() {
-                        path_stack.pop();
-                    }
-                    i += 1;
-                }
-            }
-            Kind::NumberLit | Kind::True | Kind::False | Kind::Null => {
-                if let Some(key) = expect_key.take() {
-                    path_stack.push(Seg::Key(key));
-                }
-                if path_matches(&path_stack, path) {
-                    return Ok(crate::Span::new(tokens[i].span.start, tokens[i].span.end));
-                }
-                if let Some(Seg::Key(_)) = path_stack.last() {
-                    path_stack.pop();
-                }
-                i += 1;
-            }
-            Kind::Comma => {
-                if let Some(last) = arr_idx_stack.last_mut() {
-                    *last += 1;
-                    if let Some(Seg::Idx(ref mut n)) = path_stack.last_mut() {
-                        *n = *last;
-                    }
-                }
-                i += 1;
-            }
-            Kind::Colon => {
-                i += 1;
-            }
-        }
-    }
-    Err(format!("Path not found: {}", path.join("/")))
-}
-
-pub struct JsonSpanResolver<'a> {
-    content: &'a str,
-    tokens: Vec<Token>,
-}
-
-impl<'a> JsonSpanResolver<'a> {
-    pub fn new(content: &'a str) -> Result<Self, String> {
-        let tokens = lex(content)?;
-        Ok(Self { content, tokens })
-    }
-
-    pub fn find_path(&self, path: &[String]) -> Result<Span, String> {
-        find_value_span_with_tokens(&self.tokens, self.content, path)
-    }
-
-    pub fn span_for_pointer(&self, pointer: &str) -> Result<Span, String> {
-        let segments = pointer_to_segments(pointer)?;
-        if segments.is_empty() {
-            return Ok(Span::new(0, self.content.len()));
-        }
-        self.find_path(&segments)
-    }
-}
-
-fn pointer_to_segments(pointer: &str) -> Result<Vec<String>, String> {
-    if pointer.is_empty() {
-        return Ok(Vec::new());
-    }
-    if !pointer.starts_with('/') {
-        return Err(format!("Invalid JSON Pointer: {}", pointer));
-    }
-    pointer
-        .split('/')
-        .skip(1)
-        .map(|segment| decode_pointer_segment(segment))
-        .collect()
-}
-
-fn decode_pointer_segment(segment: &str) -> Result<String, String> {
-    let mut out = String::with_capacity(segment.len());
-    let mut chars = segment.chars();
-    while let Some(ch) = chars.next() {
-        if ch == '~' {
-            match chars.next() {
-                Some('0') => out.push('~'),
-                Some('1') => out.push('/'),
-                Some(other) => {
-                    out.push('~');
-                    out.push(other);
-                }
-                None => out.push('~'),
-            }
+    tokens: &[Token],
+    index: &mut usize,
+    key: String,
+    path: Vec<String>,
+) -> Result<Node, String> {
+    let token = tokens.get(*index).ok_or("Missing JSON value")?;
+    *index += 1;
+    let kind = match token.kind {
+        Kind::LBrace => "object",
+        Kind::LBrack => "array",
+        Kind::StringLit => "string",
+        Kind::NumberLit => "number",
+        Kind::True | Kind::False => "boolean",
+        Kind::Null => "null",
+        _ => return Err("Expected JSON value".into()),
+    };
+    let mut node = Node::new(key, path, kind, token.span);
+    if matches!(kind, "object" | "array") {
+        let close = if kind == "object" {
+            Kind::RBrace
         } else {
-            out.push(ch);
+            Kind::RBrack
+        };
+        while tokens[*index].kind != close {
+            let key = if kind == "object" {
+                let key_token = tokens[*index];
+                *index += 2;
+                serde_json::from_str::<String>(&content[key_token.span.start..key_token.span.end])
+                    .map_err(|e| e.to_string())?
+            } else {
+                node.children.len().to_string()
+            };
+            let mut child_path = node.path.clone();
+            child_path.push(key.clone());
+            node.children
+                .push(parse_node(content, tokens, index, key, child_path)?);
+            if tokens[*index].kind == Kind::Comma {
+                *index += 1;
+            }
         }
+        node.span.end = tokens[*index].span.end;
+        *index += 1;
+    } else {
+        let raw = &content[token.span.start..token.span.end];
+        node.value = Some(if kind == "string" {
+            serde_json::from_str::<String>(raw).map_err(|e| e.to_string())?
+        } else {
+            raw.into()
+        });
     }
-    Ok(out)
+    Ok(node)
+}
+pub struct JsonSpanResolver {
+    tree: Node,
+}
+impl JsonSpanResolver {
+    pub fn new(content: &str) -> Result<Self, String> {
+        Ok(Self {
+            tree: JsonParser.parse(content)?,
+        })
+    }
+    pub fn span_for_pointer(&self, pointer: &str) -> Result<Span, String> {
+        if !pointer.is_empty() && !pointer.starts_with('/') {
+            return Err("Invalid JSON Pointer".into());
+        }
+        let path: Vec<String> = if pointer.is_empty() {
+            vec![]
+        } else {
+            pointer[1..]
+                .split('/')
+                .map(|s| s.replace("~1", "/").replace("~0", "~"))
+                .collect()
+        };
+        self.tree
+            .find(&path)
+            .map(|node| node.span)
+            .ok_or_else(|| format!("Path not found: {pointer}"))
+    }
+}
+
+fn assign_paths(parent: &mut Node) {
+    let mut counts = std::collections::HashMap::new();
+    for child in &parent.children {
+        *counts.entry(child.key.clone()).or_insert(0usize) += 1;
+    }
+    let mut seen = std::collections::HashMap::new();
+    for child in &mut parent.children {
+        child.path = parent.path.clone();
+        child.path.push(child.key.clone());
+        if counts[&child.key] > 1 {
+            let index = seen.entry(child.key.clone()).or_insert(0usize);
+            child.path.push(index.to_string());
+            *index += 1;
+        }
+        assign_paths(child);
+    }
 }

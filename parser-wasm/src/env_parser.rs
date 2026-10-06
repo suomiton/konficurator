@@ -1,300 +1,8 @@
-//---------------------------------------------------------
-// env_parser.rs  (no external crates, browser–WASM ready)
-//---------------------------------------------------------
+//! ENV/properties entries, including exports, quoted multiline values and sections.
+use crate::model::Node;
+use crate::{BytePreservingParser, Span};
 
-use crate::Span;
-
-/// API expected by upper-level tooling.
-pub trait BytePreservingParser {
-    fn validate_syntax(&self, content: &str) -> Result<(), String>;
-    fn find_value_span(&self, content: &str, path: &[String]) -> Result<Span, String>;
-
-    /// Convenience: splice `new_val` into `content` at `span`, preserving every
-    /// other byte. **Caller must** ensure `span` came from `find_value_span`.
-    fn replace_value(&self, content: &str, span: Span, new_val: &str) -> String {
-        let mut out = String::with_capacity(content.len() - span.len() + new_val.len());
-        out.push_str(&content[..span.start]);
-        out.push_str(new_val);
-        out.push_str(&content[span.end..]);
-        out
-    }
-}
-
-// Move Quote definition above mod lexer so it's visible to the whole file
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Quote {
-    Single,
-    Double,
-}
-impl Quote {
-    pub fn as_byte(self) -> u8 {
-        match self {
-            Quote::Single => b'\'',
-            Quote::Double => b'"',
-        }
-    }
-}
-
-// Make struct Line<'a> public so it can be used in mod lexer
-#[allow(dead_code)]
-pub struct Line<'a> {
-    pub bytes: &'a [u8],
-    pub eol_len: usize, // 0, 1 or 2
-}
-
-// ───────────────────────── 1. LEXER ─────────────────────────
-mod lexer {
-
-    use super::Line;
-    use super::{Quote, Span};
-
-    /// Parsed line → (optional) key/value spans + quote info.
-    #[derive(Debug)]
-    pub struct EntryRaw {
-        pub key_span: Span,
-        pub value_span: Span,
-        pub quote: Option<Quote>,
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct LexError {
-        pub msg: String,
-        pub line: usize,
-        pub column: usize,
-    }
-
-    /// Split buffer into `Line`s *without* allocating.
-    fn iter_lines(buf: &str) -> impl Iterator<Item = Line<'_>> {
-        let mut bytes = buf.as_bytes();
-        std::iter::from_fn(move || {
-            if bytes.is_empty() {
-                return None;
-            }
-            let mut idx = 0;
-            while idx < bytes.len() && bytes[idx] != b'\n' && bytes[idx] != b'\r' {
-                idx += 1;
-            }
-
-            let (_, rest) = bytes.split_at(idx);
-            let mut eol_len = 0;
-            // handle \r\n or \n  /  \r
-            if rest.first() == Some(&b'\r') && rest.get(1) == Some(&b'\n') {
-                eol_len = 2;
-            } else if rest.first().is_some() {
-                eol_len = 1;
-            }
-
-            // advance local slice
-            let consumed = idx + eol_len;
-            let (line_bytes, remainder) = bytes.split_at(consumed);
-            bytes = remainder;
-
-            Some(Line {
-                bytes: line_bytes,
-                eol_len,
-            })
-        })
-    }
-
-    /// Core tokenisation logic – returns Vec of raw entries; ignores comments/blank lines.
-    pub fn lex_with_pos(buf: &str) -> Result<Vec<EntryRaw>, LexError> {
-        let mut offset = 0; // running byte offset in the original buffer
-        let mut out = Vec::<EntryRaw>::new();
-        let mut line_no: usize = 1;
-
-        for line in iter_lines(buf) {
-            let slice = line.bytes; // still contains EOL
-            let trimmed = trim_ws(slice);
-
-            // count leading whitespace to compute accurate columns
-            let mut lead_ws = 0usize;
-            while lead_ws < slice.len() && is_space(slice[lead_ws]) {
-                lead_ws += 1;
-            }
-
-            if trimmed.is_empty() || trimmed[0] == b'#' {
-                // blank / comment
-                offset += slice.len();
-                line_no += 1;
-                continue;
-            }
-
-            // optional leading "export"
-            let mut idx = 0;
-            if starts_with_kw(trimmed, b"export") {
-                idx += b"export".len();
-                skip_spaces(&trimmed, &mut idx);
-            }
-
-            // parse key
-            let key_start = idx;
-            while idx < trimmed.len() && !trimmed[idx].is_ascii_whitespace() && trimmed[idx] != b'='
-            {
-                idx += 1;
-            }
-            let key_end = idx;
-            skip_spaces(&trimmed, &mut idx);
-
-            // '='
-            if idx >= trimmed.len() || trimmed[idx] != b'=' {
-                return Err(LexError {
-                    msg: "missing '=' separator".into(),
-                    line: line_no,
-                    column: lead_ws + idx + 1,
-                });
-            }
-            idx += 1; // past '='
-            let _after_eq = idx;
-            // capture value (leading spaces allowed)
-            skip_spaces(&trimmed, &mut idx);
-
-            // determine quoting
-            let (quote, val_body_start) = match trimmed.get(idx) {
-                Some(b'"') => (Some(super::Quote::Double), idx + 1),
-                Some(b'\'') => (Some(super::Quote::Single), idx + 1),
-                _ => (None, idx),
-            };
-
-            // locate end of value (before in-line comment / EOL)
-            let val_end;
-
-            // For quoted values, find the closing quote first
-            if let Some(q) = quote {
-                // For quoted values, find the matching closing quote
-                let mut j = val_body_start;
-                while j < trimmed.len() && trimmed[j] != q.as_byte() {
-                    j += 1;
-                }
-                if j >= trimmed.len() {
-                    return Err(LexError {
-                        msg: "unterminated quoted value".into(),
-                        line: line_no,
-                        column: lead_ws + j + 1,
-                    });
-                }
-                val_end = j + 1; // include the closing quote
-            } else {
-                // For unquoted values, find end considering comments
-                let mut j = trimmed.len();
-                if let Some(pos) = memchr::memchr(b'#', &trimmed[val_body_start..]) {
-                    j = val_body_start + pos;
-                }
-                // Strip trailing spaces before comment
-                while j > val_body_start && is_space(trimmed[j - 1]) {
-                    j -= 1;
-                }
-                val_end = j;
-            }
-
-            let key_global = Span::new(
-                offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + key_start,
-                offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + key_end,
-            );
-            // For quoted values, include the quotes in the span
-            let (val_span_start, val_span_end) = if quote.is_some() {
-                (val_body_start - 1, val_end) // include opening and closing quotes
-            } else {
-                (val_body_start, val_end)
-            };
-            let val_global = Span::new(
-                offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + val_span_start,
-                offset + (trimmed.as_ptr() as usize - slice.as_ptr() as usize) + val_span_end,
-            );
-
-            out.push(EntryRaw {
-                key_span: key_global,
-                value_span: val_global,
-                quote,
-            });
-
-            offset += slice.len();
-            line_no += 1;
-        }
-        Ok(out)
-    }
-
-    // Backward-compatible wrapper that drops position info
-    pub fn lex(buf: &str) -> Result<Vec<EntryRaw>, String> {
-        match lex_with_pos(buf) {
-            Ok(v) => Ok(v),
-            Err(e) => Err(e.msg),
-        }
-    }
-
-    // ───── helpers ─────
-    #[inline]
-    fn is_space(b: u8) -> bool {
-        b == b' ' || b == b'\t'
-    }
-    #[inline]
-    fn trim_ws(mut s: &[u8]) -> &[u8] {
-        while !s.is_empty() && is_space(s[0]) {
-            s = &s[1..];
-        }
-        while !s.is_empty()
-            && (is_space(s[s.len() - 1]) || s[s.len() - 1] == b'\n' || s[s.len() - 1] == b'\r')
-        {
-            s = &s[..s.len() - 1];
-        }
-        s
-    }
-    #[inline]
-    fn skip_spaces(buf: &[u8], idx: &mut usize) {
-        while *idx < buf.len() && is_space(buf[*idx]) {
-            *idx += 1;
-        }
-    }
-    #[inline]
-    fn starts_with_kw(buf: &[u8], kw: &[u8]) -> bool {
-        buf.len() >= kw.len()
-            && &buf[..kw.len()] == kw
-            && (buf.get(kw.len()).map_or(true, |c| is_space(*c)))
-    }
-}
-use lexer::lex;
-
-// ───────────────────────── 2. MODEL ─────────────────────────
-#[derive(Debug)]
-struct Entry {
-    key: String,
-    _key_span: Span,
-    value_span: Span,
-    _quote: Option<Quote>,
-}
-
-#[derive(Debug)]
-struct EnvDocument {
-    entries: Vec<Entry>,
-}
-
-impl EnvDocument {
-    fn parse(buf: &str) -> Result<Self, String> {
-        let raw = lex(buf)?;
-        let mut entries = Vec::with_capacity(raw.len());
-        let mut seen = std::collections::HashSet::new();
-
-        for r in raw {
-            let key = &buf[r.key_span.start..r.key_span.end];
-            let key_str = key.trim().to_owned();
-            if !seen.insert(key_str.clone()) {
-                return Err(format!("duplicate key '{}'", key_str));
-            }
-            entries.push(Entry {
-                key: key_str,
-                _key_span: r.key_span,
-                value_span: r.value_span,
-                _quote: r.quote,
-            });
-        }
-        Ok(Self { entries })
-    }
-
-    fn get(&self, key: &str) -> Option<&Entry> {
-        self.entries.iter().find(|e| e.key == key)
-    }
-}
-
-// ───────────────────────── 3. PUBLIC PARSER ─────────────────────────
+#[derive(Default)]
 pub struct EnvParser;
 impl EnvParser {
     pub fn new() -> Self {
@@ -302,78 +10,271 @@ impl EnvParser {
     }
 }
 
-impl BytePreservingParser for EnvParser {
-    fn validate_syntax(&self, content: &str) -> Result<(), String> {
-        // full parse catches duplicates / missing '=' / unterminated quotes
-        EnvDocument::parse(content).map(|_| ())
-    }
-
-    fn find_value_span(&self, content: &str, path: &[String]) -> Result<Span, String> {
-        if path.len() != 1 {
-            return Err("ENV path must contain exactly one key".into());
-        }
-        let doc = EnvDocument::parse(content)?;
-        let key = &path[0];
-        match doc.get(key) {
-            Some(entry) => Ok(entry.value_span),
-            None => Err(format!("key '{}' not found", key)),
-        }
-    }
-}
-
-// Positional validation for ENV, returning first error with line/column
 #[derive(Debug, Clone)]
-pub struct PosError {
+pub struct EnvError {
     pub msg: String,
     pub line: usize,
     pub column: usize,
 }
 
-pub fn validate_with_pos(content: &str) -> Result<(), PosError> {
-    // First stage: lexical errors (missing '=', unterminated quotes) with line/column
-    let raw = match lexer::lex_with_pos(content) {
-        Ok(v) => v,
-        Err(e) => {
-            return Err(PosError {
-                msg: e.msg,
-                line: e.line,
-                column: e.column,
-            })
-        }
-    };
-
-    // Second stage: duplicate key detection with position of the second occurrence
-    let mut seen = std::collections::HashSet::new();
-    for r in &raw {
-        let key = &content[r.key_span.start..r.key_span.end];
-        let key_trim = key.trim();
-        if !seen.insert(key_trim.to_owned()) {
-            let (line, column) = offset_to_line_col(content, r.key_span.start);
-            return Err(PosError {
-                msg: format!("duplicate key '{}'", key_trim),
-                line,
-                column,
-            });
-        }
-    }
-
-    Ok(())
+pub fn validate_with_pos(content: &str) -> Result<(), EnvError> {
+    scan(content).map(|_| ())
 }
 
-// Utility: compute line and column from byte offset (1-based)
-fn offset_to_line_col(buf: &str, offset: usize) -> (usize, usize) {
-    let mut line = 1usize;
-    let mut col = 1usize;
-    for (idx, ch) in buf.char_indices() {
-        if idx >= offset {
+impl BytePreservingParser for EnvParser {
+    fn parse(&self, content: &str) -> Result<Node, String> {
+        scan(content).map_err(|e| format!("{} at {}:{}", e.msg, e.line, e.column))
+    }
+}
+
+fn scan(content: &str) -> Result<Node, EnvError> {
+    let bytes = content.as_bytes();
+    let mut i = if content.starts_with('\u{feff}') {
+        3
+    } else {
+        0
+    };
+    let mut root = Node::new(String::new(), vec![], "object", Span::new(0, content.len()));
+    let mut section: Option<usize> = None;
+    let error = |offset, message: &str| {
+        let (line, column) = crate::positions::LineIndex::new(content).line_col(offset);
+        EnvError {
+            msg: message.into(),
+            line,
+            column,
+        }
+    };
+    while i < bytes.len() {
+        while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        if i == bytes.len() {
             break;
         }
-        if ch == '\n' {
-            line += 1;
-            col = 1;
+        if matches!(bytes[i], b'#' | b';') {
+            skip_line(bytes, &mut i);
+            continue;
+        }
+        if bytes[i] == b'[' {
+            let start = i;
+            skip_line(bytes, &mut i);
+            let text = content[start..i].trim();
+            let close = text
+                .find(']')
+                .ok_or_else(|| error(start, "Unclosed section"))?;
+            if !text[close + 1..].trim().is_empty() {
+                return Err(error(start, "Invalid section"));
+            }
+            let name = text[1..close].trim().to_string();
+            section = Some(
+                if let Some(index) = root.children.iter().position(|n| n.key == name) {
+                    index
+                } else {
+                    root.children.push(Node::new(
+                        name.clone(),
+                        vec![name],
+                        "object",
+                        Span::new(start, i),
+                    ));
+                    root.children.len() - 1
+                },
+            );
+            continue;
+        }
+        if content[i..].starts_with("export")
+            && bytes.get(i + 6).is_some_and(|b| matches!(b, b' ' | b'\t'))
+        {
+            i += 6;
+            skip_spaces(bytes, &mut i);
+        }
+        let key_start = i;
+        while i < bytes.len() && !matches!(bytes[i], b'=' | b'\n' | b'\r' | b' ' | b'\t') {
+            i += 1;
+        }
+        let key = content[key_start..i].to_string();
+        skip_spaces(bytes, &mut i);
+        if key.is_empty() || bytes.get(i) != Some(&b'=') {
+            return Err(error(key_start, "missing '=' separator"));
+        }
+        i += 1;
+        skip_spaces(bytes, &mut i);
+        let start = i;
+        let quote = bytes.get(i).filter(|b| matches!(b, b'\'' | b'"')).copied();
+        let end;
+        let value;
+        if let Some(q) = quote {
+            i += 1;
+            let inner = i;
+            while i < bytes.len() {
+                if bytes[i] == b'\\' && i + 1 < bytes.len() {
+                    i += 2;
+                    continue;
+                }
+                if bytes[i] == q {
+                    break;
+                }
+                i += 1;
+            }
+            if i == bytes.len() {
+                return Err(error(start, "unterminated quoted value"));
+            }
+            value = decode(&content[inner..i], q as char);
+            i += 1;
+            end = i;
+            skip_spaces(bytes, &mut i);
+            if i < bytes.len() && !matches!(bytes[i], b'\n' | b'\r' | b'#' | b';') {
+                return Err(error(i, "Unexpected text after quoted value"));
+            }
+            skip_line(bytes, &mut i);
         } else {
-            col += 1;
+            while i < bytes.len() && !matches!(bytes[i], b'\n' | b'\r') {
+                if matches!(bytes[i], b'#' | b';')
+                    && (i == start || bytes[i - 1].is_ascii_whitespace())
+                {
+                    break;
+                }
+                i += 1;
+            }
+            end = start + content[start..i].trim_end().len();
+            value = content[start..end].into();
+            skip_line(bytes, &mut i);
+        }
+        let parent = if let Some(idx) = section {
+            &mut root.children[idx]
+        } else {
+            &mut root
+        };
+        let mut path = parent.path.clone();
+        path.push(key.clone());
+        let mut node = Node::new(key, path, "env", Span::new(start, end));
+        node.value = Some(value);
+        node.quote = quote.map(char::from);
+        parent.children.push(node);
+    }
+    index_duplicates(&mut root);
+    Ok(root)
+}
+
+fn index_duplicates(node: &mut Node) {
+    let mut counts = std::collections::HashMap::new();
+    for child in &node.children {
+        *counts.entry(child.key.clone()).or_insert(0usize) += 1;
+    }
+    let mut seen = std::collections::HashMap::new();
+    for child in &mut node.children {
+        if counts[&child.key] > 1 {
+            let index = seen.entry(child.key.clone()).or_insert(0usize);
+            child.path.push(index.to_string());
+            *index += 1;
+        }
+        index_duplicates(child);
+    }
+}
+fn skip_spaces(bytes: &[u8], i: &mut usize) {
+    while *i < bytes.len() && matches!(bytes[*i], b' ' | b'\t') {
+        *i += 1;
+    }
+}
+fn skip_line(bytes: &[u8], i: &mut usize) {
+    while *i < bytes.len() && !matches!(bytes[*i], b'\n' | b'\r') {
+        *i += 1;
+    }
+}
+fn decode(text: &str, quote: char) -> String {
+    let mut chars = text.chars();
+    let mut out = String::new();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            if let Some(next) = chars.next() {
+                match next {
+                    'n' if quote == '"' => out.push('\n'),
+                    'r' if quote == '"' => out.push('\r'),
+                    't' if quote == '"' => out.push('\t'),
+                    '\\' => out.push('\\'),
+                    q if q == quote => out.push(q),
+                    _ => {
+                        out.push('\\');
+                        out.push(next);
+                    }
+                }
+            } else {
+                out.push(c);
+            }
+        } else {
+            out.push(c);
         }
     }
-    (line, col)
+    out
+}
+
+pub(crate) fn encode(value: &str, original_quote: Option<char>) -> String {
+    let quote = original_quote.or_else(|| {
+        (value.contains([' ', '\t', '\n', '\r', '"', '\'', '\\']) || value.starts_with(['#', ';']))
+            .then_some('"')
+    });
+    let Some(q) = quote else {
+        return value.into();
+    };
+    let mut out = String::new();
+    out.push(q);
+    for c in value.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '\n' if q == '"' => out.push_str("\\n"),
+            '\r' if q == '"' => out.push_str("\\r"),
+            '\t' if q == '"' => out.push_str("\\t"),
+            c if c == q => {
+                out.push('\\');
+                out.push(c);
+            }
+            c => out.push(c),
+        }
+    }
+    out.push(q);
+    out
+}
+
+/// Recover by commenting the offending line in a same-length validation buffer.
+/// Every diagnostic still comes from the same scanner used for display and saves.
+pub(crate) fn validate_multi(
+    content: &str,
+    cap: usize,
+) -> crate::multi_validation::MultiValidationResult {
+    let mut buffer = content.to_string();
+    let mut errors = Vec::new();
+    for _ in 0..cap {
+        let Err(error) = scan(&buffer) else {
+            break;
+        };
+        let index = crate::positions::LineIndex::new(content);
+        let start = index.offset(error.line, error.column);
+        errors.push(crate::multi_validation::DetailedError {
+            message: error.msg,
+            code: Some("env.parse_error"),
+            line: error.line,
+            column: error.column,
+            span: Span::new(start, start),
+        });
+        let mut line_start = index.offset(error.line, 1);
+        if line_start == 0 && content.starts_with('\u{feff}') {
+            line_start = 3;
+        }
+        let line_end = buffer[line_start..]
+            .find(['\n', '\r'])
+            .map_or(buffer.len(), |i| line_start + i);
+        if line_end <= line_start {
+            break;
+        }
+        let replacement = format!("#{}", " ".repeat(line_end - line_start - 1));
+        buffer.replace_range(line_start..line_end, &replacement);
+    }
+    if errors.is_empty() {
+        crate::multi_validation::MultiValidationResult::success()
+    } else {
+        crate::multi_validation::MultiValidationResult {
+            valid: false,
+            summary: errors.first().cloned(),
+            errors,
+        }
+    }
 }

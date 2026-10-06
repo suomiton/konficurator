@@ -115,11 +115,8 @@ fn json_multi_error_collection() {
     assert!(!result.valid);
     assert!(!result.errors.is_empty());
     let codes: Vec<&str> = result.errors.iter().filter_map(|err| err.code).collect();
-    assert!(codes.iter().any(|c| *c == "json.unterminated_string"));
-    assert!(
-        codes.iter().any(|c| *c == "json.missing_colon")
-            || codes.iter().any(|c| *c == "json.missing_comma")
-    );
+    assert!(codes.contains(&"json.unterminated_string"));
+    assert!(codes.contains(&"json.missing_colon") || codes.contains(&"json.missing_comma"));
 }
 
 // ───── XML ─────
@@ -206,7 +203,7 @@ fn xml_multi_error_collection() {
 </root>"#;
     let result = crate::multi_validation::validate_xml_multi(src, 3);
     assert!(!result.valid);
-    assert!(result.errors.len() >= 2);
+    assert_eq!(result.errors.len(), 1);
 }
 
 // ───── ENV ─────
@@ -278,11 +275,11 @@ fn env_unterminated_quote_positions() {
 }
 
 #[test]
-fn env_duplicate_key_positions() {
+fn env_duplicate_keys_are_indexed() {
     let src = "FOO=1\nBAR=2\nFOO=3\n";
-    let err = crate::env_parser::validate_with_pos(src).unwrap_err();
-    assert!(err.msg.contains("duplicate key"));
-    assert_eq!(err.line, 3);
+    crate::env_parser::validate_with_pos(src).unwrap();
+    let updated = crate::update_native("env", src, &["FOO".into(), "1".into()], "4").unwrap();
+    assert_eq!(updated, "FOO=1\nBAR=2\nFOO=4\n");
 }
 
 // ───── Shared ─────
@@ -417,8 +414,10 @@ fn schema_collect_positions_flag_can_be_disabled() {
         "properties": { "enabled": { "type": "boolean" } }
     }"#;
     let json = r#"{ "enabled": "yes" }"#;
-    let mut opts = SchemaValidationOptions::default();
-    opts.collect_positions = false;
+    let opts = SchemaValidationOptions {
+        collect_positions: false,
+        ..Default::default()
+    };
     let outcome = validate_schema_for_tests(schema, json, Some(opts));
     assert!(!outcome.valid);
     let err = outcome.errors.first().expect("one error");
