@@ -1,5 +1,6 @@
 import { IPersistence, FileData } from "./interfaces";
 import { ParserFactory } from "./parsers";
+import { FileHandler } from "./fileHandler";
 import { NotificationService } from "./ui/notifications";
 import {
 	SupportedFileType,
@@ -60,8 +61,7 @@ export class FilePersistence implements IPersistence {
 		try {
 			// Write to file or prompt save-as
 			if (fileData.handle) {
-				const fileHandler = await import("./fileHandler");
-				const handler = new fileHandler.FileHandler();
+				const handler = new FileHandler();
 				await handler.writeFile(fileData.handle, rawText);
 			} else {
 				await this.saveAsNewFile(fileData.name, rawText, fileData.type);
@@ -151,8 +151,7 @@ export class FilePersistence implements IPersistence {
 			// Write to file
 			if (fileData.handle) {
 				// Use existing handle if available
-				const fileHandler = await import("./fileHandler");
-				const handler = new fileHandler.FileHandler();
+				const handler = new FileHandler();
 				await handler.writeFile(fileData.handle, updatedContent);
 			} else {
 				// For restored files without handles, prompt user to save
