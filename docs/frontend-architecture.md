@@ -12,9 +12,9 @@ The frontend is written in TypeScript and compiled without a framework. Componen
 
 - `ModernFormRenderer` (`src/ui/modern-form-renderer.ts`) is the single entry point for constructing editors. It stitches together:
   - **DOM factories** (`src/ui/dom-factory.ts`) that encapsulate element creation.
-  - **Renderer helpers** (`src/ui/dom-renderer.ts`) that build headers, form sections, and save containers without state.
-  - **Field data builders** (`src/ui/form-data.ts`) that derive the correct input configuration for nested objects, arrays, and primitives.
-  - **Event wiring** (`src/ui/event-handlers.ts`) that registers per-field change handlers, save buttons, and file-level actions.
+  - **Renderer helpers** (`src/ui/dom-renderer.ts`) that build headers, form sections without state.
+  - **Field data builders** (`src/ui/form-data.ts`) that derive the input configuration directly from the Rust parse model. Encoded array paths travel on each input alongside its exact string baseline.
+  - **Event wiring** (`src/ui/event-handlers.ts`) that delegates input changes at form level, including nested arrays and XML attributes.
 - Error states (parse failures, unsupported structures) are surfaced via `renderErrorNotification` and `renderErrorMessage` helpers, ensuring the UI communicates parsing issues immediately.
 - The grouped file list is rendered through `FileListView` (`src/ui/file-list-view.ts`) so that the controller simply feeds state while presentation logic stays isolated.
 
@@ -26,7 +26,7 @@ The frontend is written in TypeScript and compiled without a framework. Componen
 ## State persistence and toggles
 
 - Editor visibility (e.g., whether a file is active) is stored alongside file metadata and restored on load. The renderer respects the `isActive` flag so users can collapse editors without losing selection state.
-- The controller debounces save operations via `activeSaveOperations` to prevent duplicate writes when users click rapidly.
+- The shared `SaveScheduler` debounces by file id and queues the newest edit received during a pending write. `workspace-loader.ts` restores records by stable id, preserving identical filenames in different groups.
 
 ## Styles and layout
 

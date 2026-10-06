@@ -1,13 +1,10 @@
 {
-	"name": "wasm-bindgen-test",
+	"name": "parser-core-tests",
 	"version": "0.1.0",
 	"description": "Test runner for WASM bindings",
 	"type": "module",
 	"scripts": {
-		"build": "wasm-pack build --target web --out-dir pkg",
+		"build": "npm --prefix .. run build:wasm",
 		"test": "cargo test"
-	},
-	"devDependencies": {
-		"wasm-pack": "^0.12.1"
 	}
 }

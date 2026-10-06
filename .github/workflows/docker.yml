@@ -53,6 +53,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          target: development
           push: false
           load: true
           tags: konficurator:dev
@@ -69,7 +70,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.prod
+          file: ./Dockerfile
+          target: production
           push: false
           load: true
           tags: konficurator:prod

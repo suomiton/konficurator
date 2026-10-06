@@ -1,139 +1,40 @@
 name: CI
-
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
-
+    branches: [main, develop]
+permissions:
+  contents: read
 jobs:
-  test:
+  check:
     runs-on: ubuntu-latest
-    
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
-    
+        node-version: [22.x, 24.x]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-          
-      - name: Install dependencies
-        run: npm ci
-        
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: wasm32-unknown-unknown
-          
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-        
-      - name: Run TypeScript compilation
-        run: npm run build
-        
-      - name: Run tests
-        run: npm test
-        
-      - name: Run tests with coverage
-        run: npm run test:coverage
-        
-      - name: Upload coverage reports to Codecov
-        if: matrix.node-version == '18.x'
-        uses: codecov/codecov-action@v3
+          targets: wasm32-unknown-unknown
+          components: clippy, rustfmt
+      - run: npm ci
+      - run: cargo fmt --manifest-path parser-wasm/Cargo.toml --check
+      - run: npm run test:rust
+      - run: npm run lint:rust
+      - run: npm run build:wasm
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run test:coverage -- --runInBand
+      - uses: codecov/codecov-action@v5
+        if: matrix.node-version == '24.x'
         with:
-          file: ./coverage/lcov.info
+          files: ./coverage/lcov.info
           flags: unittests
-          name: codecov-umbrella
           fail_ci_if_error: false
-
-  lint:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18.x'
-          cache: 'npm'
-          
-      - name: Install dependencies
-        run: npm ci
-        
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: wasm32-unknown-unknown
-          
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-        
-      - name: Build WASM module
-        run: npm run build:wasm
-        
-      - name: Run TypeScript type checking
-        run: npx tsc --noEmit
-        
-      # Add linting if/when ESLint is configured
-      # - name: Run ESLint
-      #   run: npm run lint
-
-  build:
-    runs-on: ubuntu-latest
-    needs: [test, lint]
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18.x'
-          cache: 'npm'
-          
-      - name: Install dependencies
-        run: npm ci
-        
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: wasm32-unknown-unknown
-          
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-        
-      - name: Build application (development)
-        run: npm run build
-        
-      - name: Build production optimized version
-        run: npm run build:prod
-        
-      - name: Verify build outputs
-        run: |
-          echo "Development build completed"
-          echo "Contents of build directory:"
-          ls -la build/
-          echo "Checking for built files:"
-          find build/assets -name "*.js" | head -10
-          echo ""
-          echo "Production build completed"
-          echo "Contents of build directory:"
-          ls -la build/ || echo "No build directory found"
-          echo "Checking for optimized files:"
-          find build/ -name "*.js" | head -10 || echo "No JS files in build"
-          echo "Checking for compressed files:"
-          find build/ -name "*.gz" | wc -l | sed 's/^/Gzip files: /'
-          find build/ -name "*.br" | wc -l | sed 's/^/Brotli files: /'
+      - run: npm run build:prod

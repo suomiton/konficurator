@@ -2,71 +2,24 @@ services:
   konficurator:
     build:
       context: .
-      dockerfile: Dockerfile
+      target: development
     ports:
       - "8080:8080"
     volumes:
-      # Mount the source code for development
       - ./src:/app/src
       - ./styles:/app/styles
       - ./samples:/app/samples
       - ./index.html:/app/index.html
-      - ./dev-tools:/app/dev-tools
-      # Mount WASM parser source for development
       - ./parser-wasm/src:/app/parser-wasm/src
       - ./parser-wasm/Cargo.toml:/app/parser-wasm/Cargo.toml
-      - ./parser-wasm/fixtures:/app/parser-wasm/fixtures
-      # Preserve node_modules and cargo target in container
       - /app/node_modules
       - /app/parser-wasm/target
       - /app/parser-wasm/pkg
-    environment:
-      - NODE_ENV=development
-    command: sh -c "cd parser-wasm && wasm-pack build --target web --dev && cd .. && npm run dev -- --host 0.0.0.0 --port 8080 --strictPort"
-    restart: unless-stopped
-
-  # Alternative development service using explicit dev dockerfile
-  konficurator-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    ports:
-      - "8081:8080"
-    volumes:
-      # Mount the source code for development
-      - ./src:/app/src
-      - ./styles:/app/styles
-      - ./samples:/app/samples
-      - ./index.html:/app/index.html
-      - ./dev-tools:/app/dev-tools
-      # Mount WASM parser source for development
-      - ./parser-wasm/src:/app/parser-wasm/src
-      - ./parser-wasm/Cargo.toml:/app/parser-wasm/Cargo.toml
-      - ./parser-wasm/fixtures:/app/parser-wasm/fixtures
-      # Preserve node_modules and cargo target in container
-      - /app/node_modules
-      - /app/parser-wasm/target
-      - /app/parser-wasm/pkg
-    environment:
-      - NODE_ENV=development
-    command: sh -c "cd parser-wasm && wasm-pack build --target web --dev && cd .. && npm run dev -- --host 0.0.0.0 --port 8080 --strictPort"
-    restart: unless-stopped
-    profiles:
-      - dev
-
-  # Production service with optimized build
   konficurator-prod:
     build:
       context: .
-      dockerfile: Dockerfile.prod
+      target: production
     ports:
       - "8085:8080"
-    environment:
-      - NODE_ENV=production
-    restart: unless-stopped
     profiles:
       - production
-
-networks:
-  default:
-    name: konficurator-network

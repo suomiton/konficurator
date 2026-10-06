@@ -23,25 +23,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '24'
           cache: 'npm'
           
       - name: Install dependencies
         run: npm ci
         
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown
           
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
         
       - name: Build WASM module
-        run: |
-          cd parser-wasm
-          wasm-pack build --target web --release
+        run: npm run build:wasm:prod
           
       - name: Test WASM module
         run: |
@@ -64,25 +59,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '24'
           cache: 'npm'
           
       - name: Install dependencies
         run: npm ci
         
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown
           
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
         
       - name: Build WASM module
-        run: |
-          cd parser-wasm
-          wasm-pack build --target web --release
+        run: npm run build:wasm:prod
           
       - name: Build optimized production version
         run: npm run build:prod

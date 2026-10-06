@@ -6,7 +6,7 @@ Konficurator is a browser-first configuration file editor that keeps all parsing
 
 1. **Entry point (`src/main.ts`)** instantiates the app controller, wires together services, and registers UI event listeners for selecting, editing, refreshing, and saving files.
 2. **File selection (`src/fileHandler.ts`)** uses the File System Access API to open files and capture metadata needed to persist and render editors.
-3. **Parsing (`src/parsers.ts`)** transforms the raw file content into structured data so that the renderer can build forms. Parser implementations are format-specific and extend a shared base class.
+3. **Parsing (`src/parsers.ts`)** adapts Rust `parse_tree` output for rendering. Rust supplies paths, spans, original token kinds and exact values; TypeScript contains no format grammar.
 4. **Rendering (`src/ui/modern-form-renderer.ts`)** creates editor views by combining stateless DOM factories, renderer helpers, and event wiring modules located under `src/ui/`.
 5. **Persistence (`src/persistence.ts`)** applies form changes by delegating to the WebAssembly parser and then writing the transformed content back to disk or prompting the user for a new download.
 6. **Storage (`src/handleStorage.ts`)** caches file metadata and handles in IndexedDB so that sessions can be restored on reload, coordinating with the permission manager when user confirmation is required.

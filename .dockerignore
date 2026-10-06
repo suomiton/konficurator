@@ -50,3 +50,9 @@ docker-compose*
 # - index.html (main HTML)
 # - nginx.conf (for production)
 # - build-tools/ (for production builds)
+
+# Generated Rust/WASM outputs
+parser-wasm/target
+parser-wasm/node_modules
+parser-wasm/pkg
+parser-wasm/pkg-node

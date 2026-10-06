@@ -1,47 +1,24 @@
-# Development Dockerfile for Konficurator
-# For production builds, use Dockerfile.prod instead
-
-FROM node:20-alpine
-
-# Install Python3 for development server and Rust tools
-RUN apk add --no-cache python3 curl build-base git
-
-# Install Rust and wasm-pack for WASM development
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
+FROM node:24-bookworm AS node
+FROM rust:1.90-bookworm AS tooling
+COPY --from=node /usr/local /usr/local
 RUN rustup target add wasm32-unknown-unknown
-RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-RUN cargo install wasm-bindgen-cli --version 0.2.105 --locked
-
-# Prevent wasm-pack from attempting to download glibc binary on musl Alpine
-ENV WASM_PACK_NO_INSTALL=true
-ENV WASM_BINDGEN_BIN=/root/.cargo/bin/wasm-bindgen
-
-# Set working directory
 WORKDIR /app
-
-# Copy only package.json to allow platform-specific optional dependencies (Rollup WASM) to resolve
-COPY package.json ./
-COPY parser-wasm/package*.json ./parser-wasm/
-COPY parser-wasm/Cargo.toml ./parser-wasm/
-
-# Create empty Cargo.lock to avoid issues with wasm-pack
-RUN touch ./parser-wasm/Cargo.lock
-
-# Install dependencies including optional platform-specific binaries
-RUN npm install --no-audit --no-fund
-
-# Copy source code
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
 
-# Build WASM module for development (skip auto-install)
-RUN cd parser-wasm && wasm-pack build --target web --dev
-
-# Build TypeScript for development
-RUN npm run build
-
-# Expose development port
+FROM tooling AS development
+RUN npm run build:wasm
 EXPOSE 8080
-
-# Start development server
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8080", "--strictPort"]
+
+FROM tooling AS build
+RUN npm run build:prod
+
+FROM nginx:alpine AS production
+COPY --from=build /app/build /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -q -O - http://localhost:8080/ > /dev/null 2>&1 || exit 1
+CMD ["nginx", "-g", "daemon off;"]
