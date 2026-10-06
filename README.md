@@ -16,6 +16,7 @@ Konficurator is a browser-only configuration editor for JSON, XML, `.config`, an
 - [File System Access Workflow](docs/file-system-access.md)
 - [Frontend Organisation](docs/frontend-architecture.md)
 - [Development Guide](docs/development.md)
+- [Code Review 2026-10-03](docs/code-review-2026-10-03.md)
 
 ## ✨ Features
 
